@@ -6,10 +6,35 @@ struct WeatherPageScreen: View {
     @ObservedObject var model: HomeModel
     @Environment(\.appAccent) private var accent
 
+    /// Debug: preview any sky animation regardless of live conditions.
+    @State private var preview: SkyPreview?
+
+    struct SkyPreview: Hashable {
+        let label: String
+        let code: Int
+        let isDay: Bool
+    }
+
+    static let previews: [SkyPreview] = [
+        .init(label: "Klar (Tag)", code: 0, isDay: true),
+        .init(label: "Klar (Nacht)", code: 0, isDay: false),
+        .init(label: "Teilweise bewölkt", code: 2, isDay: true),
+        .init(label: "Bedeckt", code: 3, isDay: true),
+        .init(label: "Nebel", code: 45, isDay: true),
+        .init(label: "Regen (Tag)", code: 63, isDay: true),
+        .init(label: "Regen (Nacht)", code: 63, isDay: false),
+        .init(label: "Gewitter", code: 95, isDay: true),
+        .init(label: "Schnee (Tag)", code: 73, isDay: true),
+        .init(label: "Schnee (Nacht)", code: 73, isDay: false),
+    ]
+
     var body: some View {
         ZStack {
             if let w = model.weather {
-                WeatherSkyView(code: w.code, isDay: w.isDay, particles: true)
+                WeatherSkyView(code: preview?.code ?? w.code,
+                               isDay: preview?.isDay ?? w.isDay,
+                               particles: true)
+                    .id(preview) // restart particles when switching previews
                     .ignoresSafeArea()
                 content(w)
             } else if model.weatherError {
@@ -27,6 +52,30 @@ struct WeatherPageScreen: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        preview = nil
+                    } label: {
+                        Label("Live", systemImage: preview == nil
+                            ? "checkmark" : "dot.radiowaves.left.and.right")
+                    }
+                    Divider()
+                    ForEach(Self.previews, id: \.self) { option in
+                        Button {
+                            preview = option
+                        } label: {
+                            Label(option.label, systemImage: preview == option
+                                ? "checkmark"
+                                : Wmo.symbol(option.code, isDay: option.isDay))
+                        }
+                    }
+                } label: {
+                    Image(systemName: "theatermasks")
+                }
+            }
+        }
         .refreshable { await model.loadWeather(mode: .refresh) }
     }
 
