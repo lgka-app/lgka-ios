@@ -64,15 +64,57 @@ static float fbm(float2 p) {
         col += float3(1.0, 0.86, 0.45) * (glow + core) * visible;
     }
 
-    // ── stars (night, clearer skies) ──
+    // ── stars (night, clearer skies) — two layers, Apple-Weather quality ──
     if (isDay < 0.5 && cloudiness < 0.6) {
-        float2 cell = floor(uv * float2(90.0 * aspect, 90.0));
-        float h = hash21(cell);
-        if (h > 0.985) {
-            float twinkle = 0.35 + 0.65 * fabs(sin(time * (0.6 + h) + h * 40.0));
-            float2 f = fract(uv * float2(90.0 * aspect, 90.0)) - 0.5;
-            float star = exp(-dot(f, f) * 28.0);
-            col += float3(0.9, 0.93, 1.0) * star * twinkle * (1.0 - cloudiness);
+        float dim = (1.0 - cloudiness) * (1.0 - smoothstep(0.55, 0.95, uv.y));
+        float2 suv = uv * float2(aspect, 1.0);
+
+        // layer 1: dense field of faint pin-prick stars
+        {
+            float2 g = suv * 150.0;
+            float2 cell = floor(g);
+            float h = hash21(cell);
+            if (h > 0.90) {
+                float2 starPos = cell + 0.15 + 0.7 * float2(hash21(cell + 7.0), hash21(cell + 13.0));
+                float d = length(g - starPos);
+                float size = 0.045 + 0.05 * hash21(cell + 3.0);
+                float core = exp(-d * d / (size * size)) * 0.6;
+                float tw = 0.55 + 0.45 * sin(time * (0.4 + h * 1.6) + h * 40.0);
+                col += float3(0.85, 0.9, 1.0) * core * tw * dim;
+            }
+        }
+
+        // layer 2: sparse bright stars with gaussian glow + diffraction spikes,
+        // scanning the 3x3 neighborhood so glow is never clipped at cell edges
+        {
+            float2 g = suv * 34.0;
+            float2 base = floor(g);
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    float2 cell = base + float2(dx, dy);
+                    float h = hash21(cell);
+                    if (h <= 0.965) continue;
+                    float2 starPos = cell + 0.2 + 0.6 * float2(hash21(cell + 7.0), hash21(cell + 13.0));
+                    float2 dvec = g - starPos;
+                    float d = length(dvec);
+                    float mag = (h - 0.965) / 0.035; // 0..1 brightness class
+                    float size = 0.05 + 0.10 * mag;
+                    float tw = 0.65 + 0.35 * sin(time * (0.5 + h * 2.0) + h * 60.0);
+                    float core = exp(-d * d / (size * size));
+                    float glow = exp(-d * d / (size * size * 26.0)) * 0.20 * mag;
+                    // 4-point diffraction spikes on the brightest stars
+                    float spikes = 0.0;
+                    if (mag > 0.5) {
+                        float sx = exp(-fabs(dvec.x) * 26.0) * exp(-fabs(dvec.y) * 3.2);
+                        float sy = exp(-fabs(dvec.y) * 26.0) * exp(-fabs(dvec.x) * 3.2);
+                        spikes = (sx + sy) * 0.35 * (mag - 0.5) * 2.0;
+                    }
+                    // slight color temperature: cool blue-white to warm
+                    float3 tint = mix(float3(0.80, 0.88, 1.0), float3(1.0, 0.92, 0.78),
+                                      hash21(cell + 21.0));
+                    col += tint * (core + glow + spikes) * tw * dim * (0.55 + 0.45 * mag);
+                }
+            }
         }
     }
 
@@ -89,6 +131,10 @@ static float fbm(float2 p) {
     float3 cloudCol = isDay > 0.5 ? cloudDay : cloudNight;
 
     col = mix(col, cloudCol, shape * 0.92);
+
+    // dither: breaks up gradient banding (visible in dark night skies)
+    float grain = hash21(position + fract(time) * 61.7) - 0.5;
+    col += grain / 160.0;
 
     return half4(half3(col), 1.0h);
 }
