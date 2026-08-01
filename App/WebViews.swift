@@ -31,16 +31,12 @@ struct KrankmeldungInfoScreen: View {
                 prefs.krankmeldungInfoShown = true
                 onContinue()
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "cross.case")
-                    Text(L.s("krankmeldungButton")).fontWeight(.bold)
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(accent, in: RoundedRectangle(cornerRadius: 12))
+                Label(L.s("krankmeldungButton"), systemImage: "cross.case")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.glassProminent)
+            .controlSize(.large)
         }
         .padding(16)
         .themeBg()

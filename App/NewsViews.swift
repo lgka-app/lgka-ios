@@ -12,18 +12,12 @@ struct NewsListScreen: View {
                 if articles.isEmpty {
                     ContentUnavailableView(L.s("noNewsAvailable"), systemImage: "newspaper")
                 } else {
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            ForEach(articles.indices, id: \.self) { i in
-                                NavigationLink(value: i) {
-                                    NewsCard(md: articles[i])
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    List(articles.indices, id: \.self) { i in
+                        NavigationLink(value: i) {
+                            NewsCard(md: articles[i])
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
                     }
+                    .listStyle(.insetGrouped)
                     .navigationDestination(for: Int.self) { i in
                         NewsDetailScreen(md: articles[i])
                     }
@@ -78,9 +72,7 @@ struct NewsCard: View {
             .foregroundStyle(.tertiary)
             .lineLimit(1)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .surfaceCard()
+        .padding(.vertical, 4)
     }
 }
 

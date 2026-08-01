@@ -1,137 +1,72 @@
 import SwiftUI
 
-/// Settings bottom sheet — mirrors settings_modal.dart:
-/// DARSTELLUNG (theme mode + accent dots), MEHR (bug report, privacy,
-/// legal), © footer with version.
+/// Settings — native Form: DARSTELLUNG (segmented theme + palette accent),
+/// MEHR (bug report, privacy, legal), version footer.
 struct SettingsSheet: View {
     var onBugReport: () -> Void
     @EnvironmentObject private var prefs: Prefs
     @Environment(\.openURL) private var openURL
-    @Environment(\.colorScheme) private var scheme
+    @Environment(\.dismiss) private var dismiss
 
     private let appVersion =
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(L.s("settings"))
-                .font(.title3.bold())
-                .padding(.bottom, 20)
-
-            caps(L.s("settingsSectionAppearance"))
-            VStack(spacing: 0) {
-                HStack {
-                    Text(L.s("appearanceTitle")).font(.subheadline.weight(.medium))
-                    Spacer()
-                    ThemeModePicker(order: ["dark", "light", "system"],
-                                    iconSize: 15, labels: false)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                Divider().padding(.leading, 16)
-                HStack {
-                    Text(L.s("accentColor")).font(.subheadline.weight(.medium))
-                    Spacer()
-                    HStack(spacing: 8) {
-                        ForEach(Accent.allCases, id: \.rawValue) { accent in
-                            let isSelected = prefs.accentColor == accent.rawValue
-                            Button {
-                                Haptics.light()
-                                prefs.accentColor = accent.rawValue
-                            } label: {
-                                Circle()
-                                    .fill(accent.color)
-                                    .frame(width: 26, height: 26)
-                                    .overlay {
-                                        if isSelected {
-                                            Circle().strokeBorder(.white, lineWidth: 2)
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundStyle(.white)
-                                        }
-                                    }
-                                    .shadow(color: isSelected
-                                        ? accent.color.opacity(0.4) : .clear, radius: 6)
-                            }
-                            .buttonStyle(.plain)
-                        }
+        NavigationStack {
+            Form {
+                Section(L.s("settingsSectionAppearance")) {
+                    LabeledContent(L.s("appearanceTitle")) {
+                        ThemeModePicker().frame(maxWidth: 220)
+                    }
+                    LabeledContent(L.s("accentColor")) {
+                        AccentPalettePicker().frame(maxWidth: 220)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            }
-            .surfaceCard(radius: 14)
 
-            Spacer().frame(height: 20)
-
-            caps(L.s("settingsSectionMore"))
-            VStack(spacing: 0) {
-                linkTile("ladybug", L.s("bugReport"), chevron: true) {
-                    Haptics.light()
-                    onBugReport()
+                Section {
+                    Button {
+                        Haptics.light()
+                        onBugReport()
+                    } label: {
+                        Label(L.s("bugReport"), systemImage: "ladybug")
+                    }
+                    Button {
+                        Haptics.light()
+                        openURL(URL(string: "https://luka-loehr.github.io/LGKA/privacy.html")!)
+                    } label: {
+                        Label {
+                            Text(L.s("privacyLabel"))
+                        } icon: {
+                            Image(systemName: "hand.raised")
+                        }
+                    }
+                    Button {
+                        Haptics.light()
+                        openURL(URL(string: "https://luka-loehr.github.io/LGKA/impressum.html")!)
+                    } label: {
+                        Label(L.s("legalLabel"), systemImage: "info.circle")
+                    }
+                } header: {
+                    Text(L.s("settingsSectionMore"))
+                } footer: {
+                    HStack(spacing: 0) {
+                        Spacer()
+                        Text("© \(String(Calendar.current.component(.year, from: Date()))) ")
+                        Text("Luka Löhr").foregroundStyle(.tint)
+                        Text(" • v\(appVersion)")
+                        Spacer()
+                    }
+                    .padding(.top, 8)
                 }
-                Divider().padding(.leading, 16)
-                linkTile("hand.raised", L.s("privacyLabel"), chevron: false) {
-                    Haptics.light()
-                    openURL(URL(string: "https://luka-loehr.github.io/LGKA/privacy.html")!)
-                }
-                Divider().padding(.leading, 16)
-                linkTile("info.circle", L.s("legalLabel"), chevron: false) {
-                    Haptics.light()
-                    openURL(URL(string: "https://luka-loehr.github.io/LGKA/impressum.html")!)
+            }
+            .navigationTitle(L.s("settings"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
                 }
             }
-            .surfaceCard(radius: 14)
-
-            Spacer().frame(height: 24)
-
-            HStack(spacing: 0) {
-                Spacer()
-                Text("© \(String(Calendar.current.component(.year, from: Date()))) ")
-                    .foregroundStyle(.secondary.opacity(0.5))
-                Text("Luka Löhr")
-                    .foregroundStyle(prefs.accent.opacity(0.6))
-                    .fontWeight(.medium)
-                Text(" • v\(appVersion)")
-                    .foregroundStyle(.secondary.opacity(0.5))
-                Spacer()
-            }
-            .font(.caption)
-            Spacer()
         }
-        .padding(16)
-        .presentationBackground(scheme == .dark ? Color.darkBg : Color.lightBg)
-    }
-
-    private func caps(_ label: String) -> some View {
-        Text(label)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .kerning(0.6)
-            .padding(.leading, 4)
-            .padding(.bottom, 8)
-    }
-
-    private func linkTile(_ icon: String, _ label: String, chevron: Bool,
-                          action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Text(label)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                Image(systemName: chevron ? "chevron.right" : "arrow.up.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary.opacity(0.5))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 }
 

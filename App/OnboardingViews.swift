@@ -23,6 +23,22 @@ struct OnboardingFlow: View {
     }
 }
 
+/// Native full-width prominent button used across onboarding.
+struct PrimaryButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.glassProminent)
+        .controlSize(.large)
+    }
+}
+
 struct WelcomeScreen: View {
     let onContinue: () -> Void
 
@@ -34,67 +50,64 @@ struct WelcomeScreen: View {
                 .scaledToFit()
                 .frame(width: 160, height: 160)
             Text(L.s("welcomeHeadline"))
-                .font(.system(size: 32, weight: .bold))
+                .font(.largeTitle.bold())
             Text(L.s("welcomeSubtitle"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Spacer().frame(height: 24)
-            ContinueButton(title: L.s("continueLabel")) {
-                Haptics.light()
-                onContinue()
-            }
             Spacer()
         }
         .padding(.horizontal, 32)
-        .themeBg()
+        .safeAreaInset(edge: .bottom) {
+            PrimaryButton(title: L.s("continueLabel")) {
+                Haptics.light()
+                onContinue()
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 8)
+        }
         .toolbar(.hidden, for: .navigationBar)
     }
 }
 
 struct FeaturesScreen: View {
     let onContinue: () -> Void
+    @Environment(\.appAccent) private var accent
 
     private let features: [(String, String, String)] = [
         ("calendar", "featureSubstitutionTitle", "featureSubstitutionDesc"),
         ("clock", "featureScheduleTitle", "featureScheduleDesc"),
-        ("cloud", "featureWeatherTitle", "featureWeatherDesc"),
+        ("cloud.sun", "featureWeatherTitle", "featureWeatherDesc"),
         ("newspaper", "featureNewsTitle", "featureNewsDesc"),
         ("cross.case", "featureSickTitle", "featureSickDesc"),
         ("calendar.badge.clock", "featureEventsTitle", "featureEventsDesc"),
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(L.s("infoHeader"))
-                .font(.system(size: 30, weight: .bold))
-            ScrollView {
-                VStack(spacing: 12) {
-                    ForEach(features, id: \.1) { icon, title, desc in
-                        HStack(alignment: .top, spacing: 16) {
-                            IconSquare(systemName: icon, alpha: 0.1)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(L.s(title)).font(.callout.weight(.semibold))
-                                Text(L.s(desc))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .surfaceCard()
+        List {
+            ForEach(features, id: \.1) { icon, title, desc in
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L.s(title)).font(.body.weight(.medium))
+                        Text(L.s(desc)).font(.subheadline).foregroundStyle(.secondary)
                     }
+                } icon: {
+                    Image(systemName: icon).foregroundStyle(accent)
                 }
+                .padding(.vertical, 4)
             }
-            ContinueButton(title: L.s("continueLabel")) {
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle(L.s("infoHeader"))
+        .navigationBarBackButtonHidden()
+        .safeAreaInset(edge: .bottom) {
+            PrimaryButton(title: L.s("continueLabel")) {
                 Haptics.medium()
                 onContinue()
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
         }
-        .padding(16)
-        .themeBg()
-        .toolbar(.hidden, for: .navigationBar)
     }
 }
 
@@ -106,60 +119,45 @@ struct AccentColorScreen: View {
         VStack(spacing: 16) {
             Spacer()
             Text(L.s("accentColorTitle"))
-                .font(.system(size: 30, weight: .bold))
+                .font(.largeTitle.bold())
             Text(L.s("accentColorDescription"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Spacer().frame(height: 16)
-            HStack(spacing: 12) {
-                ForEach(Accent.allCases, id: \.rawValue) { accent in
-                    ColorSwatch(accent: accent,
-                                isSelected: prefs.accentColor == accent.rawValue) {
-                        Haptics.light()
-                        prefs.accentColor = accent.rawValue
-                    }
-                }
-            }
+            AccentPalettePicker()
+                .scaleEffect(1.3)
             Spacer()
-            ContinueButton(title: L.s("continueLabel")) {
+        }
+        .padding(.horizontal, 24)
+        .safeAreaInset(edge: .bottom) {
+            PrimaryButton(title: L.s("continueLabel")) {
                 Haptics.medium()
                 onContinue()
             }
-            Spacer().frame(height: 8)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 8)
         }
-        .padding(16)
-        .themeBg()
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden()
     }
 }
 
-struct ColorSwatch: View {
-    let accent: Accent
-    let isSelected: Bool
-    let action: () -> Void
+/// Native palette picker bound to the accent preference.
+struct AccentPalettePicker: View {
+    @EnvironmentObject private var prefs: Prefs
 
     var body: some View {
-        Button(action: action) {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(accent.color)
-                .frame(width: 60, height: 60)
-                .overlay {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 20)
-                            .strokeBorder(.white, lineWidth: 3)
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 19, weight: .bold))
-                            .foregroundStyle(.white)
-                    } else {
-                        Circle().fill(.white.opacity(0.24))
-                            .frame(width: 14, height: 14)
-                    }
-                }
-                .shadow(color: isSelected ? accent.color.opacity(0.4) : .clear, radius: 8)
+        Picker(L.s("accentColor"), selection: $prefs.accentColor) {
+            ForEach(Accent.allCases, id: \.rawValue) { accent in
+                Image(systemName: prefs.accentColor == accent.rawValue
+                    ? "checkmark.circle.fill" : "circle.fill")
+                    .tint(accent.color)
+                    .tag(accent.rawValue)
+            }
         }
-        .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .pickerStyle(.palette)
+        .labelsHidden()
+        .onChange(of: prefs.accentColor) { Haptics.light() }
     }
 }
 
@@ -168,180 +166,119 @@ struct AppearanceScreen: View {
     @EnvironmentObject private var prefs: Prefs
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 24) {
             Spacer()
             Text(L.s("appearanceTitle"))
-                .font(.system(size: 30, weight: .bold))
-            Spacer().frame(height: 8)
-            ThemeModePicker(order: ["dark", "system", "light"], iconSize: 18, labels: true)
+                .font(.largeTitle.bold())
+            ThemeModePicker()
+                .frame(maxWidth: 340)
             Spacer()
-            ContinueButton(title: L.s("letsGo")) {
+        }
+        .padding(.horizontal, 24)
+        .safeAreaInset(edge: .bottom) {
+            PrimaryButton(title: L.s("letsGo")) {
                 Haptics.medium()
                 onContinue()
             }
-            Spacer().frame(height: 8)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 8)
         }
-        .padding(16)
-        .themeBg()
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden()
     }
 }
 
-/// Segmented theme selector — shared by onboarding and settings.
+/// Native segmented control bound to the theme preference.
 struct ThemeModePicker: View {
-    var order: [String]
-    var iconSize: CGFloat
-    var labels: Bool
-    @EnvironmentObject private var prefs: Prefs
-    @Environment(\.colorScheme) private var scheme
-
-    private func icon(_ mode: String) -> String {
-        switch mode {
-        case "dark": return "moon.fill"
-        case "light": return "sun.max.fill"
-        default: return "circle.lefthalf.filled"
-        }
-    }
-
-    private func label(_ mode: String) -> String {
-        switch mode {
-        case "dark": return L.s("themeDark")
-        case "light": return L.s("themeLight")
-        default: return L.s("themeAuto")
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(order, id: \.self) { mode in
-                let isSelected = prefs.themeMode == mode
-                Button {
-                    Haptics.light()
-                    prefs.themeMode = mode
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: icon(mode)).font(.system(size: iconSize))
-                        if labels { Text(label(mode)).font(.subheadline) }
-                    }
-                    .fontWeight(isSelected ? .semibold : .regular)
-                    .foregroundStyle(isSelected ? prefs.accent : Color.secondary)
-                    .padding(.horizontal, labels ? 18 : 10)
-                    .padding(.vertical, labels ? 10 : 6)
-                    .background {
-                        if isSelected {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(scheme == .dark ? Color.white.opacity(0.15) : .white)
-                                .shadow(color: .black.opacity(scheme == .dark ? 0.3 : 0.08),
-                                        radius: 4, y: 1)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(
-            scheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.06),
-            in: RoundedRectangle(cornerRadius: 12))
-        .animation(.easeInOut(duration: 0.15), value: prefs.themeMode)
-    }
-}
-
-/// Full-width accent button — the onboarding continue button.
-struct ContinueButton: View {
-    let title: String
-    let action: () -> Void
     @EnvironmentObject private var prefs: Prefs
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(prefs.accent, in: RoundedRectangle(cornerRadius: 12))
-                .shadow(color: prefs.accent.opacity(0.3), radius: 8, y: 2)
+        Picker(L.s("appearanceTitle"), selection: $prefs.themeMode) {
+            Label(L.s("themeDark"), systemImage: "moon.fill").tag("dark")
+            Label(L.s("themeAuto"), systemImage: "circle.lefthalf.filled").tag("system")
+            Label(L.s("themeLight"), systemImage: "sun.max.fill").tag("light")
         }
-        .buttonStyle(.plain)
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .onChange(of: prefs.themeMode) { Haptics.light() }
     }
 }
 
-/// Password gate — mirrors auth_screen.dart (school website credentials).
+/// Password gate — native Form with content-typed fields.
 struct AuthScreen: View {
     @EnvironmentObject private var prefs: Prefs
-    @Environment(\.colorScheme) private var scheme
     @State private var username = ""
     @State private var password = ""
     @State private var flash: Flash = .none
     @State private var isLoading = false
+    @FocusState private var focus: Field?
     enum Flash { case none, error, success }
+    enum Field { case username, password }
 
     private var canLogin: Bool {
         !username.trimmingCharacters(in: .whitespaces).isEmpty &&
             !password.trimmingCharacters(in: .whitespaces).isEmpty && !isLoading
     }
 
-    private var buttonColor: Color {
+    private var buttonTint: Color? {
         switch flash {
         case .success: return .green
         case .error: return .red
-        case .none: return canLogin ? prefs.accent : prefs.accent.opacity(0.5)
+        case .none: return nil
         }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            Text(L.s("authTitle"))
-                .font(.system(size: 28, weight: .bold))
-            Spacer().frame(height: 12)
-            Text(L.s("authSubtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Spacer().frame(height: 48)
-
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    Image(systemName: "person").foregroundStyle(.secondary)
-                    TextField(L.s("username"), text: $username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+        Form {
+            Section {
+                TextField(L.s("username"), text: $username)
+                    .textContentType(.username)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($focus, equals: .username)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .password }
+                SecureField(L.s("password"), text: $password)
+                    .textContentType(.password)
+                    .focused($focus, equals: .password)
+                    .submitLabel(.go)
+                    .onSubmit { if canLogin { validate() } }
+            } header: {
+                VStack(spacing: 8) {
+                    Text(L.s("authTitle"))
+                        .font(.title2.bold())
+                        .frame(maxWidth: .infinity)
+                    Text(L.s("authSubtitle"))
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(16)
-                Divider().padding(.leading, 16)
-                HStack(spacing: 12) {
-                    Image(systemName: "lock").foregroundStyle(.secondary)
-                    SecureField(L.s("password"), text: $password)
-                }
-                .padding(16)
+                .textCase(nil)
+                .foregroundStyle(.primary)
+                .padding(.bottom, 24)
+                .padding(.top, 40)
             }
-            .surfaceCard()
-            .frame(maxWidth: 400)
 
-            Spacer().frame(height: 32)
-
-            Button(action: validate) {
-                Group {
-                    if isLoading {
-                        ProgressView().tint(.white)
-                    } else {
-                        Text(L.s("login")).font(.subheadline.weight(.semibold))
+            Section {
+                Button(action: validate) {
+                    Group {
+                        if isLoading {
+                            ProgressView().tint(.white)
+                        } else if flash == .success {
+                            Image(systemName: "checkmark")
+                        } else {
+                            Text(L.s("login")).fontWeight(.semibold)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: 400)
-                .frame(height: 46)
-                .background(buttonColor, in: RoundedRectangle(cornerRadius: 12))
-                .animation(.easeInOut(duration: 0.3), value: buttonColor)
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .tint(buttonTint)
+                .disabled(!canLogin && flash == .none)
+                .animation(.easeInOut(duration: 0.3), value: flash)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
-            .buttonStyle(.plain)
-            .disabled(!canLogin && flash == .none)
-            Spacer()
         }
-        .padding(.horizontal, 24)
-        .themeBg()
         .toolbar(.hidden, for: .navigationBar)
     }
 
@@ -350,6 +287,7 @@ struct AuthScreen: View {
         if username.trimmingCharacters(in: .whitespaces) == "vertretungsplan"
             && password.trimmingCharacters(in: .whitespaces) == "ephraim" {
             flash = .success
+            focus = nil
             Haptics.intense()
             Task {
                 try? await Task.sleep(for: .milliseconds(600))

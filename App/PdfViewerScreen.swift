@@ -16,7 +16,6 @@ struct PdfViewerScreen: View {
     @State private var matchIndex = 0
     @State private var currentSelection: PDFSelection?
     @State private var goToPage: Int?
-    @State private var showShare = false
 
     var body: some View {
         NavigationStack {
@@ -45,16 +44,16 @@ struct PdfViewerScreen: View {
                     } label: {
                         Image(systemName: "magnifyingglass")
                     }
-                    Button { Haptics.light(); showShare = true } label: {
+                    ShareLink(item: fileUrl) {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
             }
-            .safeAreaInset(edge: .top) {
-                if showSearch { searchBar }
-            }
-            .sheet(isPresented: $showShare) {
-                ShareSheet(items: [fileUrl])
+            .searchable(text: $searchText, isPresented: $showSearch,
+                        prompt: L.s("searchInPdf"))
+            .onSubmit(of: .search, runSearch)
+            .safeAreaInset(edge: .bottom) {
+                if !matches.isEmpty { matchStepper }
             }
             .onAppear {
                 document = PDFDocument(url: fileUrl)
@@ -66,39 +65,20 @@ struct PdfViewerScreen: View {
         }
     }
 
-    private var searchBar: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(L.s("searchInPdf"), text: $searchText)
-                    .textInputAutocapitalization(.never)
-                    .onSubmit(runSearch)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
-
-            if !matches.isEmpty {
-                Text("\(matchIndex + 1)/\(matches.count)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                Button { step(-1) } label: { Image(systemName: "chevron.up") }
-                Button { step(1) } label: { Image(systemName: "chevron.down") }
-            }
-            Button {
-                withAnimation {
-                    showSearch = false
-                    searchText = ""
-                    matches = []
-                    currentSelection = nil
-                }
-            } label: {
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-            }
+    private var matchStepper: some View {
+        HStack(spacing: 16) {
+            Text("\(matchIndex + 1)/\(matches.count)")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+            Button { step(-1) } label: { Image(systemName: "chevron.up") }
+                .buttonStyle(.glass)
+            Button { step(1) } label: { Image(systemName: "chevron.down") }
+                .buttonStyle(.glass)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.bar)
+        .glassEffect()
+        .padding(.bottom, 8)
     }
 
     private func runSearch() {
@@ -147,12 +127,4 @@ struct PdfKitView: UIViewRepresentable {
             DispatchQueue.main.async { goToPageIndex = nil }
         }
     }
-}
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }

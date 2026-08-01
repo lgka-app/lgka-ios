@@ -98,21 +98,13 @@ struct HomeScreen: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    weatherSection
-                    sectionHeader(L.s("substitutionPlan")).padding(.top, 28)
-                    substitutionSection
-                    sectionHeader(L.s("schedule")).padding(.top, 28)
-                    scheduleSection
-                    sectionHeader(L.s("termine")).padding(.top, 28)
-                    eventsSection
-                    Spacer().frame(height: 24)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
+            List {
+                Section { weatherSection }
+                Section(L.s("substitutionPlan")) { substitutionSection }
+                Section(L.s("schedule")) { scheduleSection }
+                Section(L.s("termine")) { eventsSection }
             }
-            .themeBg()
+            .listStyle(.insetGrouped)
             .navigationTitle(L.s("appTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -175,12 +167,6 @@ struct HomeScreen: View {
         }
     }
 
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.callout.weight(.bold))
-            .padding(.bottom, 12)
-    }
-
     // ── Weather card ────────────────────────────────────────────────────────
 
     @ViewBuilder private var weatherSection: some View {
@@ -216,12 +202,13 @@ struct HomeScreen: View {
                 .padding(.horizontal, 18)
                 .frame(height: 76)
                 .frame(maxWidth: .infinity)
-                .background(WeatherScene.gradient(w.code, isDay: w.isDay))
-                .overlay(LinearGradient(colors: [.black.opacity(0.07), .black.opacity(0.16)],
-                                        startPoint: .top, endPoint: .bottom))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
             .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(
+                WeatherScene.gradient(w.code, isDay: w.isDay)
+                    .overlay(LinearGradient(colors: [.black.opacity(0.07), .black.opacity(0.16)],
+                                            startPoint: .top, endPoint: .bottom)))
         } else if model.weatherError {
             HStack(spacing: 14) {
                 Image(systemName: "cloud.slash").foregroundStyle(.secondary)
@@ -233,12 +220,24 @@ struct HomeScreen: View {
                     Image(systemName: "arrow.clockwise").font(.footnote)
                 }
             }
-            .padding(.horizontal, 18)
-            .frame(height: 76)
-            .surfaceCard()
+            .frame(height: 56)
         } else {
-            SkeletonCard()
+            skeletonRow
         }
+    }
+
+    private var skeletonRow: some View {
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 12).fill(.quaternary)
+                .frame(width: 44, height: 44)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Placeholder Title").font(.callout)
+                Text("Placeholder sub").font(.caption)
+            }
+            Spacer()
+        }
+        .redacted(reason: .placeholder)
+        .padding(.vertical, 8)
     }
 
     private func feelsLikeLine(_ w: SchoolAPI.WeatherData) -> String {
@@ -258,7 +257,8 @@ struct HomeScreen: View {
 
     @ViewBuilder private var substitutionSection: some View {
         if model.subLoading {
-            VStack(spacing: 12) { SkeletonCard(); SkeletonCard() }
+            skeletonRow
+            skeletonRow
         } else if model.subError {
             VStack(spacing: 12) {
                 Image(systemName: "cloud.slash")
@@ -276,13 +276,10 @@ struct HomeScreen: View {
                 .buttonStyle(.bordered)
             }
             .frame(maxWidth: .infinity)
-            .padding(24)
-            .surfaceCard()
+            .padding(.vertical, 12)
         } else {
-            VStack(spacing: 12) {
-                subCard(model.today, isToday: true)
-                subCard(model.tomorrow, isToday: false)
-            }
+            subCard(model.today, isToday: true)
+            subCard(model.tomorrow, isToday: false)
         }
     }
 
@@ -313,11 +310,8 @@ struct HomeScreen: View {
                         .foregroundStyle(.secondary.opacity(0.5))
                 }
             }
-            .padding(.horizontal, 18)
-            .frame(height: 76)
-            .frame(maxWidth: .infinity)
-            .surfaceCard()
             .opacity(canOpen ? 1 : 0.6)
+            .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
         .disabled(!canOpen)
@@ -340,7 +334,7 @@ struct HomeScreen: View {
 
     @ViewBuilder private var scheduleSection: some View {
         if model.scheduleLoading {
-            SkeletonCard()
+            skeletonRow
         } else if model.scheduleError {
             HStack(spacing: 12) {
                 Image(systemName: "clock.badge.exclamationmark")
@@ -352,8 +346,7 @@ struct HomeScreen: View {
                     Image(systemName: "arrow.clockwise").font(.footnote)
                 }
             }
-            .padding(20)
-            .surfaceCard()
+            .padding(.vertical, 8)
         } else if model.schedules.isEmpty {
             HStack(spacing: 12) {
                 Image(systemName: "clock").foregroundStyle(.secondary.opacity(0.4))
@@ -361,8 +354,7 @@ struct HomeScreen: View {
                     .font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
             }
-            .padding(20)
-            .surfaceCard()
+            .padding(.vertical, 8)
         } else if prefs.selectedScheduleClass.isEmpty {
             homeCard(icon: "graduationcap",
                      title: L.s("scheduleNoClassTitle"),
@@ -405,10 +397,7 @@ struct HomeScreen: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary.opacity(0.5))
             }
-            .padding(.horizontal, 18)
-            .frame(height: 76)
-            .frame(maxWidth: .infinity)
-            .surfaceCard()
+            .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
     }
@@ -458,7 +447,7 @@ struct HomeScreen: View {
 
     @ViewBuilder private var eventsSection: some View {
         if model.eventsLoading {
-            VStack(spacing: 12) { ForEach(0..<4, id: \.self) { _ in SkeletonCard() } }
+            ForEach(0..<4, id: \.self) { _ in skeletonRow }
         } else if model.eventsError && model.events.isEmpty {
             HStack(spacing: 12) {
                 Image(systemName: "calendar.badge.exclamationmark")
@@ -470,8 +459,7 @@ struct HomeScreen: View {
                     Image(systemName: "arrow.clockwise").font(.footnote)
                 }
             }
-            .padding(20)
-            .surfaceCard()
+            .padding(.vertical, 8)
         } else if model.events.isEmpty {
             HStack(spacing: 12) {
                 Image(systemName: "calendar").foregroundStyle(.secondary.opacity(0.4))
@@ -479,11 +467,9 @@ struct HomeScreen: View {
                     .font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
             }
-            .padding(20)
-            .surfaceCard()
+            .padding(.vertical, 8)
         } else {
-            VStack(spacing: 12) {
-                ForEach(model.events.prefix(4)) { event in
+            ForEach(model.events.prefix(4)) { event in
                     HStack(spacing: 14) {
                         IconSquare(systemName: "calendar")
                         VStack(alignment: .leading, spacing: 2) {
@@ -495,12 +481,8 @@ struct HomeScreen: View {
                         }
                         Spacer()
                     }
-                    .padding(.horizontal, 18)
-                    .frame(height: 76)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .surfaceCard()
+                    .padding(.vertical, 6)
                 }
-            }
         }
     }
 
