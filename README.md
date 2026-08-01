@@ -47,7 +47,7 @@ Developed by [Luka Löhr](https://github.com/luka-loehr)
 
 ## Extractor (first native module)
 
-`Sources/LGKAExtractor` is the substitution-plan extractor: a Swift port of
+`Sources/LGKAExtractor` contains the substitution-plan extractor and the schedule class-to-page index: a Swift port of
 the geometric Untis-table parser built on PDFKit glyph geometry (identical
 API on iOS and macOS). It is verified at **100% parity** against the golden
 dataset in [lgka-app/verification](https://github.com/lgka-app/verification).
@@ -55,7 +55,8 @@ dataset in [lgka-app/verification](https://github.com/lgka-app/verification).
 ```bash
 # run over the verification fixtures
 git clone https://github.com/lgka-app/verification.git ../verification
-swift run LGKAExtractor ../verification/fixtures/substitution /tmp/out-swift
+swift run LGKAExtractor substitution ../verification/fixtures/substitution /tmp/out-swift
+swift run LGKAExtractor classindex ../verification/fixtures/schedule /tmp/out-swift
 # compare against goldens (Rust; run once, get report.html)
 cargo run --release --manifest-path ../verification/tool/compare-report/Cargo.toml -- --swift /tmp/out-swift
 ```
