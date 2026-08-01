@@ -215,39 +215,42 @@ struct HomeScreen: View {
                 Haptics.medium()
                 path.append(.weather)
             } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: Wmo.symbol(w.code, isDay: w.isDay))
-                        .font(.system(size: 34))
-                        .symbolRenderingMode(.multicolor)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text("\(Int(w.temp.rounded()))°")
-                                .font(.title.weight(.semibold))
-                            Text(L.wmo(w.code))
-                                .font(.subheadline.weight(.semibold))
-                                .opacity(0.9)
-                                .lineLimit(1)
-                        }
-                        Text(feelsLikeLine(w))
-                            .font(.caption.weight(.semibold))
-                            .opacity(0.8)
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Karlsruhe")
+                            .font(.footnote.weight(.semibold))
+                            .opacity(0.85)
+                        Text("\(Int(w.temp.rounded()))°")
+                            .font(.system(size: 40, weight: .medium))
+                        Text(L.wmo(w.code))
+                            .font(.footnote.weight(.medium))
+                            .opacity(0.9)
+                            .lineLimit(1)
                     }
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.38), radius: 6)
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.7))
+                    VStack(alignment: .trailing, spacing: 3) {
+                        Image(systemName: Wmo.symbol(w.code, isDay: w.isDay))
+                            .font(.system(size: 28))
+                            .symbolRenderingMode(.multicolor)
+                        if let today = w.daily.first {
+                            Text("H: \(Int(today.tempMax.rounded()))°  T: \(Int(today.tempMin.rounded()))°")
+                                .font(.caption.weight(.medium))
+                                .opacity(0.9)
+                        }
+                    }
                 }
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.3), radius: 4)
                 .padding(.horizontal, 18)
-                .frame(height: 96)
+                .padding(.vertical, 12)
+                .frame(height: 112)
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
             .listRowInsets(EdgeInsets())
             .listRowBackground(
-                SkyView(code: w.code, isDay: w.isDay)
-                    .overlay(LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.2)],
+                WeatherSkyView(code: w.code, isDay: w.isDay, particles: false)
+                    .overlay(LinearGradient(colors: [.clear, .black.opacity(0.18)],
                                             startPoint: .top, endPoint: .bottom))
                     .clipShape(RoundedRectangle(cornerRadius: 10)))
         } else if model.weatherError {

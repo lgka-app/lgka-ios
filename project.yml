@@ -5,6 +5,9 @@ options:
 packages:
   LGKACore:
     path: .
+  Vortex:
+    url: https://github.com/twostraws/Vortex
+    from: 1.0.0
 targets:
   LGKA:
     type: application
@@ -14,6 +17,8 @@ targets:
     dependencies:
       - package: LGKACore
         product: LGKACore
+      - package: Vortex
+        product: Vortex
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lgka

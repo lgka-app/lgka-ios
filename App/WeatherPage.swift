@@ -9,7 +9,7 @@ struct WeatherPageScreen: View {
     var body: some View {
         ZStack {
             if let w = model.weather {
-                SkyView(code: w.code, isDay: w.isDay)
+                WeatherSkyView(code: w.code, isDay: w.isDay, particles: true)
                     .ignoresSafeArea()
                 content(w)
             } else if model.weatherError {
@@ -211,117 +211,5 @@ struct WeatherPageScreen: View {
         out.locale = Locale(identifier: L.isGerman ? "de_DE" : "en_US")
         out.dateFormat = "EEE"
         return out.string(from: date)
-    }
-}
-
-// ── Animated sky ────────────────────────────────────────────────────────────
-
-/// Condition-aware animated sky: gradient + drifting cloud blobs, rain/snow
-/// particles, night stars, sun glow — SwiftUI Canvas, no external assets.
-struct SkyView: View {
-    let code: Int
-    let isDay: Bool
-
-    private enum Precip { case none, rain, snow }
-    private var precip: Precip {
-        switch code {
-        case 51...67, 80...82, 95, 96, 99: return .rain
-        case 71...77, 85, 86: return .snow
-        default: return .none
-        }
-    }
-    private var cloudiness: Double {
-        switch code {
-        case 0, 1: return 0.15
-        case 2: return 0.55
-        case 45, 48: return 0.9
-        default: return 0.85
-        }
-    }
-
-    var body: some View {
-        ZStack {
-            WeatherScene.gradient(code, isDay: isDay)
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-                Canvas { ctx, size in
-                    let t = timeline.date.timeIntervalSinceReferenceDate
-                    drawScene(ctx: &ctx, size: size, t: t)
-                }
-            }
-        }
-    }
-
-    private func rand(_ i: Int, _ salt: Double) -> Double {
-        // deterministic pseudo-random per particle index
-        let v = sin(Double(i) * 127.1 + salt * 311.7) * 43758.5453
-        return v - v.rounded(.down)
-    }
-
-    private func drawScene(ctx: inout GraphicsContext, size: CGSize, t: Double) {
-        // Sun glow / stars
-        if isDay, cloudiness < 0.6 {
-            let center = CGPoint(x: size.width * 0.78, y: size.height * 0.14)
-            for (radius, alpha) in [(90.0, 0.35), (55.0, 0.5), (32.0, 0.95)] {
-                let rect = CGRect(x: center.x - radius, y: center.y - radius,
-                                  width: radius * 2, height: radius * 2)
-                ctx.fill(Path(ellipseIn: rect),
-                         with: .color(.yellow.opacity(alpha * (0.9 + 0.1 * sin(t)))))
-            }
-        } else if !isDay, cloudiness < 0.7 {
-            for i in 0..<70 {
-                let x = rand(i, 1) * size.width
-                let y = rand(i, 2) * size.height * 0.55
-                let twinkle = 0.4 + 0.6 * abs(sin(t * (0.5 + rand(i, 3)) + Double(i)))
-                let s = 1.0 + rand(i, 4) * 1.6
-                ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: s, height: s)),
-                         with: .color(.white.opacity(0.8 * twinkle)))
-            }
-        }
-
-        // Drifting clouds (soft layered blobs)
-        let cloudCount = Int(cloudiness * 10)
-        for i in 0..<cloudCount {
-            let speed = 12.0 + rand(i, 5) * 22.0
-            let width = size.width * (0.35 + rand(i, 6) * 0.45)
-            let x = (rand(i, 7) * (size.width + width) + t * speed)
-                .truncatingRemainder(dividingBy: size.width + width) - width
-            let y = size.height * (0.05 + rand(i, 8) * 0.38)
-            let height = width * 0.32
-            let alpha = (isDay ? 0.5 : 0.25) * (0.5 + rand(i, 9) * 0.5)
-            var blob = ctx
-            blob.addFilter(.blur(radius: 18))
-            blob.fill(Path(ellipseIn: CGRect(x: x, y: y, width: width, height: height)),
-                      with: .color(.white.opacity(alpha)))
-            blob.fill(Path(ellipseIn: CGRect(x: x + width * 0.2, y: y - height * 0.3,
-                                             width: width * 0.6, height: height)),
-                      with: .color(.white.opacity(alpha * 0.9)))
-        }
-
-        // Precipitation
-        switch precip {
-        case .rain:
-            for i in 0..<90 {
-                let speed = 550.0 + rand(i, 10) * 250.0
-                let x = rand(i, 11) * size.width + sin(t * 0.7) * 12
-                let y = (rand(i, 12) * size.height + t * speed)
-                    .truncatingRemainder(dividingBy: size.height + 30) - 20
-                var path = Path()
-                path.move(to: CGPoint(x: x, y: y))
-                path.addLine(to: CGPoint(x: x - 2.5, y: y + 14))
-                ctx.stroke(path, with: .color(.white.opacity(0.35)), lineWidth: 1.4)
-            }
-        case .snow:
-            for i in 0..<60 {
-                let speed = 55.0 + rand(i, 13) * 55.0
-                let x = rand(i, 14) * size.width + sin(t * (0.6 + rand(i, 15)) + Double(i)) * 22
-                let y = (rand(i, 16) * size.height + t * speed)
-                    .truncatingRemainder(dividingBy: size.height + 12) - 8
-                let s = 2.5 + rand(i, 17) * 3.0
-                ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: s, height: s)),
-                         with: .color(.white.opacity(0.8)))
-            }
-        case .none:
-            break
-        }
     }
 }

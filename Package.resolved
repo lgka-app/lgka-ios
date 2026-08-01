@@ -8,6 +8,15 @@
         "revision" : "8d6ad267714cac3ae747cefdd21f7a6665006e1f",
         "version" : "2.13.7"
       }
+    },
+    {
+      "identity" : "vortex",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/twostraws/Vortex",
+      "state" : {
+        "revision" : "9d9d9016ceace579455f01f8e0bd59facae7d252",
+        "version" : "1.0.4"
+      }
     }
   ],
   "version" : 2
