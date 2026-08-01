@@ -3,10 +3,10 @@ import SwiftSoup
 
 /// Schedule page scraper — Swift port of the app's `_parseScheduleHtml`
 /// (schedule_service.dart), verified against the stundenplan_page goldens.
-enum ScheduleHtmlParser {
+public enum ScheduleHtmlParser {
     static let base = "https://lessing-gymnasium-karlsruhe.de"
 
-    static func parse(_ html: String) throws -> [[String: Any]] {
+    public static func parse(_ html: String) throws -> [[String: Any]] {
         let doc = try SwiftSoup.parse(html)
         guard let module = try doc.select("#mod-custom213").first() else {
             throw NSError(domain: "lgka", code: 1,

@@ -11,7 +11,7 @@ import SwiftSoup
 ///  - Dart `attributes['x']` is null when absent, "" when present-empty.
 ///  - Dart innerHtml escapes &<>" plus nbsp (as &nbsp;), leaves umlauts raw
 ///    -> SwiftSoup EscapeMode.base + prettyPrint(false) + UTF-8.
-enum NewsParser {
+public enum NewsParser {
     static let base = "https://lessing-gymnasium-karlsruhe.de"
 
     private static func absolutize(_ href: String) -> String {
@@ -38,13 +38,13 @@ enum NewsParser {
 
     // ---- list page metadata ------------------------------------------------
 
-    struct Metadata {
-        let title: String, author: String, description: String
-        let createdDate: String, parsedDateIso: String?
-        let views: Int, url: String, tags: [String]
+    public struct Metadata {
+        public let title: String, author: String, description: String
+        public let createdDate: String, parsedDateIso: String?
+        public let views: Int, url: String, tags: [String]
     }
 
-    static func parseListPage(_ html: String) throws -> [Metadata] {
+    public static func parseListPage(_ html: String) throws -> [Metadata] {
         let doc = try SwiftSoup.parse(html)
         configure(doc)
         var out: [Metadata] = []
@@ -123,10 +123,10 @@ enum NewsParser {
 
     // ---- article page ------------------------------------------------------
 
-    struct Article {
-        let content: String?, htmlContent: String?
-        let links: [[String: String]], standaloneLinks: [[String: String]]
-        let images: [[String: Any]], downloads: [[String: Any]]
+    public struct Article {
+        public let content: String?, htmlContent: String?
+        public let links: [[String: String]], standaloneLinks: [[String: String]]
+        public let images: [[String: Any]], downloads: [[String: Any]]
     }
 
     private static let emptyArticle = Article(
@@ -142,7 +142,7 @@ enum NewsParser {
             (text.hasPrefix("http") && parentText.count <= text.count + 5)
     }
 
-    static func parseArticle(_ html: String) throws -> Article {
+    public static func parseArticle(_ html: String) throws -> Article {
         let doc = try SwiftSoup.parse(html)
         configure(doc)
         guard let body = try doc.select(".com-content-article__body").first() else {
@@ -267,7 +267,7 @@ enum NewsParser {
 
     // ---- aggregation -------------------------------------------------------
 
-    static func run(listHtml: String, urlToFile: [String: String],
+    public static func run(listHtml: String, urlToFile: [String: String],
                     readFile: (String) throws -> String) throws -> [[String: Any]] {
         let metadata = try parseListPage(listHtml)
         var events: [[String: Any]] = []

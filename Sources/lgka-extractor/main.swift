@@ -1,4 +1,5 @@
 import Foundation
+import LGKACore
 
 // Runner: `<mode> <fixturesDir> <outDir> [extra]`
 //  - substitution: every *.pdf -> <name>.json (full plan extraction)

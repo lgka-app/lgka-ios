@@ -1,0 +1,30 @@
+name: LGKA
+options:
+  deploymentTarget:
+    iOS: "26.0"
+packages:
+  LGKACore:
+    path: .
+targets:
+  LGKA:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: LGKACore
+        product: LGKACore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lgka
+        DEVELOPMENT_TEAM: M8M22924DJ
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: 3.0.0
+        CURRENT_PROJECT_VERSION: 1
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: LGKA+
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: 1
+        SWIFT_VERSION: 5.0
+        SUPPORTS_MACCATALYST: NO

@@ -5,7 +5,7 @@ import Foundation
 ///
 /// referenceNow is the recorded hourly-window start from the golden params;
 /// the window is [referenceNow, referenceNow + 24h).
-enum WeatherParser {
+public enum WeatherParser {
     /// Dart DateTime.toIso8601String() for a naive local time.
     private static func iso(_ s: String) -> String {
         // input "yyyy-MM-ddTHH:mm" (Open-Meteo) -> "yyyy-MM-ddTHH:mm:00.000"
@@ -25,7 +25,7 @@ enum WeatherParser {
         return Int(d.timeIntervalSince1970 / 60)
     }
 
-    static func parse(_ jsonText: String, referenceNow: String) throws -> [String: Any] {
+    public static func parse(_ jsonText: String, referenceNow: String) throws -> [String: Any] {
         let root = try JSONSerialization.jsonObject(
             with: jsonText.data(using: .utf8)!) as! [String: Any]
 

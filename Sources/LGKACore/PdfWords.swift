@@ -11,23 +11,23 @@ import PDFKit
 /// Instead, PDFKit's own `selectionsByLine()` provides the visual line
 /// bands; glyphs are bucketed into the band containing their y-center.
 /// Glyph x-coordinates are reliable and drive word/column geometry.
-struct Word {
-    let text: String
-    let left: Double
-    let right: Double
+public struct Word {
+    public let text: String
+    public let left: Double
+    public let right: Double
 }
 
-struct Line {
-    let top: Double
-    let words: [Word]
+public struct Line {
+    public let top: Double
+    public let words: [Word]
     /// Words joined with single spaces — used for anchor/regex matching.
-    var text: String { words.map(\.text).joined(separator: " ") }
+    public var text: String { words.map(\.text).joined(separator: " ") }
 }
 
 /// x-gap above which two glyphs are separate words (whitespace also splits).
 private let wordGap = 3.0
 
-func extractLines(from url: URL) -> [Line]? {
+public func extractLines(from url: URL) -> [Line]? {
     guard let doc = PDFDocument(url: url), let page = doc.page(at: 0),
           let pageString = page.string else { return nil }
 

@@ -10,6 +10,10 @@
 
 This repository contains the **native iOS source code (Swift / SwiftUI)** of LGKA+.
 
+Structure: `Sources/LGKACore` (the verified data layer), `Sources/lgka-extractor`
+(parity CLI), `App/` (SwiftUI app, iOS 26 Liquid Glass). Generate the Xcode
+project with [XcodeGen](https://github.com/yonaskolb/XcodeGen): `xcodegen generate`, then build the `LGKA` scheme.
+
 **LGKA+** is a mobile app for substitution plans, timetables, news, absence reporting, and weather data of the Lessing-Gymnasium Karlsruhe. Built with SwiftUI.
 
 > Android version: [lgka-app/lgka-android](https://github.com/lgka-app/lgka-android) · Predecessor (Flutter): [luka-loehr/LGKA](https://github.com/luka-loehr/LGKA)
@@ -59,8 +63,8 @@ data layer, all verified against the goldens.
 ```bash
 # run over the verification fixtures
 git clone https://github.com/lgka-app/verification.git ../verification
-swift run LGKAExtractor substitution ../verification/fixtures/substitution /tmp/out-swift
-swift run LGKAExtractor classindex ../verification/fixtures/schedule /tmp/out-swift
+swift run lgka-extractor substitution ../verification/fixtures/substitution /tmp/out-swift
+swift run lgka-extractor classindex ../verification/fixtures/schedule /tmp/out-swift
 # compare against goldens (Rust; run once, get report.html)
 cargo run --release --manifest-path ../verification/tool/compare-report/Cargo.toml -- --swift /tmp/out-swift
 ```

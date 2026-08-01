@@ -8,7 +8,7 @@ import Foundation
 /// header blocks (school / "SJ ..." / "Untis ...") into one visual line, so
 /// the pre-title meta zone is re-split into segments on x-gaps > 15pt before
 /// classification. Everything below the title anchors per visual line.
-enum Extractor {
+public enum Extractor {
     private static let weekdays = [
         "Montag", "Dienstag", "Mittwoch", "Donnerstag",
         "Freitag", "Samstag", "Sonntag",
@@ -21,7 +21,7 @@ enum Extractor {
 
     private static let segmentGap = 15.0
 
-    static func extract(lines: [Line]) -> [String: Any] {
+    public static func extract(lines: [Line]) -> [String: Any] {
         var plan: [String: Any] = [
             "school": NSNull(), "address": NSNull(), "schoolYear": NSNull(),
             "untisVersion": NSNull(), "generatedAt": NSNull(),

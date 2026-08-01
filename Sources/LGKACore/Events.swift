@@ -3,7 +3,7 @@ import Foundation
 /// School events scraper — Swift port of the app's `_parseWeekHtml` + the
 /// aggregation in `fetchUpcomingEvents` (events_service.dart), verified
 /// against the events goldens.
-enum EventsParser {
+public enum EventsParser {
     struct Event {
         let date: String // "yyyy-MM-dd"
         let time: String?
@@ -47,7 +47,7 @@ enum EventsParser {
     }
 
     /// Mirror of fetchUpcomingEvents aggregation: dedup + sort ascending.
-    static func aggregate(weekHtmls: [String], today: String) -> [[String: Any]] {
+    public static func aggregate(weekHtmls: [String], today: String) -> [[String: Any]] {
         var all: [Event] = []
         var seen = Set<String>()
         for html in weekHtmls {
