@@ -151,11 +151,14 @@ struct AccentPalettePicker: View {
             ForEach(Accent.allCases, id: \.rawValue) { accent in
                 Image(systemName: prefs.accentColor == accent.rawValue
                     ? "checkmark.circle.fill" : "circle.fill")
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(accent.color)
                     .tint(accent.color)
                     .tag(accent.rawValue)
             }
         }
         .pickerStyle(.palette)
+        .paletteSelectionEffect(.custom)
         .labelsHidden()
         .onChange(of: prefs.accentColor) { Haptics.light() }
     }

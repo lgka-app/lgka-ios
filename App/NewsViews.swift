@@ -3,8 +3,9 @@ import LGKACore
 
 /// News list — mirrors news_screen.dart.
 struct NewsListScreen: View {
-    @State private var articles: [NewsParser.Metadata]?
-    @State private var failed = false
+    @ObservedObject private var model = HomeModel.shared
+    private var articles: [NewsParser.Metadata]? { model.newsList }
+    private var failed: Bool { model.newsFailed }
 
     var body: some View {
         Group {
@@ -26,7 +27,7 @@ struct NewsListScreen: View {
                 ContentUnavailableView {
                     Label(L.s("serverConnectionFailed"), systemImage: "wifi.exclamationmark")
                 } actions: {
-                    Button(L.s("tryAgain")) { failed = false; Task { await load() } }
+                    Button(L.s("tryAgain")) { Task { await model.loadNews(mode: .refresh) } }
                         .buttonStyle(.bordered)
                 }
             } else {
@@ -36,16 +37,8 @@ struct NewsListScreen: View {
         .themeBg()
         .navigationTitle(L.s("news"))
         .navigationBarTitleDisplayMode(.inline)
-        .task { if articles == nil { await load() } }
-        .refreshable { await load() }
-    }
-
-    private func load() async {
-        do {
-            articles = try await SchoolAPI.newsList()
-        } catch {
-            if articles == nil { failed = true }
-        }
+        .task { if articles == nil { await model.loadNews() } }
+        .refreshable { await model.loadNews(mode: .refresh) }
     }
 }
 

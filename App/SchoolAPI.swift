@@ -62,9 +62,11 @@ enum SchoolAPI {
         }
     }
 
-    static func substitutionPlan(today: Bool) async throws -> SubPlan {
+    static func substitutionPlan(today: Bool, mode: FetchMode = .cacheFirst) async throws -> SubPlan {
         let name = today ? "heute" : "morgen"
-        let data = try await get("\(base)/stundenplan/schueler/v_schueler_\(name).pdf")
+        let data = try await cachedGet(
+            "\(base)/stundenplan/schueler/v_schueler_\(name).pdf",
+            ttl: TTL.substitution, mode: mode)
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("sub_\(name).pdf")
         try data.write(to: tmp)
@@ -83,8 +85,9 @@ enum SchoolAPI {
         let title: String, halbjahr: String, gradeLevel: String, fullUrl: String
     }
 
-    static func schedules() async throws -> [Schedule] {
-        let data = try await get("\(base)/cm3/index.php/unterricht/stundenplan")
+    static func schedules(mode: FetchMode = .cacheFirst) async throws -> [Schedule] {
+        let data = try await cachedGet("\(base)/cm3/index.php/unterricht/stundenplan",
+                                       ttl: TTL.schedules, mode: mode)
         let html = String(decoding: data, as: UTF8.self)
         return try ScheduleHtmlParser.parse(html).map {
             Schedule(title: $0["title"] as? String ?? "",
@@ -95,8 +98,8 @@ enum SchoolAPI {
     }
 
     /// Downloads a schedule PDF, returns the local file URL + class index.
-    static func schedulePdf(_ schedule: Schedule) async throws -> (URL, [String: Int]) {
-        let data = try await get(schedule.fullUrl)
+    static func schedulePdf(_ schedule: Schedule, mode: FetchMode = .cacheFirst) async throws -> (URL, [String: Int]) {
+        let data = try await cachedGet(schedule.fullUrl, ttl: TTL.schedules, mode: mode)
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("schedule_\(abs(schedule.fullUrl.hashValue)).pdf")
         try data.write(to: tmp)
@@ -108,13 +111,14 @@ enum SchoolAPI {
 
     // ── News ────────────────────────────────────────────────────────────────
 
-    static func newsList() async throws -> [NewsParser.Metadata] {
-        let data = try await get("\(base)/cm3/index.php/neues", authenticated: false)
+    static func newsList(mode: FetchMode = .cacheFirst) async throws -> [NewsParser.Metadata] {
+        let data = try await cachedGet("\(base)/cm3/index.php/neues",
+                                       authenticated: false, ttl: TTL.news, mode: mode)
         return try NewsParser.parseListPage(String(decoding: data, as: UTF8.self))
     }
 
-    static func article(url: String) async throws -> NewsParser.Article {
-        let data = try await get(url, authenticated: false)
+    static func article(url: String, mode: FetchMode = .cacheFirst) async throws -> NewsParser.Article {
+        let data = try await cachedGet(url, authenticated: false, ttl: TTL.news, mode: mode)
         return try NewsParser.parseArticle(String(decoding: data, as: UTF8.self))
     }
 
@@ -126,7 +130,7 @@ enum SchoolAPI {
         let time: String?, title: String
     }
 
-    static func events() async throws -> [Event] {
+    static func events(mode: FetchMode = .cacheFirst) async throws -> [Event] {
         let cal = Calendar.current
         let today = Date()
         let df = DateFormatter()
@@ -135,7 +139,8 @@ enum SchoolAPI {
         for week in 0..<3 {
             let target = cal.date(byAdding: .day, value: week * 7, to: today)!
             let url = "\(base)/cm3/index.php/termine/week.listevents/\(df.string(from: target))/-?catids="
-            let data = try await get(url, authenticated: false)
+            let data = try await cachedGet(url, authenticated: false,
+                                           ttl: TTL.events, mode: mode)
             htmls.append(String(decoding: data, as: UTF8.self))
         }
         df.dateFormat = "yyyy-MM-dd"
@@ -163,13 +168,14 @@ enum SchoolAPI {
         let hourly: [Hour], daily: [Day]
     }
 
-    static func weather() async throws -> WeatherData {
+    static func weather(mode: FetchMode = .cacheFirst) async throws -> WeatherData {
         let url = "https://api.open-meteo.com/v1/forecast?latitude=49.00775&longitude=8.375&elevation=122"
             + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cloud_cover,visibility,uv_index,is_day"
             + "&hourly=temperature_2m,relative_humidity_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,is_day"
             + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m_max,sunrise,sunset"
             + "&timezone=Europe%2FBerlin&forecast_days=3"
-        let data = try await get(url, authenticated: false)
+        let data = try await cachedGet(url, authenticated: false,
+                                       ttl: TTL.weather, mode: mode)
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd'T'HH:00"
         let refNow = df.string(from: Date())

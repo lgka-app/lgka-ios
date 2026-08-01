@@ -5,6 +5,10 @@ import LGKACore
 /// schedule class card, upcoming events; toolbar: news / sick note / settings.
 @MainActor
 final class HomeModel: ObservableObject {
+    static let shared = HomeModel()
+
+    @Published var newsList: [NewsParser.Metadata]?
+    @Published var newsFailed = false
     @Published var today: SchoolAPI.SubPlan?
     @Published var tomorrow: SchoolAPI.SubPlan?
     @Published var subError = false
@@ -21,19 +25,55 @@ final class HomeModel: ObservableObject {
     @Published var eventsError = false
     @Published var eventsLoading = true
 
-    func loadAll() async {
-        async let a: () = loadSubstitution()
-        async let b: () = loadWeather()
-        async let c: () = loadSchedules()
-        async let d: () = loadEvents()
-        _ = await (a, b, c, d)
+    private var bootstrapped = false
+
+    /// Startup preload, mirroring main.dart's _preloadData:
+    /// phase 1 shows any cached data instantly, phase 2 refreshes per TTL,
+    /// then news article contents are prefetched into the cache.
+    func bootstrap() async {
+        guard !bootstrapped else { return }
+        bootstrapped = true
+        await loadAll(mode: .cacheAny)
+        await loadAll(mode: .cacheFirst)
+        await prefetchArticles()
     }
 
-    func loadSubstitution() async {
+    func loadAll(mode: FetchMode = .cacheFirst) async {
+        async let a: () = loadSubstitution(mode: mode)
+        async let b: () = loadWeather(mode: mode)
+        async let c: () = loadSchedules(mode: mode)
+        async let d: () = loadEvents(mode: mode)
+        async let e: () = loadNews(mode: mode)
+        _ = await (a, b, c, d, e)
+    }
+
+    func loadNews(mode: FetchMode = .cacheFirst) async {
+        do {
+            newsList = try await SchoolAPI.newsList(mode: mode)
+            newsFailed = false
+        } catch {
+            if newsList == nil { newsFailed = true }
+        }
+    }
+
+    /// Fetch all article pages into the disk cache so detail opens instantly
+    /// (the Flutter app fetches full contents up front too).
+    func prefetchArticles() async {
+        guard let list = newsList else { return }
+        await withTaskGroup(of: Void.self) { group in
+            for md in list.prefix(20) {
+                group.addTask {
+                    _ = try? await SchoolAPI.article(url: md.url, mode: .cacheFirst)
+                }
+            }
+        }
+    }
+
+    func loadSubstitution(mode: FetchMode = .cacheFirst) async {
         subLoading = today == nil && tomorrow == nil
         do {
-            async let t = SchoolAPI.substitutionPlan(today: true)
-            async let m = SchoolAPI.substitutionPlan(today: false)
+            async let t = SchoolAPI.substitutionPlan(today: true, mode: mode)
+            async let m = SchoolAPI.substitutionPlan(today: false, mode: mode)
             today = try await t
             tomorrow = try await m
             subError = false
@@ -43,19 +83,19 @@ final class HomeModel: ObservableObject {
         subLoading = false
     }
 
-    func loadWeather() async {
+    func loadWeather(mode: FetchMode = .cacheFirst) async {
         do {
-            weather = try await SchoolAPI.weather()
+            weather = try await SchoolAPI.weather(mode: mode)
             weatherError = false
         } catch {
             if weather == nil { weatherError = true }
         }
     }
 
-    func loadSchedules() async {
+    func loadSchedules(mode: FetchMode = .cacheFirst) async {
         scheduleLoading = schedules.isEmpty
         do {
-            schedules = try await SchoolAPI.schedules()
+            schedules = try await SchoolAPI.schedules(mode: mode)
             scheduleError = false
         } catch {
             if schedules.isEmpty { scheduleError = true }
@@ -63,10 +103,10 @@ final class HomeModel: ObservableObject {
         scheduleLoading = false
     }
 
-    func loadEvents() async {
+    func loadEvents(mode: FetchMode = .cacheFirst) async {
         eventsLoading = events.isEmpty
         do {
-            events = try await SchoolAPI.events()
+            events = try await SchoolAPI.events(mode: mode)
             eventsError = false
         } catch {
             if events.isEmpty { eventsError = true }
@@ -77,7 +117,7 @@ final class HomeModel: ObservableObject {
 
 struct HomeScreen: View {
     @EnvironmentObject private var prefs: Prefs
-    @StateObject private var model = HomeModel()
+    @ObservedObject private var model = HomeModel.shared
     @State private var showSettings = false
     @State private var showClassDialog = false
     @State private var classInput = ""
@@ -134,9 +174,9 @@ struct HomeScreen: View {
             }
             .refreshable {
                 Haptics.medium()
-                await model.loadAll()
+                await model.loadAll(mode: .refresh)
             }
-            .task { await model.loadAll() }
+            .task { await model.bootstrap() }
             .sheet(isPresented: $showSettings) {
                 SettingsSheet(onBugReport: {
                     showSettings = false
@@ -175,22 +215,22 @@ struct HomeScreen: View {
                 Haptics.medium()
                 path.append(.weather)
             } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Image(systemName: Wmo.symbol(w.code, isDay: w.isDay))
-                        .font(.system(size: 30))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 34))
+                        .symbolRenderingMode(.multicolor)
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text("\(Int(w.temp.rounded()))°")
-                                .font(.callout.weight(.bold))
+                                .font(.title.weight(.semibold))
                             Text(L.wmo(w.code))
-                                .font(.callout.weight(.semibold))
+                                .font(.subheadline.weight(.semibold))
                                 .opacity(0.9)
                                 .lineLimit(1)
                         }
                         Text(feelsLikeLine(w))
                             .font(.caption.weight(.semibold))
-                            .opacity(0.75)
+                            .opacity(0.8)
                     }
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.38), radius: 6)
@@ -200,15 +240,16 @@ struct HomeScreen: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 .padding(.horizontal, 18)
-                .frame(height: 76)
+                .frame(height: 96)
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
             .listRowInsets(EdgeInsets())
             .listRowBackground(
-                WeatherScene.gradient(w.code, isDay: w.isDay)
-                    .overlay(LinearGradient(colors: [.black.opacity(0.07), .black.opacity(0.16)],
-                                            startPoint: .top, endPoint: .bottom)))
+                SkyView(code: w.code, isDay: w.isDay)
+                    .overlay(LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.2)],
+                                            startPoint: .top, endPoint: .bottom))
+                    .clipShape(RoundedRectangle(cornerRadius: 10)))
         } else if model.weatherError {
             HStack(spacing: 14) {
                 Image(systemName: "cloud.slash").foregroundStyle(.secondary)
@@ -299,8 +340,9 @@ struct HomeScreen: View {
                     Text(title)
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(canOpen ? .primary : Color.primary.opacity(0.35))
-                    if canOpen, let date = plan?.planDate {
-                        Text(date).font(.caption).foregroundStyle(.secondary)
+                    if canOpen, let plan, let date = plan.planDate {
+                        Text("\(date) · \(entriesLabel(plan.entries.count))")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
@@ -315,6 +357,15 @@ struct HomeScreen: View {
         }
         .buttonStyle(.plain)
         .disabled(!canOpen)
+    }
+
+    private func entriesLabel(_ count: Int) -> String {
+        if L.isGerman {
+            return count == 0 ? "Keine Vertretungen"
+                : count == 1 ? "1 Vertretung" : "\(count) Vertretungen"
+        }
+        return count == 0 ? "No substitutions"
+            : count == 1 ? "1 substitution" : "\(count) substitutions"
     }
 
     private func displayWeekday(_ weekday: String?) -> String {
@@ -471,7 +522,7 @@ struct HomeScreen: View {
         } else {
             ForEach(model.events.prefix(4)) { event in
                     HStack(spacing: 14) {
-                        IconSquare(systemName: "calendar")
+                        dateTile(event.date)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.title)
                                 .font(.subheadline.weight(.semibold))
@@ -484,6 +535,25 @@ struct HomeScreen: View {
                     .padding(.vertical, 6)
                 }
         }
+    }
+
+    @Environment(\.appAccent) private var accent
+
+    private func dateTile(_ iso: String) -> some View {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let date = df.date(from: iso)
+        let day = date.map { Calendar.current.component(.day, from: $0) } ?? 0
+        let out = DateFormatter()
+        out.locale = Locale(identifier: L.isGerman ? "de_DE" : "en_US")
+        out.dateFormat = "MMM"
+        let month = date.map { out.string(from: $0) } ?? ""
+        return VStack(spacing: 0) {
+            Text("\(day)").font(.title3.weight(.bold)).foregroundStyle(accent)
+            Text(month).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+        }
+        .frame(width: 44, height: 44)
+        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func eventSubtitle(_ event: SchoolAPI.Event) -> String {
