@@ -1,76 +1,51 @@
 import SwiftUI
 
+/// Persisted preferences — mirrors PreferencesManager.
+final class Prefs: ObservableObject {
+    @AppStorage("onboardingCompleted") var onboardingCompleted = false
+    @AppStorage("isAuthenticated") var isAuthenticated = false
+    @AppStorage("accentColor") var accentColor = "blue"
+    @AppStorage("themeMode") var themeMode = "system"
+    @AppStorage("krankmeldungInfoShown") var krankmeldungInfoShown = false
+    @AppStorage("selectedScheduleClass") var selectedScheduleClass = ""
+
+    var accent: Color { (Accent(rawValue: accentColor) ?? .blue).color }
+    var colorScheme: ColorScheme? {
+        switch themeMode {
+        case "dark": return .dark
+        case "light": return .light
+        default: return nil
+        }
+    }
+}
+
 @main
 struct LGKAApp: App {
+    @StateObject private var prefs = Prefs()
+
     var body: some Scene {
         WindowGroup {
             RootView()
-                .tint(Color("AccentColor"))
+                .environmentObject(prefs)
+                .environment(\.appAccent, prefs.accent)
+                .tint(prefs.accent)
+                .preferredColorScheme(prefs.colorScheme)
+                .overlay(FireworksOverlay())
         }
     }
 }
 
+/// Route gating — mirrors main.dart's initialRoute logic, kept live.
 struct RootView: View {
-    var body: some View {
-        TabView {
-            Tab("Vertretung", systemImage: "arrow.triangle.2.circlepath") {
-                SubstitutionView()
-            }
-            Tab("Stundenplan", systemImage: "calendar.day.timeline.left") {
-                ScheduleView()
-            }
-            Tab("News", systemImage: "newspaper") {
-                NewsView()
-            }
-            Tab("Termine", systemImage: "calendar") {
-                EventsView()
-            }
-            Tab("Wetter", systemImage: "cloud.sun") {
-                WeatherView()
-            }
-        }
-        .tabBarMinimizeBehavior(.onScrollDown)
-    }
-}
-
-/// Shared async-state wrapper: spinner -> content -> error with retry.
-struct LoadableView<Value, Content: View>: View {
-    let load: () async throws -> Value
-    @ViewBuilder let content: (Value) -> Content
-
-    @State private var value: Value?
-    @State private var error: String?
+    @EnvironmentObject private var prefs: Prefs
 
     var body: some View {
-        Group {
-            if let value {
-                content(value)
-            } else if let error {
-                ContentUnavailableView {
-                    Label("Serververbindung fehlgeschlagen", systemImage: "wifi.exclamationmark")
-                } description: {
-                    Text(error)
-                } actions: {
-                    Button("Erneut versuchen") {
-                        self.error = nil
-                        Task { await run() }
-                    }
-                    .buttonStyle(.glassProminent)
-                }
-            } else {
-                ProgressView().controlSize(.large)
-            }
-        }
-        .task { if value == nil { await run() } }
-        .refreshable { await run() }
-    }
-
-    private func run() async {
-        do {
-            value = try await load()
-            error = nil
-        } catch {
-            if value == nil { self.error = error.localizedDescription }
+        if !prefs.onboardingCompleted {
+            OnboardingFlow()
+        } else if !prefs.isAuthenticated {
+            AuthScreen()
+        } else {
+            HomeScreen()
         }
     }
 }

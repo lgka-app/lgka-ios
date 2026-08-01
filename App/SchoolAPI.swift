@@ -34,6 +34,13 @@ enum SchoolAPI {
         let isEmpty: Bool
         let announcements: [String], absentTeachers: [String], absentClasses: [String]
         let entries: [Entry]
+        var fileUrl: URL?
+
+        /// Mirrors SubstitutionState.canDisplay.
+        var canDisplay: Bool {
+            !isEmpty && weekday != nil && weekday != "weekend"
+                && planDate != nil && fileUrl != nil
+        }
 
         init(dict: [String: Any]) {
             func s(_ k: String) -> String? { dict[k] as? String }
@@ -64,7 +71,9 @@ enum SchoolAPI {
         guard let lines = extractLines(from: tmp) else {
             throw URLError(.cannotParseResponse)
         }
-        return SubPlan(dict: Extractor.extract(lines: lines))
+        var plan = SubPlan(dict: Extractor.extract(lines: lines))
+        plan.fileUrl = tmp
+        return plan
     }
 
     // ── Schedule ────────────────────────────────────────────────────────────
