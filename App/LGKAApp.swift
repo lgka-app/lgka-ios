@@ -22,10 +22,26 @@ final class Prefs: ObservableObject {
 @main
 struct LGKAApp: App {
     @StateObject private var prefs = Prefs()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView()
+                .onChange(of: scenePhase) { _, phase in
+                    // main.dart parity: refresh critical data on resume
+                    if phase == .active && prefs.isAuthenticated {
+                        Task { await HomeModel.shared.loadAll() }
+                    }
+                }
+                .task {
+                    // main.dart parity: 1-minute expired-cache refresh timer
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .seconds(60))
+                        if prefs.isAuthenticated {
+                            await HomeModel.shared.loadAll()
+                        }
+                    }
+                }
                 .environmentObject(prefs)
                 .environment(\.appAccent, prefs.accent)
                 .tint(prefs.accent)

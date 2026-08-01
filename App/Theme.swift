@@ -56,47 +56,6 @@ enum Haptics {
     static func intense() { UIImpactFeedbackGenerator(style: .heavy).impactOccurred() }
 }
 
-/// WMO weather scene gradient — stands in for the Flutter animated WeatherBg.
-enum WeatherScene {
-    static func gradient(_ code: Int, isDay: Bool) -> LinearGradient {
-        let colors: [Color]
-        switch code {
-        case 0, 1:
-            colors = isDay
-                ? [Color(red: 0.28, green: 0.6, blue: 0.95), Color(red: 0.12, green: 0.42, blue: 0.85)]
-                : [Color(red: 0.08, green: 0.1, blue: 0.32), Color(red: 0.03, green: 0.04, blue: 0.15)]
-        case 2, 3:
-            colors = isDay
-                ? [Color(red: 0.45, green: 0.55, blue: 0.65), Color(red: 0.3, green: 0.38, blue: 0.47)]
-                : [Color(red: 0.14, green: 0.18, blue: 0.24), Color(red: 0.08, green: 0.1, blue: 0.14)]
-        case 45, 48:
-            colors = [Color(red: 0.55, green: 0.6, blue: 0.66), Color(red: 0.4, green: 0.45, blue: 0.5)]
-        case 51...67, 80...82:
-            colors = [Color(red: 0.25, green: 0.4, blue: 0.6), Color(red: 0.1, green: 0.2, blue: 0.38)]
-        case 71...77, 85, 86:
-            colors = [Color(red: 0.6, green: 0.7, blue: 0.85), Color(red: 0.4, green: 0.52, blue: 0.68)]
-        case 95, 96, 99:
-            colors = [Color(red: 0.2, green: 0.12, blue: 0.45), Color(red: 0.08, green: 0.05, blue: 0.2)]
-        default:
-            colors = [Color(red: 0.45, green: 0.55, blue: 0.65), Color(red: 0.3, green: 0.38, blue: 0.47)]
-        }
-        return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
-    }
-}
-
-/// Skeleton placeholder — mirrors SkeletonCard.
-struct SkeletonCard: View {
-    @State private var pulse = false
-    var height: CGFloat = 76
-    var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(.quaternary.opacity(pulse ? 0.5 : 0.9))
-            .frame(height: height)
-            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulse)
-            .onAppear { pulse = true }
-    }
-}
-
 /// 44pt tinted icon square used across the home cards.
 struct IconSquare: View {
     let systemName: String

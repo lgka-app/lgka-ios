@@ -8,6 +8,7 @@ struct PdfViewerScreen: View {
     let title: String
     let targetPage: Int? // display page (pageIndex + 2 contract)
 
+    @EnvironmentObject private var prefs: Prefs
     @Environment(\.dismiss) private var dismiss
     @State private var document: PDFDocument?
     @State private var searchText = ""
@@ -83,6 +84,12 @@ struct PdfViewerScreen: View {
 
     private func runSearch() {
         guard let document, !searchText.isEmpty else { return }
+        // schedule-PDF parity: searching a class persists it as your class
+        let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        if targetPage != nil,
+           query.range(of: "^(j1[12]|\\d{1,2}[a-e])$", options: .regularExpression) != nil {
+            prefs.selectedScheduleClass = query
+        }
         matches = document.findString(searchText, withOptions: [.caseInsensitive])
         matchIndex = 0
         select(0)

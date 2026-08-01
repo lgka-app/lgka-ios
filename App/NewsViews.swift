@@ -73,6 +73,7 @@ struct NewsCard: View {
 /// links, images, download + standalone-link buttons, open-in-browser.
 struct NewsDetailScreen: View {
     let md: NewsParser.Metadata
+    @ObservedObject private var model = HomeModel.shared
     @State private var article: NewsParser.Article?
     @State private var failed = false
     @Environment(\.appAccent) private var accent
@@ -167,6 +168,32 @@ struct NewsDetailScreen: View {
                                     .surfaceCard(radius: 12)
                                 }
                             }
+                        }
+                    }
+                }
+
+                // "Weitere Neuigkeiten" — recommended articles (news_detail parity)
+                if let all = model.newsList {
+                    let others = all.enumerated().filter { $0.element.url != md.url }.prefix(3)
+                    if !others.isEmpty {
+                        Divider().padding(.top, 8)
+                        Text(L.isGerman ? "Weitere Neuigkeiten" : "More news")
+                            .font(.title3.bold())
+                        ForEach(Array(others), id: \.offset) { pair in
+                            NavigationLink(value: pair.offset) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(pair.element.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .multilineTextAlignment(.leading)
+                                    Text("\(pair.element.author) · \(pair.element.createdDate)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(16)
+                                .surfaceCard(radius: 12)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
