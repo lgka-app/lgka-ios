@@ -56,6 +56,14 @@ final class HomeModel: ObservableObject {
         }
     }
 
+    /// Prefer 2. Halbjahr — mirrors the provider's active-group logic.
+    var preferredGroup: [SchoolAPI.Schedule] {
+        let second = schedules.filter { $0.halbjahr == "2. Halbjahr" }
+        return second.isEmpty
+            ? schedules.filter { $0.halbjahr == "1. Halbjahr" }
+            : second
+    }
+
     /// Fetch all article pages into the disk cache so detail opens instantly
     /// (the Flutter app fetches full contents up front too).
     func prefetchArticles() async {
@@ -134,7 +142,10 @@ struct HomeScreen: View {
         let fileUrl: URL
         let title: String
         let targetPage: Int?
+        var gradeLevel: String? = nil
     }
+
+    @State private var scheduleUnavailable: String?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -168,7 +179,8 @@ struct HomeScreen: View {
                     KrankmeldungInfoScreen { path.append(.krankmeldungForm) }
                 case .krankmeldungForm:
                     WebScreen(url: "https://drkrankmeldung.lgka-online.de",
-                              title: L.s("krankmeldung"))
+                              title: L.s("krankmeldung"),
+                              confineToHost: "lgka-online.de")
                 case .bugReport: BugReportScreen()
                 }
             }
@@ -186,7 +198,13 @@ struct HomeScreen: View {
             }
             .fullScreenCover(item: $pdfDestination) { dest in
                 PdfViewerScreen(fileUrl: dest.fileUrl, title: dest.title,
-                                targetPage: dest.targetPage)
+                                targetPage: dest.targetPage,
+                                gradeLevel: dest.gradeLevel)
+            }
+            .alert(scheduleUnavailable ?? "", isPresented: .init(
+                get: { scheduleUnavailable != nil },
+                set: { if !$0 { scheduleUnavailable = nil } })) {
+                Button("OK", role: .cancel) {}
             }
             .alert(L.s("setClassTitle"), isPresented: $showClassDialog) {
                 TextField(L.s("searchHint"), text: $classInput)
@@ -225,6 +243,10 @@ struct HomeScreen: View {
                         Text(L.wmo(w.code))
                             .font(.footnote.weight(.medium))
                             .opacity(0.9)
+                            .lineLimit(1)
+                        Text(feelsLikeLine(w))
+                            .font(.caption2.weight(.semibold))
+                            .opacity(0.8)
                             .lineLimit(1)
                     }
                     Spacer()
@@ -328,6 +350,31 @@ struct HomeScreen: View {
     }
 
     @ViewBuilder private func subCard(_ plan: SchoolAPI.SubPlan?, isToday: Bool) -> some View {
+        if plan == nil && !model.subLoading && !model.subError {
+            // per-card failure (home_screen per-day retry parity)
+            Button {
+                Haptics.medium()
+                Task { await model.loadSubstitution(mode: .refresh) }
+            } label: {
+                HStack(spacing: 14) {
+                    IconSquare(systemName: "arrow.clockwise")
+                    Text(L.s("errorLoading"))
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "arrow.clockwise")
+                        .font(.footnote)
+                        .foregroundStyle(.tint)
+                }
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+        } else {
+            subCardContent(plan)
+        }
+    }
+
+    @ViewBuilder private func subCardContent(_ plan: SchoolAPI.SubPlan?) -> some View {
         let canOpen = plan?.canDisplay ?? false
         let weekday = displayWeekday(plan?.weekday)
         let title = canOpen ? weekday : L.s("noInfoYet")
@@ -456,13 +503,7 @@ struct HomeScreen: View {
         .buttonStyle(.plain)
     }
 
-    /// Prefer 2. Halbjahr, mirroring the provider's active-group logic.
-    private var preferredGroup: [SchoolAPI.Schedule] {
-        let second = model.schedules.filter { $0.halbjahr == "2. Halbjahr" }
-        return second.isEmpty
-            ? model.schedules.filter { $0.halbjahr == "1. Halbjahr" }
-            : second
-    }
+    private var preferredGroup: [SchoolAPI.Schedule] { model.preferredGroup }
 
     private func formatClassName(_ cls: String) -> String {
         if cls == "j11" { return L.s("jahrgang11") }
@@ -490,9 +531,11 @@ struct HomeScreen: View {
                 pdfDestination = PdfDestination(
                     fileUrl: file,
                     title: "\(formatClassName(cls)) – \(half)",
-                    targetPage: page)
+                    targetPage: page,
+                    gradeLevel: target.gradeLevel)
             } catch {
-                // parity: SnackBar error — approximated by silent fail + retry via card
+                // home_screen SnackBar parity
+                scheduleUnavailable = "\(half) \(L.s("scheduleNotAvailable"))"
             }
         }
     }

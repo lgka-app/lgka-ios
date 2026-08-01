@@ -54,7 +54,7 @@ extension SchoolAPI {
         static let substitution: TimeInterval = 60
         static let schedules: TimeInterval = 24 * 3600
         static let news: TimeInterval = 3600
-        static let weather: TimeInterval = 3600
+        static let weather: TimeInterval = 60 // CacheService parity (1 min)
         static let events: TimeInterval = 3600
     }
 

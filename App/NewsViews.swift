@@ -59,11 +59,29 @@ struct NewsCard: View {
             HStack(spacing: 12) {
                 Label(md.author, systemImage: "person")
                 Label(md.createdDate, systemImage: "calendar")
+                Label("\(md.views)", systemImage: "eye")
                 Spacer()
             }
             .font(.caption)
             .foregroundStyle(.tertiary)
             .lineLimit(1)
+            if !md.tags.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(md.tags.prefix(3), id: \.self) { tag in
+                        Text(tag)
+                            .font(.caption2.weight(.medium))
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(.tint.opacity(0.12), in: Capsule())
+                            .foregroundStyle(.tint)
+                    }
+                }
+            }
+            HStack(spacing: 4) {
+                Text(L.s("mehrErfahren"))
+                Image(systemName: "arrow.right")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.tint)
         }
         .padding(.vertical, 4)
     }
@@ -177,7 +195,7 @@ struct NewsDetailScreen: View {
                     let others = all.enumerated().filter { $0.element.url != md.url }.prefix(3)
                     if !others.isEmpty {
                         Divider().padding(.top, 8)
-                        Text(L.isGerman ? "Weitere Neuigkeiten" : "More news")
+                        Text(L.s("weitereNeuigkeiten"))
                             .font(.title3.bold())
                         ForEach(Array(others), id: \.offset) { pair in
                             NavigationLink(value: pair.offset) {

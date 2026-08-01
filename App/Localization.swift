@@ -59,7 +59,6 @@ enum L {
         "loadingSchedule": "Lade Stundenplan...",
         "scheduleNotAvailable": "ist noch nicht verfügbar",
         "firstSemester": "1. Halbjahr", "secondSemester": "2. Halbjahr",
-        "grades5to10": "Klassen 5-10", "j11j12": "J11/J12",
         "jahrgang11": "Jahrgang 11", "jahrgang12": "Jahrgang 12",
         "weatherPageTitle": "Wetter Karlsruhe",
         "weatherDataNotAvailable": "Wetterdaten nicht verfügbar",
@@ -83,9 +82,23 @@ enum L {
         "noNewsAvailable": "Keine Neuigkeiten verfügbar",
         "openInBrowser": "Im Browser öffnen",
         "sharePdf": "PDF teilen", "searchInPdf": "Im PDF suchen",
-        "unknown": "Unbekannt",
         "cancel": "Abbrechen",
+        "weitereNeuigkeiten": "Weitere Neuigkeiten",
+        "mehrErfahren": "Mehr erfahren",
+        "views": "Zugriffe",
     ]
+
+    /// "Klasse {x} existiert nicht." (noResultsFound parity)
+    static func noResults(_ query: String) -> String {
+        isGerman ? "Klasse \(query.uppercased()) existiert nicht."
+            : "Class \(query.uppercased()) does not exist."
+    }
+
+    /// "Deine Klasse wurde auf {x} geändert." (classChanged parity)
+    static func classChanged(_ name: String) -> String {
+        isGerman ? "Deine Klasse wurde auf \(name) geändert."
+            : "Your class was changed to \(name)."
+    }
 
     static let en: [String: String] = [
         "welcomeHeadline": "Welcome!",
@@ -134,7 +147,6 @@ enum L {
         "loadingSchedule": "Loading timetable...",
         "scheduleNotAvailable": "is not available yet",
         "firstSemester": "1st semester", "secondSemester": "2nd semester",
-        "grades5to10": "Grades 5-10", "j11j12": "J11/J12",
         "jahrgang11": "Year 11", "jahrgang12": "Year 12",
         "weatherPageTitle": "Weather Karlsruhe",
         "weatherDataNotAvailable": "Weather data not available",
@@ -158,8 +170,10 @@ enum L {
         "noNewsAvailable": "No news available",
         "openInBrowser": "Open in browser",
         "sharePdf": "Share PDF", "searchInPdf": "Search in PDF",
-        "unknown": "Unknown",
         "cancel": "Cancel",
+        "weitereNeuigkeiten": "More news",
+        "mehrErfahren": "Learn more",
+        "views": "Views",
     ]
 
     /// German WMO description (WmoUtils.description) with EN fallback.

@@ -50,6 +50,7 @@ struct WeatherPageScreen: View {
                 ProgressView()
             }
         }
+        .navigationTitle(L.s("weatherPageTitle"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {

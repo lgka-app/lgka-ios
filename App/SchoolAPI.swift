@@ -6,13 +6,16 @@ import LGKACore
 /// and re-shapes dictionaries into models the views can render.
 enum SchoolAPI {
     static let base = "https://lessing-gymnasium-karlsruhe.de"
+    /// Same User-Agent format the Flutter app sends (app_info.dart).
+    static let userAgent = "LGKA-App-Luka-Loehr/" +
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0.0")
     private static let auth =
         "Basic " + Data("vertretungsplan:ephraim".utf8).base64EncodedString()
 
     static func get(_ url: String, authenticated: Bool = true) async throws -> Data {
         var request = URLRequest(url: URL(string: url)!, timeoutInterval: 15)
         if authenticated { request.setValue(auth, forHTTPHeaderField: "Authorization") }
-        request.setValue("LGKA+/3.0.0", forHTTPHeaderField: "User-Agent")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
@@ -254,15 +257,4 @@ enum Wmo {
         default: return "Unbekannt"
         }
     }
-}
-
-/// "yyyy-MM-dd" -> "Mo., 14.09." style German label.
-func germanDayLabel(_ iso: String) -> String {
-    let df = DateFormatter()
-    df.dateFormat = "yyyy-MM-dd"
-    guard let date = df.date(from: iso) else { return iso }
-    let out = DateFormatter()
-    out.locale = Locale(identifier: "de_DE")
-    out.dateFormat = "EE, d. MMMM"
-    return out.string(from: date)
 }

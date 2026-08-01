@@ -6,9 +6,11 @@ import WebKit
 struct WebScreen: View {
     let url: String
     let title: String
+    /// Links leaving this host open in the system browser (webview parity).
+    var confineToHost: String? = nil
 
     var body: some View {
-        WebContainer(url: url)
+        WebContainer(url: url, confineToHost: confineToHost)
             .themeBg()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -75,13 +77,15 @@ struct BugReportScreen: View {
 
 struct WebContainer: View {
     let url: String
+    var confineToHost: String? = nil
     @State private var progress = 0.0
     @State private var failed = false
     @State private var reloadToken = 0
 
     var body: some View {
         ZStack {
-            WebViewRepresentable(url: url, progress: $progress,
+            WebViewRepresentable(url: url, confineToHost: confineToHost,
+                                 progress: $progress,
                                  failed: $failed, reloadToken: reloadToken)
             if failed {
                 VStack(spacing: 8) {
@@ -118,6 +122,7 @@ struct WebContainer: View {
 
 struct WebViewRepresentable: UIViewRepresentable {
     let url: String
+    var confineToHost: String? = nil
     @Binding var progress: Double
     @Binding var failed: Bool
     let reloadToken: Int
@@ -129,7 +134,7 @@ struct WebViewRepresentable: UIViewRepresentable {
         config.websiteDataStore = .nonPersistent() // incognito parity
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
-        view.customUserAgent = "LGKA+/3.0.0"
+        view.customUserAgent = SchoolAPI.userAgent
         view.isOpaque = false
         context.coordinator.observe(view)
         load(view)
@@ -169,6 +174,34 @@ struct WebViewRepresentable: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
                      withError error: Error) {
             parent.failed = true
+        }
+
+        // webview_screen parity: answer HTTP basic-auth challenges
+        func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge,
+                     completionHandler: @escaping (URLSession.AuthChallengeDisposition,
+                                                   URLCredential?) -> Void) {
+            if challenge.protectionSpace.authenticationMethod
+                == NSURLAuthenticationMethodHTTPBasic {
+                completionHandler(.useCredential,
+                    URLCredential(user: "vertretungsplan", password: "ephraim",
+                                  persistence: .forSession))
+            } else {
+                completionHandler(.performDefaultHandling, nil)
+            }
+        }
+
+        // webview_screen parity: external links leave the in-app webview
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if let confined = parent.confineToHost,
+               navigationAction.navigationType == .linkActivated,
+               let target = navigationAction.request.url,
+               let host = target.host, !host.contains(confined) {
+                UIApplication.shared.open(target)
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
         }
     }
 }
