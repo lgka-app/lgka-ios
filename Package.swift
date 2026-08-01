@@ -4,7 +4,13 @@ import PackageDescription
 let package = Package(
     name: "lgka-extractor",
     platforms: [.macOS(.v13)],
+    dependencies: [
+        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0")
+    ],
     targets: [
-        .executableTarget(name: "LGKAExtractor", path: "Sources/LGKAExtractor")
+        .executableTarget(
+            name: "LGKAExtractor",
+            dependencies: ["SwiftSoup"],
+            path: "Sources/LGKAExtractor")
     ]
 )
