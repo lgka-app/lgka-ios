@@ -56,6 +56,6 @@ dataset in [lgka-app/verification](https://github.com/lgka-app/verification).
 # run over the verification fixtures
 git clone https://github.com/lgka-app/verification.git ../verification
 swift run LGKAExtractor ../verification/fixtures/substitution /tmp/out-swift
-# compare against goldens
-python3 ../verification/tool/compare_report.py --swift /tmp/out-swift
+# compare against goldens (Rust; run once, get report.html)
+cargo run --release --manifest-path ../verification/tool/compare-report/Cargo.toml -- --swift /tmp/out-swift
 ```
