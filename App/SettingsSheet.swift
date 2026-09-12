@@ -4,6 +4,9 @@ import SwiftUI
 /// MEHR (bug report, privacy, legal, log out), version footer.
 struct SettingsSheet: View {
     var onBugReport: () -> Void
+    /// Privacy and legal notice: pushed on the home stack like the bug report (a sheet on
+    /// top of this sheet is not presented reliably).
+    var onOpenWeb: (String, String) -> Void
     @Environment(Prefs.self) private var prefs
     @Environment(HomeModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -31,15 +34,17 @@ struct SettingsSheet: View {
                     } label: {
                         Label(L.s("bugReport"), systemImage: "ladybug")
                     }
-                    if let url = URL(string: "https://lgka.app/privacy") {
-                        Link(destination: url) {
-                            Label(L.s("privacyLabel"), systemImage: "hand.raised")
-                        }
+                    Button {
+                        Haptics.light()
+                        onOpenWeb("https://lgka.app/privacy", L.s("privacyLabel"))
+                    } label: {
+                        Label(L.s("privacyLabel"), systemImage: "hand.raised")
                     }
-                    if let url = URL(string: "https://lgka.app/impressum") {
-                        Link(destination: url) {
-                            Label(L.s("legalLabel"), systemImage: "info.circle")
-                        }
+                    Button {
+                        Haptics.light()
+                        onOpenWeb("https://lgka.app/impressum", L.s("legalLabel"))
+                    } label: {
+                        Label(L.s("legalLabel"), systemImage: "info.circle")
                     }
                     Button(role: .destructive) {
                         Haptics.light()

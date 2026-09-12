@@ -20,6 +20,8 @@ struct HomeScreen: View {
 
     enum HomeRoute: Hashable {
         case weather, news, krankmeldungInfo, bugReport
+        /// Any web page in the app's own web screen (privacy, legal notice) — pushed like the bug report.
+        case web(url: String, title: String)
     }
 
     struct PdfDestination: Identifiable {
@@ -72,6 +74,7 @@ struct HomeScreen: View {
                         HomeScreen.openKrankmeldungForm()
                     }
                 case .bugReport: BugReportScreen()
+                case .web(let url, let title): WebScreen(url: url, title: title)
                 }
             }
             .refreshable {
@@ -85,6 +88,9 @@ struct HomeScreen: View {
                 SettingsSheet(onBugReport: {
                     showSettings = false
                     path.append(HomeRoute.bugReport)
+                }, onOpenWeb: { url, title in
+                    showSettings = false
+                    path.append(HomeRoute.web(url: url, title: title))
                 })
                 .presentationDetents([.medium, .large])
             }
