@@ -153,6 +153,7 @@ struct NewsDetailScreen: View {
     @Environment(HomeModel.self) private var model
     @State private var article: NewsParser.Article?
     @State private var failed = false
+    @State private var photo: PhotoItem?
     @Environment(\.appAccent) private var accent
 
     var body: some View {
@@ -182,6 +183,7 @@ struct NewsDetailScreen: View {
             }
         }
         .task(id: md.url) { if article == nil { await load() } }
+        .fullScreenCover(item: $photo) { PhotoViewer(item: $0) }
     }
 
     private func load() async {
@@ -192,11 +194,79 @@ struct NewsDetailScreen: View {
         }
     }
 
+    /// A download or standalone link row (news_detail_screen parity): downloads show a
+    /// file-type glyph and size, websites their favicon and domain.
     private struct ActionLink: Identifiable {
         let id: String
         let title: String
+        let subtitle: String?
         let url: URL
-        let symbol: String
+        let symbol: String        // leading glyph (or fallback behind the favicon)
+        let favicon: URL?         // websites only
+        let trailing: String      // "arrow.down.circle" / "arrow.up.right.square"
+
+        /// Flutter `_getFileTypeIcon` mapping onto SF Symbols.
+        static func symbol(forFileType type: String) -> String {
+            switch type.lowercased() {
+            case "audio", "sound": return "headphones"
+            case "video", "movie": return "video"
+            case "image", "picture", "photo": return "photo"
+            case "pdf", "document": return "doc.richtext"
+            case "archive", "zip", "rar": return "archivebox"
+            case "text": return "doc.plaintext"
+            case "spreadsheet", "excel": return "tablecells"
+            case "presentation", "powerpoint": return "rectangle.on.rectangle.angled"
+            default: return "arrow.down.doc"
+            }
+        }
+
+        static func download(_ dl: NewsParser.Download) -> ActionLink? {
+            guard let url = URL(string: dl.url) else { return nil }
+            return ActionLink(id: "d:" + dl.url, title: dl.title, subtitle: dl.size, url: url,
+                              symbol: symbol(forFileType: dl.fileType), favicon: nil, trailing: "arrow.down.circle")
+        }
+
+        static func website(_ link: NewsParser.Link) -> ActionLink? {
+            guard let url = URL(string: link.url) else { return nil }
+            let host = url.host ?? link.url
+            let favicon = url.host.flatMap { URL(string: "https://www.google.com/s2/favicons?sz=64&domain=\($0)") }
+            return ActionLink(id: "l:" + link.url, title: link.text, subtitle: host.replacingOccurrences(of: "www.", with: ""),
+                              url: url, symbol: "link", favicon: favicon, trailing: "arrow.up.right.square")
+        }
+    }
+
+    private func actionRow(_ button: ActionLink) -> some View {
+        Link(destination: button.url) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(accent.opacity(0.12))
+                    if let favicon = button.favicon {
+                        AsyncImage(url: favicon) { image in
+                            image.resizable().scaledToFit().padding(9)
+                        } placeholder: {
+                            Image(systemName: button.symbol).foregroundStyle(accent)
+                        }
+                    } else {
+                        Image(systemName: button.symbol).foregroundStyle(accent)
+                    }
+                }
+                .frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(button.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    if let subtitle = button.subtitle, !subtitle.isEmpty {
+                        Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: button.trailing).foregroundStyle(accent)
+            }
+            .padding(14)
+            .frame(minHeight: 44)
+            .surfaceCard(radius: 12)
+        }
+        .foregroundStyle(.primary)
     }
 
     private func content(_ article: NewsParser.Article) -> some View {
@@ -217,46 +287,32 @@ struct NewsDetailScreen: View {
 
                 ForEach(article.images, id: \.url) { image in
                     if let url = URL(string: image.url) {
-                        AsyncImage(url: url) { img in
-                            img.resizable().aspectRatio(contentMode: .fit)
-                        } placeholder: {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(.quaternary)
-                                .frame(height: 180)
-                                .overlay(ProgressView())
+                        // tap → full-screen, zoomable photo viewer
+                        Button {
+                            Haptics.light()
+                            photo = PhotoItem(url: url, alt: image.alt ?? md.title)
+                        } label: {
+                            AsyncImage(url: url) { img in
+                                img.resizable().aspectRatio(contentMode: .fit)
+                            } placeholder: {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(.quaternary)
+                                    .frame(height: 180)
+                                    .overlay(ProgressView())
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .buttonStyle(.plain)
                         .accessibilityLabel(image.alt ?? md.title)
+                        .accessibilityHint(L.s("a11y.openPhoto"))
                     }
                 }
 
-                let buttons: [ActionLink] =
-                    article.standaloneLinks.compactMap { link in
-                        URL(string: link.url).map {
-                            ActionLink(id: "l:" + link.url, title: link.text, url: $0,
-                                       symbol: "arrow.up.right.square")
-                        }
-                    } + article.downloads.compactMap { dl in
-                        URL(string: dl.url).map {
-                            ActionLink(id: "d:" + dl.url, title: dl.title, url: $0,
-                                       symbol: "arrow.down.circle")
-                        }
-                    }
+                let buttons: [ActionLink] = article.downloads.compactMap(ActionLink.download)
+                    + article.standaloneLinks.compactMap(ActionLink.website)
                 if !buttons.isEmpty {
                     VStack(spacing: 8) {
-                        ForEach(buttons) { button in
-                            Link(destination: button.url) {
-                                HStack {
-                                    Image(systemName: button.symbol)
-                                    Text(button.title).lineLimit(1)
-                                    Spacer()
-                                }
-                                .font(.subheadline.weight(.medium))
-                                .padding(14)
-                                .frame(minHeight: 44)
-                                .surfaceCard(radius: 12)
-                            }
-                        }
+                        ForEach(buttons) { actionRow($0) }
                     }
                 }
 
@@ -268,20 +324,10 @@ struct NewsDetailScreen: View {
                         Text(L.s("weitereNeuigkeiten"))
                             .font(.title3.bold())
                             .accessibilityAddTraits(.isHeader)
+                        // the same cards as the news list, not bare titles
                         ForEach(Array(others)) { other in
                             NavigationLink(value: other) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(other.title)
-                                        .font(.subheadline.weight(.semibold))
-                                        .multilineTextAlignment(.leading)
-                                    Text("\(other.author) · \(other.createdDate)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(16)
-                                .surfaceCard(radius: 12)
-                                .contentShape(Rectangle())
+                                NewsCard(md: other)
                             }
                             .tapHaptic()
                             .buttonStyle(.plain)
@@ -314,5 +360,108 @@ struct NewsDetailScreen: View {
         return Text(attributed)
             .font(.body)
             .textSelection(.enabled)
+    }
+}
+
+struct PhotoItem: Identifiable {
+    let url: URL
+    let alt: String
+    var id: String { url.absoluteString }
+}
+
+/// Full-screen photo viewer: pinch and double-tap zoom, black stage, glass close button.
+struct PhotoViewer: View {
+    let item: PhotoItem
+    @Environment(\.dismiss) private var dismiss
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Color.black.ignoresSafeArea()
+            if let image {
+                ZoomableImage(image: image).ignoresSafeArea()
+            } else {
+                ProgressView().tint(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            Button { Haptics.light(); dismiss() } label: {
+                Label(L.s("a11y.close"), systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+                    .font(.body.weight(.semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.glass)
+            .padding(.leading, 16)
+            .padding(.top, 8)
+        }
+        .preferredColorScheme(.dark)
+        .task { image = await Self.load(item.url) }
+        .accessibilityLabel(item.alt)
+    }
+
+    private static func load(_ url: URL) async -> UIImage? {
+        // AsyncImage on the article page already warmed the shared URL cache
+        guard let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
+        return UIImage(data: data)
+    }
+}
+
+/// UIScrollView-backed zoom (the reliable way): fit-to-screen floor, 5x ceiling,
+/// double-tap toggles between fit and 2.5x on the tapped point.
+struct ZoomableImage: UIViewRepresentable {
+    let image: UIImage
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scroll = UIScrollView()
+        scroll.delegate = context.coordinator
+        scroll.minimumZoomScale = 1
+        scroll.maximumZoomScale = 5
+        scroll.showsVerticalScrollIndicator = false
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.bouncesZoom = true
+        scroll.contentInsetAdjustmentBehavior = .never
+        let imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+        scroll.addSubview(imageView)
+        context.coordinator.imageView = imageView
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.doubleTapped(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        scroll.addGestureRecognizer(doubleTap)
+        return scroll
+    }
+
+    func updateUIView(_ scroll: UIScrollView, context: Context) {
+        context.coordinator.imageView?.frame = scroll.bounds
+        scroll.contentSize = scroll.bounds.size
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, UIScrollViewDelegate {
+        var imageView: UIImageView?
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            // keep the image centred while it is smaller than the viewport
+            guard let imageView else { return }
+            let dx = max(0, (scrollView.bounds.width - imageView.frame.width) / 2)
+            let dy = max(0, (scrollView.bounds.height - imageView.frame.height) / 2)
+            scrollView.contentInset = UIEdgeInsets(top: dy, left: dx, bottom: dy, right: dx)
+        }
+
+        @objc func doubleTapped(_ gesture: UITapGestureRecognizer) {
+            guard let scroll = gesture.view as? UIScrollView else { return }
+            Haptics.light()
+            if scroll.zoomScale > scroll.minimumZoomScale {
+                scroll.setZoomScale(scroll.minimumZoomScale, animated: true)
+            } else {
+                let point = gesture.location(in: imageView)
+                let size = CGSize(width: scroll.bounds.width / 2.5, height: scroll.bounds.height / 2.5)
+                scroll.zoom(to: CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2,
+                                       width: size.width, height: size.height), animated: true)
+            }
+        }
     }
 }

@@ -136,6 +136,22 @@
         }
       }
     },
+    "a11y.openPhoto": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnet das Foto in der Vollbildansicht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the photo full screen"
+          }
+        }
+      }
+    },
     "a11y.precipitation": {
       "extractionState": "manual",
       "localizations": {
