@@ -259,7 +259,13 @@ struct WeatherPageScreen: View {
             }
             ForEach(w.attribution, id: \.self) { line in
                 if line.localizedCaseInsensitiveContains("open-meteo"), let url = URL(string: "https://open-meteo.com/") {
-                    Link(line, destination: url)
+                    // attribution leaves the app: the user's own browser, like the Krankmeldung form
+                    Button(line) {
+                        Haptics.light()
+                        Task { @MainActor in await UIApplication.shared.open(url) }
+                    }
+                    .buttonStyle(.plain)
+                    .underline()
                 } else {
                     Text(line)
                 }
