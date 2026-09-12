@@ -271,6 +271,20 @@ struct AuthScreen: View {
         #endif
     }
 
+    /// A secure field alone is enough for iOS to offer "Save Password?" after a login (iPad
+    /// shows it even without a content type), so the screenshot run uses a plain field. The
+    /// login form itself is never captured.
+    @ViewBuilder private var passwordField: some View {
+        if autoFillEnabled {
+            SecureField(L.s("password"), text: $password)
+                .textContentType(.password)
+        } else {
+            TextField(L.s("password"), text: $password)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        }
+    }
+
     var body: some View {
         // Centred in whatever height the keyboard leaves: the safe area shrinks when the
         // keyboard shows, the geometry follows, and the form glides up (native avoidance).
@@ -303,8 +317,7 @@ struct AuthScreen: View {
                         }
                         Divider().padding(.leading, 52)
                         field(L.s("password"), systemImage: "lock") {
-                            SecureField(L.s("password"), text: $password)
-                                .textContentType(autoFillEnabled ? .password : nil)
+                            passwordField
                                 .focused($focus, equals: .password)
                                 .submitLabel(.go)
                                 .onSubmit { if canLogin { validate() } }

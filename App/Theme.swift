@@ -99,6 +99,22 @@ extension View {
 }
 
 extension View {
+    /// Sheet sizing that follows the platform idiom: a resizable bottom sheet (half and full
+    /// height) on iPhone, the native centered form sheet on iPad. Half-height stops are a
+    /// phone pattern; on iPad they become a short floating card that cuts the content off.
+    /// Decided by device, not size class: inside an iPad form sheet the size class reads
+    /// compact, which would flip it back to detents. In narrow iPad multitasking the form
+    /// sheet adapts to a regular sheet on its own.
+    @ViewBuilder func adaptiveSheetSizing() -> some View {
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            presentationSizing(.form)
+        } else {
+            presentationDetents([.medium, .large])
+        }
+    }
+}
+
+extension View {
     /// Tap haptic for controls SwiftUI drives itself (NavigationLink, ShareLink):
     /// fires alongside the control's own tap without swallowing it.
     func tapHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .light) -> some View {

@@ -9,6 +9,8 @@
 #
 # Requires Xcode 26 with the iPhone 17 Pro Max and iPad Pro 13-inch (M5)
 # simulators (Xcode → Settings → Components).
+# One app session per appearance × locale: the suite launches the app once,
+# walks onboarding + login and captures every screen from there (8 shots per run).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -50,7 +52,7 @@ for form in "${FORMS[@]}"; do
         -destination "platform=iOS Simulator,id=$udid" \
         -only-testing:LGKAUITests -derivedDataPath "$DERIVED" \
         CODE_SIGN_IDENTITY=- \
-        2>&1 | grep -E "Test Case .*(passed|failed|skipped)|error:|\*\* TEST" || true
+        2>&1 | grep -E "Test Case .*(passed|failed|skipped)|error:|SCREENSHOT |\*\* TEST" || true
       ls -1 "$out"
     done
   done

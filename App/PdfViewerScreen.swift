@@ -54,6 +54,7 @@ struct PdfViewerScreen: View {
                     Button { Haptics.light(); dismiss() } label: {
                         Label(L.s("a11y.close"), systemImage: "xmark")
                     }
+                    .accessibilityIdentifier("pdf.close")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if isSchedule {
@@ -79,7 +80,7 @@ struct PdfViewerScreen: View {
             }
             .sheet(isPresented: $showShare) {
                 ActivityView(items: [shareUrl ?? fileUrl])
-                    .presentationDetents([.medium, .large])
+                    .adaptiveSheetSizing()
             }
             .safeAreaInset(edge: .bottom) {
                 if let feedback {

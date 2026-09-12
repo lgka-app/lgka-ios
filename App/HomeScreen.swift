@@ -92,7 +92,7 @@ struct HomeScreen: View {
                     showSettings = false
                     path.append(HomeRoute.web(url: url, title: title))
                 })
-                .presentationDetents([.medium, .large])
+                .adaptiveSheetSizing()
             }
             .fullScreenCover(item: $pdfDestination) { dest in
                 PdfViewerScreen(fileUrl: dest.fileUrl, title: dest.title,
