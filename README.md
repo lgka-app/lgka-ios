@@ -19,29 +19,46 @@ This repository contains the **native iOS source code (Swift 6 / SwiftUI, iOS 26
 
 ## Features
 
-- **Substitution plans** (today & tomorrow) with auto-refresh and caching
+- **Substitution plans** (today & tomorrow) as structured Untis data plus the original PDF
 - **Timetables** (PDF) with class search and cross-PDF class switching
 - **News and events**
-- **PDF viewer** with search, share, and class lookup
-- **Live weather** from [Open-Meteo](https://github.com/open-meteo/open-meteo) — animated Metal sky, hourly and 3-day forecast
+- **PDF viewer** with share and class lookup
+- **Weather** — the school's rooftop weather station for current values (Open-Meteo as fallback), Open-Meteo forecast; animated Metal sky, hourly and 3-day forecast
 - **Customizable accent colors**, light/dark/auto appearance
 - **Absence reporting** via the official school form
 
 ---
 
+## Data layer
+
+The app does not fetch or parse anything from the school's website itself. All data comes from
+**[api.lgka.app](https://api.lgka.app)** ([lgka-app/api](https://github.com/lgka-app/api)), a Cloudflare
+Worker that polls the school, parses the PDFs and pages once, and answers a single hash sync:
+
+```
+GET /v1/sync?substitutions=<hash>&schedules=<hash>&news=<hash>&events=<hash>&weather=<hash>&embed=pdf
+→ per resource: fresh (keep local) | updated (hash + data, PDFs inlined) | unavailable
+```
+
+- One request per launch/resume; when nothing changed the answer is ~0.5 KB.
+- `SyncStore` keeps one JSON snapshot per resource in Application Support and the mirrored PDFs as
+  files, so every screen renders offline from the last known state.
+- Auth is HTTP Basic with the school's shared *Vertretungsplan* login the user types once (Keychain).
+  A `401` means the school rotated the password: the app clears the login and shows the sign-in screen.
+- Timetable class index values are real 1-based PDF pages; the viewer opens `page - 1`.
+- Weather payloads state their `source` (`school` / `open-meteo`) and attribution; the app shows both.
+
 ## Structure
 
 ```
-Package.swift            SwiftPM package: LGKACore + lgka-extractor + tests (swift-tools 6.2, Swift 6 language mode)
-Sources/LGKACore/        the verified data layer: substitution PDF extractor, class index, schedule page,
-                         news, events, weather — 100% golden parity with the Flutter app (see Tests/)
-Sources/lgka-extractor/  parity CLI used by lgka-app/verification
-Tests/LGKACoreTests/     Swift Testing: golden parity against ../verification + robustness tests
+Package.swift            SwiftPM package LGKACore (swift-tools 6.2, Swift 6 language mode)
+Sources/LGKACore/        API client, Codable wire models, /v1/sync store + merge, hourly window, grade discovery
+Tests/LGKACoreTests/     Swift Testing on recorded API responses (Fixtures/), mock URLProtocol — no network, no simulator
 App/                     SwiftUI app (XcodeGen spec in project.yml)
-  LGKAApp.swift          entry, Prefs (@Observable), orientation policy, refresh loop
-  HomeModel.swift        home hub state (@Observable, main-actor)
-  SchoolAPI.swift        typed fetchers over LGKACore, Cache.swift (disk cache + request dedup)
-  Credentials.swift      Keychain-stored school website login
+  LGKAApp.swift          entry, Prefs (@Observable), orientation policy, sync loop, 401 → login
+  HomeModel.swift        SyncState → screens (@Observable, main-actor)
+  SchoolAPI.swift        APIClient + SyncStore wiring, WMO/date helpers
+  Credentials.swift      Keychain-stored school login
   Localizable.xcstrings  String Catalog (de source, en)
   PrivacyInfo.xcprivacy  privacy manifest
 designguidelines/        brand rules, screenshots and a cited reference of the Apple HIG chapters we follow
@@ -52,7 +69,7 @@ designguidelines/        brand rules, screenshots and a cited reference of the A
 ```bash
 brew install xcodegen
 xcodegen generate                     # creates LGKA.xcodeproj (gitignored)
-xcodebuild -scheme LGKA -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+xcodebuild -scheme LGKA -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
 Requires Xcode 26.6 / Swift 6.3. The project builds with `SWIFT_STRICT_CONCURRENCY=complete` and warnings as errors.
@@ -60,16 +77,13 @@ Requires Xcode 26.6 / Swift 6.3. The project builds with `SWIFT_STRICT_CONCURREN
 ## Test
 
 ```bash
-git clone https://github.com/lgka-app/verification.git ../verification
-swift test                            # golden parity + robustness (LGKA_VERIFICATION_DIR overrides the lookup)
+swift test                            # 26 unit tests: model decoding, sync merge + persistence, 401 handling, hourly window, class → page
 ```
 
-The parity CLI is unchanged:
+Refresh the recorded fixtures with the live API when the contract changes:
 
 ```bash
-swift run lgka-extractor substitution ../verification/fixtures/substitution /tmp/out-swift
-swift run lgka-extractor classindex ../verification/fixtures/schedule /tmp/out-swift
-cargo run --release --manifest-path ../verification/tool/compare-report/Cargo.toml -- --swift /tmp/out-swift
+curl -s --compressed -u user:pass 'https://api.lgka.app/v1/sync?embed=pdf' > Tests/LGKACoreTests/Fixtures/sync_full.json
 ```
 
 ## Screenshots
@@ -85,7 +99,15 @@ Output: `app_store_assets/screenshots/<locale>/ios/<phone|tablet>/<dark|light>/N
 
 ## Login and credentials
 
-The school website's read-only credentials are entered once by the user, verified with a request to the server and stored in the Keychain. They are never part of the source code and are only ever sent to `lessing-gymnasium-karlsruhe.de`.
+The school's read-only credentials are entered once by the user, verified by `api.lgka.app` and stored in
+the Keychain. They are never part of the source code and are only sent to `api.lgka.app` (and, from the
+in-app browser, to `lessing-gymnasium-karlsruhe.de` when the school website asks for them).
+
+## Privacy
+
+The app talks to `api.lgka.app` only (Cloudflare Workers; mirrored files in an EU-jurisdiction bucket).
+The API keeps no request logs, sets no cookies and knows no user identity — see the
+[API repository](https://github.com/lgka-app/api#privacy).
 
 ---
 

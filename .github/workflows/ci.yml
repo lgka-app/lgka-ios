@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/api-backend]
   pull_request:
 
 concurrency:
@@ -11,25 +11,19 @@ concurrency:
 
 jobs:
   core:
-    name: LGKACore (swift build + golden parity tests)
+    name: LGKACore (swift build + unit tests)
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/checkout@v7
-        with:
-          repository: lgka-app/verification
-          path: verification # checkout v7 refuses paths outside the workspace
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.6.app || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
       - name: Build
         run: swift build -v
-      - name: Test
+      - name: Test (recorded API responses, no network, no simulator)
         run: swift test
-        env:
-          LGKA_VERIFICATION_DIR: ${{ github.workspace }}/verification
 
   app:
-    name: LGKA app (xcodegen + xcodebuild)
+    name: LGKA app (xcodegen + xcodebuild, device destination)
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
@@ -39,13 +33,13 @@ jobs:
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
-      - name: Build (no signing)
+      - name: Build (no signing, no simulator)
         run: |
           xcodebuild -scheme LGKA -project LGKA.xcodeproj \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO build | xcbeautify || \
           xcodebuild -scheme LGKA -project LGKA.xcodeproj \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO build
