@@ -1,0 +1,20 @@
+{
+ "generatedAt": "2026-09-12T16:05:29.128Z",
+ "resources": {
+  "substitutions": {
+   "status": "unavailable"
+  },
+  "news": {
+   "status": "unavailable"
+  },
+  "events": {
+   "status": "unavailable"
+  },
+  "weather": {
+   "status": "unavailable"
+  },
+  "schedules": {
+   "status": "unavailable"
+  }
+ }
+}
