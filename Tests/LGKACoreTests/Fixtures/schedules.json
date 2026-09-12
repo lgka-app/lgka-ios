@@ -1,0 +1,116 @@
+{
+ "name": "schedules",
+ "hash": "85db44feff4dcd04",
+ "updatedAt": "2026-09-12T15:20:10.068Z",
+ "sourceUpdatedAt": "Wed, 09 Sep 2026 08:46:49 GMT",
+ "data": {
+  "items": [
+   {
+    "title": "Stundenpläne - 2026/2027 - 1.HJ - 5-10",
+    "url": "/cm3/../stundenplan/schueler/stundenplan_hj1_5-10_09092026_10h42m.pdf",
+    "fullUrl": "https://lessing-gymnasium-karlsruhe.de/stundenplan/schueler/stundenplan_hj1_5-10_09092026_10h42m.pdf",
+    "halbjahr": "1. Halbjahr",
+    "gradeLevel": "Klassen 5-10",
+    "available": true,
+    "pdf": {
+     "url": "/v1/files/d2a187d01d6c59716b5c532506ef6a9b39196852663b5442a3268fa4f1024b95.pdf",
+     "sha256": "d2a187d01d6c59716b5c532506ef6a9b39196852663b5442a3268fa4f1024b95",
+     "bytes": 247354,
+     "pageCount": 21,
+     "sourceLastModified": "Wed, 09 Sep 2026 08:46:48 GMT",
+     "base64": "JVBERi0xLjQKJXN0dWIK"
+    },
+    "classIndex": {
+     "5a": 1,
+     "5b": 2,
+     "5c": 3,
+     "6a": 4,
+     "6b": 5,
+     "6c": 6,
+     "7a": 7,
+     "7b": 8,
+     "7c": 9,
+     "8a": 10,
+     "8b": 11,
+     "8c": 12,
+     "8d": 13,
+     "9a": 14,
+     "9b": 15,
+     "9c": 16,
+     "9d": 17,
+     "10a": 18,
+     "10b": 19,
+     "10c": 20,
+     "10d": 21
+    },
+    "pages": [
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n5a Debailleul/Sander\nMontag Dienstag Mittwoch Donnerstag Freitag\nE\n1 Oes SJ .SW Swi\nM Bio SJ .SW\n111 Stb Bch Pie\nDel Jak Stb Bch\nD\nWB2 EBad1 EBad2\n111 BIOHS WB1 WB2\n2 Sa 1.\n111\nKL .KL\n3 Del Sa\nM E D E\n111 111\nDel Oes Sa Oes\nM\n111 111 111 111\n4 Del\n111\n5 Geo .Geo\nBk D Mus kR .eR eth\nSa Kop\nHld Sa Bie Kob Zil Hei\n111 110\nBKUG 111 MUSIK 102 111 112\n6 1.HJ\nLL\n7 Sa\n111\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n5b Heinz/Lohmann\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 SJ .SW Swi\nE D Bio SJ .SW\nStb Bch Pie\nScd Lm Hei Stb Bch\nWB2 EBad1 EBad2\n112 112 NWT1 WB1 WB2\n2 1.\nE\n3 Scd\nD M E M\n112\nLm Stb Scd Stb\nM\n112 112 112 112\n4 Stb\n112\nD\n5 Geo Lm\nMus Bk kR .eR eth eth\nHei 112\nKau Hld Kob Zil Hei Shö\nKL .KL\n112\nMUSIK BKUG 102 111 112 310\n6 1.HJ Lm Hei\n112 112\nLL\n7 Lm\n112\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n5c Brucher-Lembach/Lenz\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nD M D Mus M\nLen Mit Len Smi Mit\n102 102 102 MUSIK 102\n2\nM\n3 Mit\nBio Spo .Swi Spo Bk\n102\nLen Mit Stü Mit Dös\nD\nBIOHS EBad1 EBad2 WB2 BKUG\n4 Len\n102\nE\n5 IuM .IuM Blb\nE E kR .eR eth\nStü Hel 102\nBlb Blb Kob Zil Shö\nKL .KL\n401 BIOPR\n102 102 102 111 310\n6 1 HJ Blb Len\n102 102\nLL\n7 Blb\n102\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n6a Blum/Weber\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 IuM\nMus Bk M M\nStü\nSmi Sir Web Web\n401\nMUSIK BKUG 109 109\n2 1.HJ\n3\nD SJ .SW E Geo .Geo F .L\nBlm Ste Mai Hum Dit Kop Bas Kob\n109 WB1 WB2 109 109 309 110 109\n4\n5 SJ .SW\nkR .eth eR D F .L E\nSte Mai\nHir Shn Zil Blm Bas Kob Hum\nWB1 WB2\n310 112 109 109 310 109 109\n6 1.HJ\nKL .KL\n7 Blm Web\n109 109\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n6b Balzer/Hoeffer\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bio\nM M E\nStm\nHof Hof Lm\nKL .KL\n110\n110 110 110\n2 1.HJ Baz Hof\n110 110\n3 SJ .SW Swi\nD D E L .F\nSloy Brkr Bm\nBaz Baz Lm Kob Now\nWB1 EBad1 EBad2\n110 110 110 109 201\n4 1.\n5\nGeo .Geo kR .eth eth eR Bk L .F Mus\nDit Kop Hir Shn Shö Zil Now Kob Now Kau\n112 110 310 112 110 109 BKOG 109 209 301\n6\n7\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n6c Bartl/Bernet\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bio\nE E D Bk\nJak\nBtl Btl Bet Now\nBIOHS\n201 201 201 BKOG\n2 1.HJ\nKL .KL\n3 Bet Btl SJ .SW Swi\nGeo .Geo F Mus\n201 201 Sloy Brkr Bm\nShö Kop Nm Bie\nWB1 EBad1 EBad2\n109 201 201 MUSIK\n4 1.\nD\nBet\n201\n5\nkR .eth eR M M F\nHir Shö Zil Bur Bur Nm\n310 110 109 201 201 201\n6\n7\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n7a Schneider/Stemler\nMontag Dienstag Mittwoch Donnerstag Freitag\nKL\n1 Shn\neR .kR eth Geo .Geo G E\n209\nZil Hir Mai Shö Kop Zep Zep\nBio\n211 109 212 209 111 209 209\n2 Stm\n209\n3 Bk\nE M .M M .M D\nHld\nZep Bur Hel Bur Hel Shn\nBKOG\n209 209 212 209 301 209\n4 1.HJ\nBio\n5 Stm\nPh D SJ .SW L .F\n209\nWeb Shn Stb Pie OrJ Glz\nNWT2 209 WB1 WB2 209 303\n6 SJ .SW Swi Swi\nStb Pie Mit Bur\nWB1 EBad2\n7 1. HJ\nL .F\n8 OrJ Glz\n212 210\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n7b Smikale/Stürmer\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\neR .eth kR eth Bio D G M\nZil Shö Hir Mai Stm Lev Blb Blau\n211 209 109 212 212 212 212 212\n2\n3\nGeo Ph E SJ .SJ E\nStü Hof Smi Kub Mai Smi\n212 NWT2 212 WB1 WB2 212\n4\n5 IuM Bk\nD M L .F\nRo Sir\nLev Blau OrJ Loi\n401 BKUG\n212 212 209 212\n6 1.HJ 1.HJ\nKL\n7 Smi\n212\nL .F\n8 OrJ Loi\n212 112\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n7c Baumer/Pietzsch\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Mus\neR .eth kR Geo M F\nBie\nZil Shö Hir Dit Dit Hir\n301\n211 209 109 211 211 211\n2 1.HJ\nF\n3 Hir\nM Ph Bio D\n211\nDit Bau Pie Bm\n211 NWT2 BIOHS 211\n4\nD\nBm\n211\n5\nE G SJ .SW E\nLm Hld Stb Pie Lm\n211 211 WB1 WB2 211\n6 SJ .SW\nStb Pie\nKL\nWB1 EBad2\n7 1. HJ Bm\n212\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8a Jakobi/Strotz\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Mus\nCh Esp .NWT D L .F\nBie\nUng Blb Brn Brkr Stz Mai\nMUSIK\nNWT3 210 NWT2 210 210 310\n2 1.HJ\n3 GK\nM Ph M D\nBaz\nJak Vot Jak Brkr\n210\n210 PHHS 210 210\n4 1.HJ\n5 kR .eR eth\nE Esp .NWT L .F Bio .Bio\nHir Zil Blau\nGlz Blb Brn Stz Mai Stm Jak\n414 210 110\n210 210 NWT2 210 403 210 BIOHS\n6 1.HJ\nKL\n7 Jak\n210\nE\n8 Glz\nSJ .SW G\n210\nBur Bm Stz\nWB2 WB1 210\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8b Stein/Vogt\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nM D NWT .Esp NWT M L .F\nMit Ste Shs Blb Brn Mit Stz Btl\n303 303 NWT3 210 NWT2 303 210 303\n2\n3 GK\nD E Bio .Bio G\nBaz\nSte Glz Stm Len Zep\n303\n303 303 303 BIOHS 303\n4 1.HJ\n5 Bk kR .eR eth\nNWT .Esp NWT L .F Ph\nLev Hir Zil Blau\nShs Blb Brn Stz Btl Vot\nBKOG 414 210 110\nNWT3 210 NWT2 210 303 PHHS\n6 1.HJ 1.HJ\n7\nE\n8 Glz\nSJ .SW Ch\n303\nBur Bm Ger\nKL\nWB2 WB1 NWT3\n9 Ste\n303\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8c Feißt/Loida\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bk\nF NWT .NWT Esp M F\nHld\nLoi Shs Hei Vot Fei Loi\nBKOG\n203 NWT3 NWT1 414 203 203\n2 1.HJ\n3\nPh M Ch E Bio .Bio\nVot Fei Ger Btl Stm Len\nPHHS 203 CHHS 203 203 NWT1\n4\n5 kR .eR eth\nD NWT .NWT Esp D G\nHir Zil Mai\nDös Shs Hei Vot Dös Sloy\n414 210 111\n203 NWT3 NWT1 201 203 203\n6 1.HJ\nKL\n7 Fei\n203\nE\n8 Btl WBS\nSW .SJ\n203 Brr\nDom Stb\n202\nFrEb CBH\n9 1.HJ\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8d Helfrich/Manaia\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nM G NWT .Esp M D\nHel Bre Hei Vot Hel Dös\n414 414 NWT1 414 414 414\n2\n3 WBS\nD E Ph Ch\nBrr\nDös Zep Hof Ger\n414\n414 414 NWT2 CHHS\n4 1.HJ\nE\n5 kR .eR eth Zep\nBio .Bio NWT .Esp F\nHir Zil Mai 414\nStm Jak Hei Vot Man\n414 210 111\n414 NWT1 NWT1 201 414\n6 1.HJ\nKL\n7 Hel\nF\n414\nMan\n414\n8 Bk\nSW .SJ\nHld\nDom Stb\nBKUG\nFrEb CBH\n9 1.HJ\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9a Bachmor/Bruder\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 WBS\nPh NWT .NWT Esp G NWT .NWT Esp\nBrd\nWeb Del Fei Man Hld Del Fei Man\n311\nPHHS NWT3 NWT1 310 311 NWT3 NWT1 311\n2 1.HJ\nL .F\n3 Geo Stz Brn\nE M Ch .Ch\nBrd 311 309\nGlz Bur Stm Bet\n311\n311 311 311 NWT3\n4 1.HJ\nM\nBur\nE\n311\n5 Mus D Glz\nL .F\nSmi Ste 311\nStz Brn\nD KL\n301 311\n311 309\n6 1.HJ 3/4 Ste Bur\n311 311\nFUE .FUEs\n7 Glz Man\n312 311\n8\nkR .eth eR SJ .SW Bk\nKob Mai Zil Kub Dom Dös\n102 413 414 CBH FrEb BKUG\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9b Bauer/Breier\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Mus\nPh Esp .NWT NWT Ch Esp .NWT NWT\nSmi\nVot Vot Fei Brn Stm Vot Fei Brn\nMUSIK\nNWT2 311 NWT1 NWT2 309 312 NWT1 NWT2\n2 1.HJ\nF\n3 D GK Brn\nE Bk\nKub Brr 309\nWez Dös\nD\n309 309\n309 BKOG\n4 3/4 1. HJ Kub\n309\nE\n5 Wez\nG M F M\n309\nSloy Bau Brn Bau\nFUE\n309 309 309 309\n6 Wez\n309\nKL FUEs\n7 Bau Man\n309 311\n8\nkR .eth eR SJ .SW\nKob Mai Zil Kub Dom\n102 413 414 CBH FrEb\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9c Neumann/Brenner\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 GK\nM NWT .Esp Ph NWT .Esp\nBrr\nDit Del Man Brn Del Man\n413\n413 NWT3 310 PHHS NWT3 311\n2 1. HJ\nE\n3 Geo Btl\nG Bk F\nStü 413\nHld Now Brn\nD\n413\n413 BKUG 413\n4 1.HJ Nm\n413\nF\n5 D Brn\nE M Ch .Ch\nNm 413\nBtl Dit Stm Bet\nFUE\n413\n413 413 413 CHHS\n6 3/4 Btl\n413\nKL FUEs\n7 Nm Man\n413 311\n8\nkR .eth eR SJ .SW\nKob Shö Zil Stb Mit\n102 211 414 CBH FrEb\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9d Vogel/Geist\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bio\nEsp .NWT Bk E Esp .NWT\nJak\nVot Brn Now Vog Vot Brn\nBIOHS\n311 NWT2 BKOG 312 312 NWT2\n2 1.HJ\nD\n3 Bm\nM G M F\n312\nGei Stz Gei Man\nF\n312 312 312 312\n4 Man\n312\nE\n5 D Vog GK\nCh Ph\nBm 312 Brr\nStm Web\nKL\n312 312\n312 PHHS\n6 3/4 Vog 1.HJ\n312\nFUE FUEs\n7 Vog Man\n312 311\n8\nkR .eth eR SJ .SW\nKob Shö Zil Stb Mit\n102 211 414 CBH FrEb\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10a Basler/Staub\nMontag Dienstag Mittwoch Donnerstag Freitag\nKL\n1 Mus Bas\nM M Ph\nSmi 323\nStb Stb Ro\nE\n301\n323 323 NWT2\n2 1. HJ Wez\n323\n3 Geo\nNWT .Esp E eR .kR eth D\nShö\nRo Man Wez Hed Kob Blau Bas\n323\nNWT3 409 323 102 110 323 323\n4 1.HJ\n5\nCh GK L .F NWT .Esp G\nGer Blm OrJ Nm Ro Man Stz\nNWT3 323 323 322 NWT3 409 323\n6\nM\n7 Stb\n323\nWBS\n8 D SJ .SW Blm\nInf-AG\nBas Sloy Brkr 323\nFei\nL .F\n323 CBH FrEb\n401\n9 OrJ Nm Diff. hj\n203 201\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10b Domin/Zepfel\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bk\nGK E D G\nSir\nBrd Zep Brkr Stz\nBKUG\n322 322 322 322\n2 1.HJ\n3 Geo\nNWT .NWT NWT Esp Ph eR .kR eth M\nStü\nRo Hof Shs Brd Web Hed Kob Blau Dom\n322\nNWT3 NWT2 NWT1 410 NWT1 102 110 323 322\n4 1.HJ\nWBS\n5 Brd\nCh L .F NWT .NWT NWT Esp\n322\nGer OrJ Nm Ro Hof Shs Brd M\nCHHS 323 322 NWT3 NWT2 NWT1 410 Dom\n6\n322\nDiff\nKL\n7 D/E .D/E Dom\nBrkr Zep 322\n322 109\n8 1 HJ SJ .SW\nInf-AG\nSloy Bm\nFei\nL .F\nCBH WB2\n401\n9 OrJ Nm hj\n203 201\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10c Schnaus/Glinz\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 D/E .D/E M\nGK Ch D\nSte Oes Blau\nBaz Shs Ste\n410 109 410\n410 CHHS 410\n2 1. HJ Diff.\n3 Mus\nEsp .NWT G eR .kR eth F\nSmi\nMan Shs Blb Hed Kob Shn Glz\nMUSIK\n409 NWT1 410 102 110 201 410\n4 1 HJ\nWBS\n5 Baz Geo .Geo\nEsp .NWT E\n410 Wez Kop\nMan Shs Oes\nM F\n310 403\n409 NWT1 410\n6 Blau Glz 1.HJ\n410 410\nKL\n7 Shs\n410\n8 SJ .SW\nPh Inf-AG\nStü Bm\nRo Fei\nWB1 WB2\nNWT2 401\n9 hj\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10d Kubacki/Mittnacht\nMontag Dienstag Mittwoch Donnerstag Freitag\nF\n1 Now Mus\nF M G\n409 Smi\nNow Mit Sloy\nWBS\nMUSIK\n409 409 409\n2 Blm 1.HJ\n409\n3\nNWT .NWT Esp Ch eR .kR eth GK E\nRo Hof Brd Ger Hed Kob Shn Blm Wez\nNWT3 NWT2 410 NWT3 102 110 201 409 409\n4\n5 D/E .D/E\nPh NWT .NWT Esp D\nKub Wez\nM Vot Ro Hof Brd Kub\n409 414\nMit NWT2 NWT3 NWT2 410 409\n6 1. HJ\n409\nDiff\nKL\n7 Kub\n409\n8 SW .SJ Geo\nInf-AG\nBrkr Hel Stü\nFei\nFrEb Less 309\n401\n9 hj 1.HJ\n10\n11"
+    ]
+   },
+   {
+    "title": "Stundenpläne - 2026/2027 - 1.HJ - J11",
+    "url": "/cm3/../stundenplan/schueler/stundenplan_hj1_11_09092026_10h42m.pdf",
+    "fullUrl": "https://lessing-gymnasium-karlsruhe.de/stundenplan/schueler/stundenplan_hj1_11_09092026_10h42m.pdf",
+    "halbjahr": "1. Halbjahr",
+    "gradeLevel": "J11",
+    "available": true,
+    "pdf": {
+     "url": "/v1/files/e45f3b277cd54644f7dc1890947b4811e3e4a3d5b1815ea323b7c078bdb582e2.pdf",
+     "sha256": "e45f3b277cd54644f7dc1890947b4811e3e4a3d5b1815ea323b7c078bdb582e2",
+     "bytes": 113166,
+     "pageCount": 1,
+     "sourceLastModified": "Wed, 09 Sep 2026 08:46:49 GMT",
+     "base64": "JVBERi0xLjQKJXN0dWIK"
+    },
+    "classIndex": {
+     "j11": 1
+    },
+    "pages": [
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:39\nJ11 Bie/Kau/Dös/Hold/Lev\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nD1 .M3 E1 Ch Geo .G GK Bk gk1 gk2 eR1 .eR2 kR1 kR2 eth1 eth2 eth3 S1 .S2 Geo G GK Bk D1 .M3 E1 Ch\nBre Bur Zep Bet Kub Shn Brr HH-BK Baz Brd Zil Hed Kob Hir Mai Shö Shn Ste Stü Kub Shn Brr HH-BK Bre Bur Zep Bet\n210 301 309 CHHS 309 109 112 201 210 203 301 310 312 309 BIOPR 303 WB1 WB2 310 323 413 211 409 309 CHHS\n2\n3\nm3 .e2 ch3 bk2 mus2 SF SF1 d2 .g1 g4 ch1 D3 .M1 M2 E2 e1 .esp ph ch2 bk3 psy2 m1 .d1 g3 bio2\nStb Vog Ung Lev Kau Hei Sa Blm Stz Vog Shs Bch Jak Del Lm Glz Man Brn Shs Hld Shö Hel Brr Loi Hei\n203 301 CHHS BKOG MUSIK 310 310 210 301 413 CHHS 301 403 322 310 212 310 PHHS CHHS BKUG 410 102 301 310 BIOHS\n4\n5\nF .Esp D2 E3 E4 Ph Bio D3 .M1 M2 E2 F .Esp D2 E3 E4 Ph Bio d3 .bio1 ast LTh m2 .f bk4 mus1 psy1 inf1\nBtl HH-Es Baz Hum Scd Hof Len Bch Jak Del Lm Btl HH-Es Baz Hum Scd Hof Len Nm Shö Vot Scd Fei Now Dös Bie Bm Del\n109 311 209 212 PHHS BIOH 301 403 102 303 301 212 409 410 PHHS BIOH 312 BIOHS 323 MUSIK NWT1 BKOG BKUG MUSIK 403 401\n6\n7\nE-AG-\nZep\nS1 .S2 Geo G GK Bk d1 .d3 m1 F .Esp D2 E3 E4 Ph Bio\n323\n8 Ste Stü Kub Shn Brr HH-BK Brr Nm Hel Btl HH-Es Baz Hum Scd Hof Len\nbio3 .g2 bk1\n201 203 309 323 209 322 102 109 301 212 409 410 PHHS BIOH\nPie Bre Now\nD3 .M1 M2 E2 bio1 .bio2 bio3 d2 .m2 f\nBIOHS 323 BKOG\n9 Bch Jak Del Lm Shö Hei Pie Blm Fei Now\n112 403 210 109 BIOPR NWT1 BIOHS 211 322 102\nm3 .e2 ch3 D1 .M3 E1 Ch\n10 Stb Vog Ung Bre Bur Zep Bet\nS1 .S2 s1 s2 s3 gk3 .gk4\n112 301 CHHS 102 109 201 CHHS\nSte Stü Bur Dom Bch Brr Sez\ne1 .esp ph ch2 ch1\nWB1 CBH WB2 FrEb Less 323 322\n11 Glz Man Brn Shs Shs\n102 109 PHHS CHHS CHHS"
+    ]
+   },
+   {
+    "title": "Stundenpläne - 2026/2027 - 1.HJ - J12",
+    "url": "/cm3/../stundenplan/schueler/stundenplan_hj1_12_09092026_10h42m.pdf",
+    "fullUrl": "https://lessing-gymnasium-karlsruhe.de/stundenplan/schueler/stundenplan_hj1_12_09092026_10h42m.pdf",
+    "halbjahr": "1. Halbjahr",
+    "gradeLevel": "J12",
+    "available": true,
+    "pdf": {
+     "url": "/v1/files/166c8e6ca03ff6cb3096952e4731cc03a5735aa7f1a6b18e74dfd2033c9425f3.pdf",
+     "sha256": "166c8e6ca03ff6cb3096952e4731cc03a5735aa7f1a6b18e74dfd2033c9425f3",
+     "bytes": 106217,
+     "pageCount": 1,
+     "sourceLastModified": "Wed, 09 Sep 2026 08:46:48 GMT",
+     "base64": "JVBERi0xLjQKJXN0dWIK"
+    },
+    "classIndex": {
+     "j12": 1
+    },
+    "pages": [
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:39\nJ12 Hir/Mai/Shö/Zil\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nl .f esp Spo .GK G Bk E1 .Ph geo1 E2 .Esp GK geo2 Bio .bio1\nKob HH-f HH-es Hel Drais Blb Lev Hum Bau Stü Lm Vot Drais Dit Hei Shö\n310 WB1 323 BKOG 403 PHHS BIOHS 111 102 301 BIOHS BIOPR\n2\n3\nM1 .M2 D1 D2 E1 .E2 e eth1 .eth2 kR eR G .g2 g1 g3 M2 .Ph Esp m1\nKle Web Shn Nm Hum Lm Smi Mai Shö Hir Zil Blb Vog Zep Loi Web Bau Vot Fei\n322 102 323 403 322 310 102 209 211 409 410 414 403 NWT1 BIOPR NWT2 PHHS 414 NWT3\n4\n5\nCh .Bio geo3 D2 .M1 ph Ch .m2 d1 mus .bk1 Bk D1 .d2 ch\nDel Hei Kub Nm Kle Hof Del Mit Bch Smi Hld Lev Shn Baz Bet\nCHHS BIOPR 310 203 322 PHHS CHHS 203 303 301 BKUG BKOG 110 BIOPR CHHS\n6\nGK\n7\nDrais\nE1 .E2 e Ch .m2 d1 D1 .d2 ch l .f esp\n8 Hum Lm Smi Del Mit Bch Shn Baz Bet Kob HH-f HH-es\n312 311 310 CHHS 212 211 322 109 NWT3 322\nSpo .G Bk M2 .Ph Esp m1 D2 .M1 ph Bio .bio1\n9 Hel Blb Lev Web Bau Vot Fei Nm Kle Hof Hei Shö\n322 323 BKOG 112 PHHS 414 210 203 322 PHHS BIOHS BIOPR\n10\nSpo .s1 s2 s3 bk2 .Inf\nHel Bch Stü Bm Dös Fei\nWB1 WB2 CBH FrEb BKUG 401\n11"
+    ]
+   }
+  ]
+ }
+}
