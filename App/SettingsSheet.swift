@@ -31,12 +31,12 @@ struct SettingsSheet: View {
                     } label: {
                         Label(L.s("bugReport"), systemImage: "ladybug")
                     }
-                    if let url = URL(string: "https://luka-loehr.github.io/LGKA/privacy.html") {
+                    if let url = URL(string: "https://lgka.app/privacy") {
                         Link(destination: url) {
                             Label(L.s("privacyLabel"), systemImage: "hand.raised")
                         }
                     }
-                    if let url = URL(string: "https://luka-loehr.github.io/LGKA/impressum.html") {
+                    if let url = URL(string: "https://lgka.app/impressum") {
                         Link(destination: url) {
                             Label(L.s("legalLabel"), systemImage: "info.circle")
                         }

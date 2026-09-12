@@ -207,9 +207,9 @@ struct NewsDetailScreen: View {
         static func website(_ link: NewsLink) -> ActionLink? {
             guard let url = URL(string: link.url) else { return nil }
             let host = url.host ?? link.url
-            let favicon = url.host.flatMap { URL(string: "https://www.google.com/s2/favicons?sz=64&domain=\($0)") }
+            // no favicon service: that would send the reader's IP to a third party
             return ActionLink(id: "l:" + link.url, title: link.text, subtitle: host.replacingOccurrences(of: "www.", with: ""),
-                              url: url, symbol: "link", favicon: favicon, trailing: "arrow.up.right.square")
+                              url: url, symbol: "link", favicon: nil, trailing: "arrow.up.right.square")
         }
     }
 
