@@ -36,7 +36,8 @@ struct PdfViewerScreen: View {
         NavigationStack {
             Group {
                 if let document {
-                    PdfKitView(document: document, goToPageIndex: $goToPage)
+                    // timetable: one class page at a time; substitution plan: all pages in one vertical scroll
+                    PdfKitView(document: document, paged: isSchedule, goToPageIndex: $goToPage)
                         .ignoresSafeArea(edges: .bottom)
                         .background(Color.appBackground)
                         .accessibilityLabel(displayTitle)
@@ -202,18 +203,26 @@ struct PdfViewerScreen: View {
     }
 }
 
-/// One page at a time, swipe horizontally for the next (pdfx PdfView parity).
+/// `paged`: one page at a time, swipe horizontally (the timetable class page);
+/// otherwise every page in one vertical scroll (the substitution plan).
 struct PdfKitView: UIViewRepresentable {
     let document: PDFDocument
+    let paged: Bool
     @Binding var goToPageIndex: Int?
 
     func makeUIView(context: Context) -> JumpingPDFView {
         let view = JumpingPDFView()
         // the app's grouped background instead of PDFKit's default grey, in both appearances
         view.backgroundColor = .systemGroupedBackground
-        view.displayMode = .singlePage
-        view.displayDirection = .horizontal
-        view.usePageViewController(true, withViewOptions: nil)
+        if paged {
+            view.displayMode = .singlePage
+            view.displayDirection = .horizontal
+            view.usePageViewController(true, withViewOptions: nil)
+        } else {
+            view.displayMode = .singlePageContinuous
+            view.displayDirection = .vertical
+            view.pageBreakMargins = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
+        }
         view.autoScales = true
         view.document = document
         return view
