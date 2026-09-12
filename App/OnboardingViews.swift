@@ -1,4 +1,5 @@
 import SwiftUI
+import LGKACore
 
 /// welcome -> what-you-can-do -> accent-color -> appearance -> auth
 struct OnboardingFlow: View {
@@ -358,6 +359,9 @@ struct AuthScreen: View {
                 } else {
                     fail(L.s("login.failed"))
                 }
+            } catch let error as APIError where error.isTransient {
+                // 403 from the edge, 429, 5xx: the service, not the password
+                fail(L.s("login.unavailable"))
             } catch {
                 fail(L.s("login.offline"))
             }

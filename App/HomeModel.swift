@@ -53,11 +53,8 @@ final class HomeModel {
     var newsList: [NewsArticle]? { state.news?.data.articles }
     var newsFailed: Bool { failed(.news) }
 
-    /// Prefer 2. Halbjahr — mirrors the provider's active-group logic.
-    var preferredGroup: [ScheduleItem] {
-        let second = schedules.filter { $0.halbjahr == "2. Halbjahr" }
-        return second.isEmpty ? schedules.filter { $0.halbjahr == "1. Halbjahr" } : second
-    }
+    /// Published timetables of the newest semester (2. Halbjahr over 1. Halbjahr).
+    var preferredGroup: [ScheduleItem] { ScheduleItem.preferredGroup(schedules) }
 
     private func has(_ r: Resource) -> Bool { state.hashes[r] != nil }
     /// Nothing on disk yet and no verdict from the API yet → skeleton.
@@ -102,16 +99,25 @@ final class HomeModel {
                 Self.log.info("sync: updated \(outcome.updated.map(\.rawValue).sorted().joined(separator: ","), privacy: .public)")
             }
         } catch APIError.unauthorized {
-            Self.log.error("sync: credentials rejected")
-            unauthorized = true
+            // A 401 on a data route is confirmed with one /v1/auth/check before
+            // anyone is signed out; the on-disk snapshot is kept either way.
+            switch await client.verifyStoredCredentials() {
+            case .rotated:
+                Self.log.error("sync: credentials rejected, confirmed by /v1/auth/check")
+                unauthorized = true
+            case .valid, .undetermined:
+                Self.log.error("sync: 401 not confirmed by /v1/auth/check, treating as transient")
+                syncFailed = true
+            }
         } catch {
             Self.log.error("sync: \(error)")
             syncFailed = true
         }
     }
 
-    /// Wipes everything on sign-out (the cache holds school data only, but it
-    /// belongs to the login that fetched it).
+    /// Wipes the local snapshot. Only for an explicit sign-out in Settings; a
+    /// rotated school password keeps the data (public school content — the
+    /// user gets it back right after re-login).
     func clear() {
         store.removeAll()
         state = SyncState()
