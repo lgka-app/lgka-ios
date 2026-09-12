@@ -1,0 +1,116 @@
+{
+ "name": "schedules",
+ "hash": "85db44feff4dcd04",
+ "updatedAt": "2026-09-12T15:20:10.068Z",
+ "sourceUpdatedAt": "Wed, 09 Sep 2026 08:46:49 GMT",
+ "data": {
+  "items": [
+   {
+    "title": "Stundenpläne - 2026/2027 - 1.HJ - 5-10",
+    "url": "/cm3/../stundenplan/schueler/stundenplan_hj1_5-10_09092026_10h42m.pdf",
+    "fullUrl": "https://lessing-gymnasium-karlsruhe.de/stundenplan/schueler/stundenplan_hj1_5-10_09092026_10h42m.pdf",
+    "halbjahr": "1. Halbjahr",
+    "gradeLevel": "Klassen 5-10",
+    "available": true,
+    "pdf": {
+     "url": "/v1/files/df798cce96ace85ac97302a763d5c3983933902a137f17c706fbe7dd63dcd6fa.pdf",
+     "sha256": "df798cce96ace85ac97302a763d5c3983933902a137f17c706fbe7dd63dcd6fa",
+     "bytes": 247354,
+     "pageCount": 21,
+     "sourceLastModified": "Wed, 09 Sep 2026 08:46:48 GMT",
+     "base64": "JVBERi0xLjQKJXN0dWIK"
+    },
+    "classIndex": {
+     "5a": 1,
+     "5b": 2,
+     "5c": 3,
+     "6a": 4,
+     "6b": 5,
+     "6c": 6,
+     "7a": 7,
+     "7b": 8,
+     "7c": 9,
+     "8a": 10,
+     "8b": 11,
+     "8c": 12,
+     "8d": 13,
+     "9a": 14,
+     "9b": 15,
+     "9c": 16,
+     "9d": 17,
+     "10a": 18,
+     "10b": 19,
+     "10c": 20,
+     "10d": 21
+    },
+    "pages": [
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n5a Entwurfer/Fiktivfeld\nMontag Dienstag Mittwoch Donnerstag Freitag\nE\n1 Xcg SJ .SW Swi\nM Bio SJ .SW\n111 Xba Xbm Xbw\nXbe Xad Xba Xbm\nD\nWB2 EBad1 EBad2\n111 BIOHS WB1 WB2\n2 Xe 1.\n111\nKL .KL\n3 Xbe Xe\nM E D E\n111 111\nXbe Xcg Xe Xcg\nM\n111 111 111 111\n4 Xbe\n111\n5 Geo .Geo\nBk D Mus kR .eR eth\nXe Xcd\nXav Xe Xbv Xab Xar Xcq\n111 110\nBKUG 111 MUSIK 102 111 112\n6 1.HJ\nLL\n7 Xe\n111\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n5b Platzhalterling/Probeling\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 SJ .SW Swi\nE D Bio SJ .SW\nXba Xbm Xbw\nXcr Xc Xcq Xba Xbm\nWB2 EBad1 EBad2\n112 112 NWT1 WB1 WB2\n2 1.\nE\n3 Xcr\nD M E M\n112\nXc Xba Xcr Xba\nM\n112 112 112 112\n4 Xba\n112\nD\n5 Geo Xc\nMus Bk kR .eR eth eth\nXcq 112\nXap Xav Xab Xar Xcq Xcc\nKL .KL\n112\nMUSIK BKUG 102 111 112 310\n6 1.HJ Xc Xcq\n112 112\nLL\n7 Xc\n112\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n5c Schemawald-Vorlagewald/Xaae\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nD M D Mus M\nXbf Xan Xbf Xcs Xan\n102 102 102 MUSIK 102\n2\nM\n3 Xan\nBio Spo .Swi Spo Bk\n102\nXbf Xan Xbk Xan Xah\nD\nBIOHS EBad1 EBad2 WB2 BKUG\n4 Xbf\n102\nE\n5 IuM .IuM Xch\nE E kR .eR eth\nXbk Xcu 102\nXch Xch Xab Xar Xcc\nKL .KL\n401 BIOPR\n102 102 102 111 310\n6 1 HJ Xch Xbf\n102 102\nLL\n7 Xch\n102\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n6a Xaaa/Exempelling\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 IuM\nMus Bk M M\nXbk\nXcs Xai Xbp Xbp\n401\nMUSIK BKUG 109 109\n2 1.HJ\n3\nD SJ .SW E Geo .Geo F .L\nXaw Xbh Xbr Xck Xay Xcd Xby Xab\n109 WB1 WB2 109 109 309 110 109\n4\n5 SJ .SW\nkR .eth eR D F .L E\nXbh Xbr\nXau Xbz Xar Xaw Xby Xab Xck\nWB1 WB2\n310 112 109 109 310 109 109\n6 1.HJ\nKL .KL\n7 Xaw Xbp\n109 109\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n6b Vorlagefeld/Vorlage\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bio\nM M E\nXao\nXas Xas Xc\nKL .KL\n110\n110 110 110\n2 1.HJ Xce Xas\n110 110\n3 SJ .SW Swi\nD D E L .F\nXaac Xaaf Xb\nXce Xce Xc Xab Xam\nWB1 EBad1 EBad2\n110 110 110 109 201\n4 1.\n5\nGeo .Geo kR .eth eth eR Bk L .F Mus\nXay Xcd Xau Xbz Xcc Xar Xam Xab Xam Xap\n112 110 310 112 110 109 BKOG 109 209 301\n6\n7\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n6c Exempelwald/Fiktiver\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bio\nE E D Bk\nXad\nXaq Xaq Xbu Xam\nBIOHS\n201 201 201 BKOG\n2 1.HJ\nKL .KL\n3 Xbu Xaq SJ .SW Swi\nGeo .Geo F Mus\n201 201 Xaac Xaaf Xb\nXcc Xcd Xa Xbv\nWB1 EBad1 EBad2\n109 201 201 MUSIK\n4 1.\nD\nXbu\n201\n5\nkR .eth eR M M F\nXau Xcc Xar Xbj Xbj Xa\n310 110 109 201 201 201\n6\n7\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n7a Schema/Anonymling\nMontag Dienstag Mittwoch Donnerstag Freitag\nKL\n1 Xbz\neR .kR eth Geo .Geo G E\n209\nXar Xau Xbr Xcc Xcd Xaa Xaa\nBio\n211 109 212 209 111 209 209\n2 Xao\n209\n3 Bk\nE M .M M .M D\nXav\nXaa Xbj Xcu Xbj Xcu Xbz\nBKOG\n209 209 212 209 301 209\n4 1.HJ\nBio\n5 Xao\nPh D SJ .SW L .F\n209\nXbp Xbz Xba Xbw Xax Xcn\nNWT2 209 WB1 WB2 209 303\n6 SJ .SW Swi Swi\nXba Xbw Xan Xbj\nWB1 EBad2\n7 1. HJ\nL .F\n8 Xax Xcn\n212 210\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n7b Vorlageer/Anonymfeld\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\neR .eth kR eth Bio D G M\nXar Xcc Xau Xbr Xao Xbo Xch Xaab\n211 209 109 212 212 212 212 212\n2\n3\nGeo Ph E SJ .SJ E\nXbk Xas Xcs Xak Xbr Xcs\n212 NWT2 212 WB1 WB2 212\n4\n5 IuM Bk\nD M L .F\nXd Xai\nXbo Xaab Xax Xbg\n401 BKUG\n212 212 209 212\n6 1.HJ 1.HJ\nKL\n7 Xcs\n212\nL .F\n8 Xax Xbg\n212 112\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n7c Anonym/Schemafeld\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Mus\neR .eth kR Geo M F\nXbv\nXar Xcc Xau Xay Xay Xau\n301\n211 209 109 211 211 211\n2 1.HJ\nF\n3 Xau\nM Ph Bio D\n211\nXay Xct Xbw Xb\n211 NWT2 BIOHS 211\n4\nD\nXb\n211\n5\nE G SJ .SW E\nXc Xav Xba Xbw Xc\n211 211 WB1 WB2 211\n6 SJ .SW\nXba Xbw\nKL\nWB1 EBad2\n7 1. HJ Xb\n212\n8\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8a Anonymhausen/Exempeler\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Mus\nCh Esp .NWT D L .F\nXbv\nXcl Xch Xbb Xaaf Xbi Xbr\nMUSIK\nNWT3 210 NWT2 210 210 310\n2 1.HJ\n3 GK\nM Ph M D\nXce\nXad Xcv Xad Xaaf\n210\n210 PHHS 210 210\n4 1.HJ\n5 kR .eR eth\nE Esp .NWT L .F Bio .Bio\nXau Xar Xaab\nXcn Xch Xbb Xbi Xbr Xao Xad\n414 210 110\n210 210 NWT2 210 403 210 BIOHS\n6 1.HJ\nKL\n7 Xad\n210\nE\n8 Xcn\nSJ .SW G\n210\nXbj Xb Xbi\nWB2 WB1 210\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8b Fiktivwald/Xaad\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nM D NWT .Esp NWT M L .F\nXan Xbh Xcf Xch Xbb Xan Xbi Xaq\n303 303 NWT3 210 NWT2 303 210 303\n2\n3 GK\nD E Bio .Bio G\nXce\nXbh Xcn Xao Xbf Xaa\n303\n303 303 303 BIOHS 303\n4 1.HJ\n5 Bk kR .eR eth\nNWT .Esp NWT L .F Ph\nXbo Xau Xar Xaab\nXcf Xch Xbb Xbi Xaq Xcv\nBKOG 414 210 110\nNWT3 210 NWT2 210 303 PHHS\n6 1.HJ 1.HJ\n7\nE\n8 Xcn\nSJ .SW Ch\n303\nXbj Xb Xbd\nKL\nWB2 WB1 NWT3\n9 Xbh\n303\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8c Exempelhausen/Anonymwald\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bk\nF NWT .NWT Esp M F\nXav\nXbg Xcf Xcq Xcv Xaz Xbg\nBKOG\n203 NWT3 NWT1 414 203 203\n2 1.HJ\n3\nPh M Ch E Bio .Bio\nXcv Xaz Xbd Xaq Xao Xbf\nPHHS 203 CHHS 203 203 NWT1\n4\n5 kR .eR eth\nD NWT .NWT Esp D G\nXau Xar Xbr\nXah Xcf Xcq Xcv Xah Xaac\n414 210 111\n203 NWT3 NWT1 201 203 203\n6 1.HJ\nKL\n7 Xaz\n203\nE\n8 Xaq WBS\nSW .SJ\n203 Xbc\nXco Xba\n202\nFrEb CBH\n9 1.HJ\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n8d Probewald/Xqzaaad\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nM G NWT .Esp M D\nXcu Xae Xcq Xcv Xcu Xah\n414 414 NWT1 414 414 414\n2\n3 WBS\nD E Ph Ch\nXbc\nXah Xaa Xas Xbd\n414\n414 414 NWT2 CHHS\n4 1.HJ\nE\n5 kR .eR eth Xaa\nBio .Bio NWT .Esp F\nXau Xar Xbr 414\nXao Xad Xcq Xcv Xal\n414 210 111\n414 NWT1 NWT1 201 414\n6 1.HJ\nKL\n7 Xcu\nF\n414\nXal\n414\n8 Bk\nSW .SJ\nXav\nXco Xba\nBKUG\nFrEb CBH\n9 1.HJ\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9a Exempelfeld/Entwurfling\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 WBS\nPh NWT .NWT Esp G NWT .NWT Esp\nXbs\nXbp Xbe Xaz Xal Xav Xbe Xaz Xal\n311\nPHHS NWT3 NWT1 310 311 NWT3 NWT1 311\n2 1.HJ\nL .F\n3 Geo Xbi Xbb\nE M Ch .Ch\nXbs 311 309\nXcn Xbj Xao Xbu\n311\n311 311 311 NWT3\n4 1.HJ\nM\nXbj\nE\n311\n5 Mus D Xcn\nL .F\nXcs Xbh 311\nXbi Xbb\nD KL\n301 311\n311 309\n6 1.HJ 3/4 Xbh Xbj\n311 311\nFUE .FUEs\n7 Xcn Xal\n312 311\n8\nkR .eth eR SJ .SW Bk\nXab Xbr Xar Xak Xco Xah\n102 413 414 CBH FrEb BKUG\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9b Xqzaaab/Xqzaaac\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Mus\nPh Esp .NWT NWT Ch Esp .NWT NWT\nXcs\nXcv Xcv Xaz Xbb Xao Xcv Xaz Xbb\nMUSIK\nNWT2 311 NWT1 NWT2 309 312 NWT1 NWT2\n2 1.HJ\nF\n3 D GK Xbb\nE Bk\nXak Xbc 309\nXcp Xah\nD\n309 309\n309 BKOG\n4 3/4 1. HJ Xak\n309\nE\n5 Xcp\nG M F M\n309\nXaac Xct Xbb Xct\nFUE\n309 309 309 309\n6 Xcp\n309\nKL FUEs\n7 Xct Xal\n309 311\n8\nkR .eth eR SJ .SW\nXab Xbr Xar Xak Xco\n102 413 414 CBH FrEb\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9c Probeer/Probefeld\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 GK\nM NWT .Esp Ph NWT .Esp\nXbc\nXay Xbe Xal Xbb Xbe Xal\n413\n413 NWT3 310 PHHS NWT3 311\n2 1. HJ\nE\n3 Geo Xaq\nG Bk F\nXbk 413\nXav Xam Xbb\nD\n413\n413 BKUG 413\n4 1.HJ Xa\n413\nF\n5 D Xbb\nE M Ch .Ch\nXa 413\nXaq Xay Xao Xbu\nFUE\n413\n413 413 413 CHHS\n6 3/4 Xaq\n413\nKL FUEs\n7 Xa Xal\n413 311\n8\nkR .eth eR SJ .SW\nXab Xcc Xar Xba Xan\n102 211 414 CBH FrEb\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n9d Exempel/Probe\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bio\nEsp .NWT Bk E Esp .NWT\nXad\nXcv Xbb Xam Xac Xcv Xbb\nBIOHS\n311 NWT2 BKOG 312 312 NWT2\n2 1.HJ\nD\n3 Xb\nM G M F\n312\nXci Xbi Xci Xal\nF\n312 312 312 312\n4 Xal\n312\nE\n5 D Xac GK\nCh Ph\nXb 312 Xbc\nXao Xbp\nKL\n312 312\n312 PHHS\n6 3/4 Xac 1.HJ\n312\nFUE FUEs\n7 Xac Xal\n312 311\n8\nkR .eth eR SJ .SW\nXab Xcc Xar Xba Xan\n102 211 414 CBH FrEb\n9\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10a Schemaling/Schemaer\nMontag Dienstag Mittwoch Donnerstag Freitag\nKL\n1 Mus Xby\nM M Ph\nXcs 323\nXba Xba Xd\nE\n301\n323 323 NWT2\n2 1. HJ Xcp\n323\n3 Geo\nNWT .Esp E eR .kR eth D\nXcc\nXd Xal Xcp Xbl Xab Xaab Xby\n323\nNWT3 409 323 102 110 323 323\n4 1.HJ\n5\nCh GK L .F NWT .Esp G\nXbd Xaw Xax Xa Xd Xal Xbi\nNWT3 323 323 322 NWT3 409 323\n6\nM\n7 Xba\n323\nWBS\n8 D SJ .SW Xaw\nInf-AG\nXby Xaac Xaaf 323\nXaz\nL .F\n323 CBH FrEb\n401\n9 Xax Xa Diff. hj\n203 201\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10b Vorlageling/Entwurf\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 Bk\nGK E D G\nXai\nXbs Xaa Xaaf Xbi\nBKUG\n322 322 322 322\n2 1.HJ\n3 Geo\nNWT .NWT NWT Esp Ph eR .kR eth M\nXbk\nXd Xas Xcf Xbs Xbp Xbl Xab Xaab Xco\n322\nNWT3 NWT2 NWT1 410 NWT1 102 110 323 322\n4 1.HJ\nWBS\n5 Xbs\nCh L .F NWT .NWT NWT Esp\n322\nXbd Xax Xa Xd Xas Xcf Xbs M\nCHHS 323 322 NWT3 NWT2 NWT1 410 Xco\n6\n322\nDiff\nKL\n7 D/E .D/E Xco\nXaaf Xaa 322\n322 109\n8 1 HJ SJ .SW\nInf-AG\nXaac Xb\nXaz\nL .F\nCBH WB2\n401\n9 Xax Xa hj\n203 201\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10c Platzhalterwald/Vorlagehausen\nMontag Dienstag Mittwoch Donnerstag Freitag\n1 D/E .D/E M\nGK Ch D\nXbh Xcg Xaab\nXce Xcf Xbh\n410 109 410\n410 CHHS 410\n2 1. HJ Diff.\n3 Mus\nEsp .NWT G eR .kR eth F\nXcs\nXal Xcf Xch Xbl Xab Xbz Xcn\nMUSIK\n409 NWT1 410 102 110 201 410\n4 1 HJ\nWBS\n5 Xce Geo .Geo\nEsp .NWT E\n410 Xcp Xcd\nXal Xcf Xcg\nM F\n310 403\n409 NWT1 410\n6 Xaab Xcn 1.HJ\n410 410\nKL\n7 Xcf\n410\n8 SJ .SW\nPh Inf-AG\nXbk Xb\nXd Xaz\nWB1 WB2\nNWT2 401\n9 hj\n10\n11",
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:48\n10d Entwurffeld/Fiktivling\nMontag Dienstag Mittwoch Donnerstag Freitag\nF\n1 Xam Mus\nF M G\n409 Xcs\nXam Xan Xaac\nWBS\nMUSIK\n409 409 409\n2 Xaw 1.HJ\n409\n3\nNWT .NWT Esp Ch eR .kR eth GK E\nXd Xas Xbs Xbd Xbl Xab Xbz Xaw Xcp\nNWT3 NWT2 410 NWT3 102 110 201 409 409\n4\n5 D/E .D/E\nPh NWT .NWT Esp D\nXak Xcp\nM Xcv Xd Xas Xbs Xak\n409 414\nXan NWT2 NWT3 NWT2 410 409\n6 1. HJ\n409\nDiff\nKL\n7 Xak\n409\n8 SW .SJ Geo\nInf-AG\nXaaf Xcu Xbk\nXaz\nFrEb Less 309\n401\n9 hj 1.HJ\n10\n11"
+    ]
+   },
+   {
+    "title": "Stundenpläne - 2026/2027 - 1.HJ - J11",
+    "url": "/cm3/../stundenplan/schueler/stundenplan_hj1_11_09092026_10h42m.pdf",
+    "fullUrl": "https://lessing-gymnasium-karlsruhe.de/stundenplan/schueler/stundenplan_hj1_11_09092026_10h42m.pdf",
+    "halbjahr": "1. Halbjahr",
+    "gradeLevel": "J11",
+    "available": true,
+    "pdf": {
+     "url": "/v1/files/8ebae914c7964f57329fb62f4f2a58c83285aa855bedd271cf5a852fe3ea3156.pdf",
+     "sha256": "8ebae914c7964f57329fb62f4f2a58c83285aa855bedd271cf5a852fe3ea3156",
+     "bytes": 113166,
+     "pageCount": 1,
+     "sourceLastModified": "Wed, 09 Sep 2026 08:46:49 GMT",
+     "base64": "JVBERi0xLjQKJXN0dWIK"
+    },
+    "classIndex": {
+     "j11": 1
+    },
+    "pages": [
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:39\nJ11 Xbv/Xap/Xah/Xaag/Xbo\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nD1 .M3 E1 Ch Geo .G GK Bk gk1 gk2 eR1 .eR2 kR1 kR2 eth1 eth2 eth3 S1 .S2 Geo G GK Bk D1 .M3 E1 Ch\nXae Xbj Xaa Xbu Xak Xbz Xbc XA-BK Xce Xbs Xar Xbl Xab Xau Xbr Xcc Xbz Xbh Xbk Xak Xbz Xbc XA-BK Xae Xbj Xaa Xbu\n210 301 309 CHHS 309 109 112 201 210 203 301 310 312 309 BIOPR 303 WB1 WB2 310 323 413 211 409 309 CHHS\n2\n3\nm3 .e2 ch3 bk2 mus2 SF SF1 d2 .g1 g4 ch1 D3 .M1 M2 E2 e1 .esp ph ch2 bk3 psy2 m1 .d1 g3 bio2\nXba Xac Xcl Xbo Xap Xcq Xe Xaw Xbi Xac Xcf Xbm Xad Xbe Xc Xcn Xal Xbb Xcf Xav Xcc Xcu Xbc Xbg Xcq\n203 301 CHHS BKOG MUSIK 310 310 210 301 413 CHHS 301 403 322 310 212 310 PHHS CHHS BKUG 410 102 301 310 BIOHS\n4\n5\nF .Esp D2 E3 E4 Ph Bio D3 .M1 M2 E2 F .Esp D2 E3 E4 Ph Bio d3 .bio1 ast LTh m2 .f bk4 mus1 psy1 inf1\nXaq XA-Es Xce Xck Xcr Xas Xbf Xbm Xad Xbe Xc Xaq XA-Es Xce Xck Xcr Xas Xbf Xa Xcc Xcv Xcr Xaz Xam Xah Xbv Xb Xbe\n109 311 209 212 PHHS BIOH 301 403 102 303 301 212 409 410 PHHS BIOH 312 BIOHS 323 MUSIK NWT1 BKOG BKUG MUSIK 403 401\n6\n7\nE-AG-\nXaa\nS1 .S2 Geo G GK Bk d1 .d3 m1 F .Esp D2 E3 E4 Ph Bio\n323\n8 Xbh Xbk Xak Xbz Xbc XA-BK Xbc Xa Xcu Xaq XA-Es Xce Xck Xcr Xas Xbf\nbio3 .g2 bk1\n201 203 309 323 209 322 102 109 301 212 409 410 PHHS BIOH\nXbw Xae Xam\nD3 .M1 M2 E2 bio1 .bio2 bio3 d2 .m2 f\nBIOHS 323 BKOG\n9 Xbm Xad Xbe Xc Xcc Xcq Xbw Xaw Xaz Xam\n112 403 210 109 BIOPR NWT1 BIOHS 211 322 102\nm3 .e2 ch3 D1 .M3 E1 Ch\n10 Xba Xac Xcl Xae Xbj Xaa Xbu\nS1 .S2 s1 s2 s3 gk3 .gk4\n112 301 CHHS 102 109 201 CHHS\nXbh Xbk Xbj Xco Xbm Xbc Xaj\ne1 .esp ph ch2 ch1\nWB1 CBH WB2 FrEb Less 323 322\n11 Xcn Xal Xbb Xcf Xcf\n102 109 PHHS CHHS CHHS"
+    ]
+   },
+   {
+    "title": "Stundenpläne - 2026/2027 - 1.HJ - J12",
+    "url": "/cm3/../stundenplan/schueler/stundenplan_hj1_12_09092026_10h42m.pdf",
+    "fullUrl": "https://lessing-gymnasium-karlsruhe.de/stundenplan/schueler/stundenplan_hj1_12_09092026_10h42m.pdf",
+    "halbjahr": "1. Halbjahr",
+    "gradeLevel": "J12",
+    "available": true,
+    "pdf": {
+     "url": "/v1/files/e54828921f187591b0316e294c898e991bd1415dda0c9d6d9f22dd80e4fd2b33.pdf",
+     "sha256": "e54828921f187591b0316e294c898e991bd1415dda0c9d6d9f22dd80e4fd2b33",
+     "bytes": 106217,
+     "pageCount": 1,
+     "sourceLastModified": "Wed, 09 Sep 2026 08:46:48 GMT",
+     "base64": "JVBERi0xLjQKJXN0dWIK"
+    },
+    "classIndex": {
+     "j12": 1
+    },
+    "pages": [
+     "Lessing-Gymnasium Karlsruhe Schuljahr 2026-2027 Untis 2027\nD-76135, Sophienstr. 147 7.9.2026 14:39\nJ12 Xau/Xbr/Xcc/Xar\nMontag Dienstag Mittwoch Donnerstag Freitag\n1\nl .f esp Spo .GK G Bk E1 .Ph geo1 E2 .Esp GK geo2 Bio .bio1\nXab XA-f XA-es Xcu Xaaaa Xch Xbo Xck Xct Xbk Xc Xcv Xaaaa Xay Xcq Xcc\n310 WB1 323 BKOG 403 PHHS BIOHS 111 102 301 BIOHS BIOPR\n2\n3\nM1 .M2 D1 D2 E1 .E2 e eth1 .eth2 kR eR G .g2 g1 g3 M2 .Ph Esp m1\nXbx Xbp Xbz Xa Xck Xc Xcs Xbr Xcc Xau Xar Xch Xac Xaa Xbg Xbp Xct Xcv Xaz\n322 102 323 403 322 310 102 209 211 409 410 414 403 NWT1 BIOPR NWT2 PHHS 414 NWT3\n4\n5\nCh .Bio geo3 D2 .M1 ph Ch .m2 d1 mus .bk1 Bk D1 .d2 ch\nXbe Xcq Xak Xa Xbx Xas Xbe Xan Xbm Xcs Xav Xbo Xbz Xce Xbu\nCHHS BIOPR 310 203 322 PHHS CHHS 203 303 301 BKUG BKOG 110 BIOPR CHHS\n6\nGK\n7\nXaaaa\nE1 .E2 e Ch .m2 d1 D1 .d2 ch l .f esp\n8 Xck Xc Xcs Xbe Xan Xbm Xbz Xce Xbu Xab XA-f XA-es\n312 311 310 CHHS 212 211 322 109 NWT3 322\nSpo .G Bk M2 .Ph Esp m1 D2 .M1 ph Bio .bio1\n9 Xcu Xch Xbo Xbp Xct Xcv Xaz Xa Xbx Xas Xcq Xcc\n322 323 BKOG 112 PHHS 414 210 203 322 PHHS BIOHS BIOPR\n10\nSpo .s1 s2 s3 bk2 .Inf\nXcu Xbm Xbk Xb Xah Xaz\nWB1 WB2 CBH FrEb BKUG 401\n11"
+    ]
+   }
+  ]
+ }
+}
