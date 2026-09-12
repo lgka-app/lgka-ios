@@ -1,4 +1,5 @@
 import SwiftUI
+import QuickLook
 import LGKACore
 
 /// News list — mirrors news_screen.dart. Navigation is value-based on the
@@ -183,7 +184,7 @@ struct NewsDetailScreen: View {
             }
         }
         .task(id: md.url) { if article == nil { await load() } }
-        .fullScreenCover(item: $photo) { PhotoViewer(item: $0) }
+        .sheet(item: $photo) { PhotoViewer(item: $0) } // sheet: swipe down dismisses like Photos
     }
 
     private func load() async {
@@ -369,99 +370,75 @@ struct PhotoItem: Identifiable {
     var id: String { url.absoluteString }
 }
 
-/// Full-screen photo viewer: pinch and double-tap zoom, black stage, glass close button.
+/// Photos open in the system Quick Look viewer (pinch/double-tap zoom, share,
+/// swipe down or Done to dismiss) — the native iOS photo experience.
 struct PhotoViewer: View {
     let item: PhotoItem
     @Environment(\.dismiss) private var dismiss
-    @State private var image: UIImage?
+    @State private var file: URL?
+    @State private var failed = false
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack {
             Color.black.ignoresSafeArea()
-            if let image {
-                ZoomableImage(image: image).ignoresSafeArea()
+            if let file {
+                QuickLookView(file: file, title: item.alt) { dismiss() }
+                    .ignoresSafeArea()
+            } else if failed {
+                ContentUnavailableView(L.s("errorLoading"), systemImage: "photo")
+                    .foregroundStyle(.white)
+                    .onTapGesture { dismiss() }
             } else {
                 ProgressView().tint(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Button { Haptics.light(); dismiss() } label: {
-                Label(L.s("a11y.close"), systemImage: "xmark")
-                    .labelStyle(.iconOnly)
-                    .font(.body.weight(.semibold))
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.glass)
-            .padding(.leading, 16)
-            .padding(.top, 8)
         }
-        .preferredColorScheme(.dark)
-        .task { image = await Self.load(item.url) }
-        .accessibilityLabel(item.alt)
+        .task {
+            if let cached = await Self.download(item.url) { file = cached } else { failed = true }
+        }
     }
 
-    private static func load(_ url: URL) async -> UIImage? {
-        // AsyncImage on the article page already warmed the shared URL cache
-        guard let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
-        return UIImage(data: data)
+    private static func download(_ url: URL) async -> URL? {
+        guard let (data, response) = try? await URLSession.shared.data(from: url) else { return nil }
+        let ext = (response as? HTTPURLResponse)?.mimeType == "image/png" ? "png"
+            : (url.pathExtension.isEmpty ? "jpg" : url.pathExtension)
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("photo_\(url.absoluteString.hashValue.magnitude).\(ext)")
+        return (try? data.write(to: dest, options: .atomic)) == nil ? nil : dest
     }
 }
 
-/// UIScrollView-backed zoom (the reliable way): fit-to-screen floor, 5x ceiling,
-/// double-tap toggles between fit and 2.5x on the tapped point.
-struct ZoomableImage: UIViewRepresentable {
-    let image: UIImage
+/// QLPreviewController inside a navigation controller so its native Done button
+/// and swipe-to-dismiss both end the SwiftUI presentation.
+struct QuickLookView: UIViewControllerRepresentable {
+    let file: URL
+    let title: String
+    let onDismiss: () -> Void
 
-    func makeUIView(context: Context) -> UIScrollView {
-        let scroll = UIScrollView()
-        scroll.delegate = context.coordinator
-        scroll.minimumZoomScale = 1
-        scroll.maximumZoomScale = 5
-        scroll.showsVerticalScrollIndicator = false
-        scroll.showsHorizontalScrollIndicator = false
-        scroll.bouncesZoom = true
-        scroll.contentInsetAdjustmentBehavior = .never
-        let imageView = UIImageView(image: image)
-        imageView.contentMode = .scaleAspectFit
-        imageView.isUserInteractionEnabled = true
-        scroll.addSubview(imageView)
-        context.coordinator.imageView = imageView
-        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.doubleTapped(_:)))
-        doubleTap.numberOfTapsRequired = 2
-        scroll.addGestureRecognizer(doubleTap)
-        return scroll
+    func makeUIViewController(context: Context) -> UINavigationController {
+        let preview = QLPreviewController()
+        preview.dataSource = context.coordinator
+        preview.delegate = context.coordinator
+        preview.navigationItem.leftBarButtonItem = UIBarButtonItem(
+            systemItem: .done, primaryAction: UIAction { _ in Haptics.light(); onDismiss() })
+        let nav = UINavigationController(rootViewController: preview)
+        nav.navigationBar.prefersLargeTitles = false
+        return nav
     }
 
-    func updateUIView(_ scroll: UIScrollView, context: Context) {
-        context.coordinator.imageView?.frame = scroll.bounds
-        scroll.contentSize = scroll.bounds.size
+    func updateUIViewController(_ controller: UINavigationController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(file: file, title: title) }
+
+    final class Coordinator: NSObject, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
+        private let item: PreviewItem
+        init(file: URL, title: String) { item = PreviewItem(url: file, title: title) }
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> any QLPreviewItem { item }
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    final class Coordinator: NSObject, UIScrollViewDelegate {
-        var imageView: UIImageView?
-
-        func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
-
-        func scrollViewDidZoom(_ scrollView: UIScrollView) {
-            // keep the image centred while it is smaller than the viewport
-            guard let imageView else { return }
-            let dx = max(0, (scrollView.bounds.width - imageView.frame.width) / 2)
-            let dy = max(0, (scrollView.bounds.height - imageView.frame.height) / 2)
-            scrollView.contentInset = UIEdgeInsets(top: dy, left: dx, bottom: dy, right: dx)
-        }
-
-        @objc func doubleTapped(_ gesture: UITapGestureRecognizer) {
-            guard let scroll = gesture.view as? UIScrollView else { return }
-            Haptics.light()
-            if scroll.zoomScale > scroll.minimumZoomScale {
-                scroll.setZoomScale(scroll.minimumZoomScale, animated: true)
-            } else {
-                let point = gesture.location(in: imageView)
-                let size = CGSize(width: scroll.bounds.width / 2.5, height: scroll.bounds.height / 2.5)
-                scroll.zoom(to: CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2,
-                                       width: size.width, height: size.height), animated: true)
-            }
-        }
+    final class PreviewItem: NSObject, QLPreviewItem {
+        let previewItemURL: URL?
+        let previewItemTitle: String?
+        init(url: URL, title: String) { previewItemURL = url; previewItemTitle = title }
     }
 }
