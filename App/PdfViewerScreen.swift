@@ -38,6 +38,7 @@ struct PdfViewerScreen: View {
                 if let document {
                     PdfKitView(document: document, goToPageIndex: $goToPage)
                         .ignoresSafeArea(edges: .bottom)
+                        .background(Color.appBackground)
                         .accessibilityLabel(displayTitle)
                 } else {
                     ContentUnavailableView(L.s("errorLoading"), systemImage: "doc.questionmark")
@@ -208,6 +209,8 @@ struct PdfKitView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> JumpingPDFView {
         let view = JumpingPDFView()
+        // the app's grouped background instead of PDFKit's default grey, in both appearances
+        view.backgroundColor = .systemGroupedBackground
         view.displayMode = .singlePage
         view.displayDirection = .horizontal
         view.usePageViewController(true, withViewOptions: nil)
