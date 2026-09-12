@@ -36,13 +36,13 @@ struct SettingsSheet: View {
                     }
                     Button {
                         Haptics.light()
-                        onOpenWeb("https://lgka.app/privacy", L.s("privacyLabel"))
+                        onOpenWeb("https://privacy.lgka.app", L.s("privacyLabel"))
                     } label: {
                         Label(L.s("privacyLabel"), systemImage: "hand.raised")
                     }
                     Button {
                         Haptics.light()
-                        onOpenWeb("https://lgka.app/impressum", L.s("legalLabel"))
+                        onOpenWeb("https://impressum.lgka.app", L.s("legalLabel"))
                     } label: {
                         Label(L.s("legalLabel"), systemImage: "info.circle")
                     }
