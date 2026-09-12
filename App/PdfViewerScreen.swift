@@ -27,6 +27,7 @@ struct PdfViewerScreen: View {
     @State private var feedback: String?
     @State private var classInput = ""
     @State private var showClassBar = false
+    @State private var showShare = false
     @State private var goToPage: Int?
     @FocusState private var classFocused: Bool
 
@@ -64,14 +65,20 @@ struct PdfViewerScreen: View {
                         }
                         .accessibilityIdentifier("pdf.changeClass")
                     }
-                    ShareLink(item: shareUrl ?? fileUrl) {
+                    // a Button (not ShareLink): toolbar items swallow simultaneous gestures, so
+                    // the haptic fires here and the share sheet is presented explicitly
+                    Button { Haptics.light(); showShare = true } label: {
                         Label(L.s("a11y.share"), systemImage: "square.and.arrow.up")
                     }
-                    .tapHaptic()
+                    .accessibilityIdentifier("pdf.share")
                 }
             }
             .safeAreaInset(edge: .top) {
                 if showClassBar { classBar }
+            }
+            .sheet(isPresented: $showShare) {
+                ActivityView(items: [shareUrl ?? fileUrl])
+                    .presentationDetents([.medium, .large])
             }
             .safeAreaInset(edge: .bottom) {
                 if let feedback {
@@ -296,4 +303,13 @@ final class JumpingPDFView: PDFView {
             self.go(to: page)
         }
     }
+}
+
+/// UIActivityViewController for the share button (ShareLink cannot carry a haptic in a toolbar).
+struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
