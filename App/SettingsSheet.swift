@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsSheet: View {
     var onBugReport: () -> Void
     @Environment(Prefs.self) private var prefs
+    @Environment(HomeModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var confirmLogout = false
 
@@ -73,6 +74,7 @@ struct SettingsSheet: View {
                 Button(L.s("logout"), role: .destructive) {
                     Haptics.medium()
                     dismiss()
+                    model.clear() // explicit sign-out: forget the snapshot too
                     prefs.signOut()
                 }
                 Button(L.s("cancel"), role: .cancel) { Haptics.light() }

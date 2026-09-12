@@ -44,7 +44,9 @@ GET /v1/sync?substitutions=<hash>&schedules=<hash>&news=<hash>&events=<hash>&wea
 - `SyncStore` keeps one JSON snapshot per resource in Application Support and the mirrored PDFs as
   files, so every screen renders offline from the last known state.
 - Auth is HTTP Basic with the school's shared *Vertretungsplan* login the user types once (Keychain).
-  A `401` means the school rotated the password: the app clears the login and shows the sign-in screen.
+  Only a real `401` questions the login, and even that is confirmed with one `/v1/auth/check` first
+  (a `403` from the edge, a `429` or a `5xx` is transient). A confirmed rotation shows the sign-in
+  screen with an explanation; the snapshot on disk is kept and is back right after re-login.
 - Timetable class index values are real 1-based PDF pages; the viewer opens `page - 1`.
 - Weather payloads state their `source` (`school` / `open-meteo`) and attribution; the app shows both.
 
@@ -77,7 +79,7 @@ Requires Xcode 26.6 / Swift 6.3. The project builds with `SWIFT_STRICT_CONCURREN
 ## Test
 
 ```bash
-swift test                            # 26 unit tests: model decoding, sync merge + persistence, 401 handling, hourly window, class → page
+swift test                            # 31 unit tests: model decoding, sync merge + persistence, 401 confirmation flow, hourly window, class → page
 ```
 
 Refresh the recorded fixtures with the live API when the contract changes:

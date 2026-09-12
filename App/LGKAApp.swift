@@ -134,14 +134,12 @@ struct LGKAApp: App {
                     }
                 }
                 .onChange(of: model.unauthorized) { _, rejected in
-                    // the school rotated the password: back to the login gate, cache wiped
+                    // the school rotated the password (confirmed by /v1/auth/check):
+                    // back to the login gate; the snapshot stays on disk
                     guard rejected else { return }
                     model.unauthorized = false
                     prefs.passwordRotated = true
                     prefs.signOut()
-                }
-                .onChange(of: prefs.isSignedIn) { _, signedIn in
-                    if !signedIn { model.clear() }
                 }
                 .environment(prefs)
                 .environment(model)

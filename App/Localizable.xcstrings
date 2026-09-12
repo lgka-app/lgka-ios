@@ -1205,6 +1205,23 @@
         }
       }
     },
+    "login.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Dienst ist gerade nicht erreichbar – bitte später erneut versuchen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service is temporarily unavailable – please try again later."
+          }
+        }
+      }
+    },
     "login.offline": {
       "extractionState": "manual",
       "localizations": {

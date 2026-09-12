@@ -149,10 +149,27 @@ public struct ScheduleItem: Codable, Hashable, Sendable, Identifiable {
         }
     }
 
-    /// Does this PDF contain `cls` ("10b" → grade 10, "j11" → grade 11)?
+    /// Does this PDF contain `cls`? The API's class index is authoritative
+    /// (it was built from the PDF's text); grade discovery is the fallback for
+    /// a class the index does not list.
     public func covers(_ cls: String) -> Bool {
+        if classIndex[cls.lowercased()] != nil { return true }
         guard let grade = ScheduleGrades.gradeOf(cls) else { return false }
         return grades.contains(grade)
+    }
+
+    /// The timetables to offer: the newest semester that has published PDFs
+    /// (2. Halbjahr over 1. Halbjahr), published items only. When nothing is
+    /// published yet, the unpublished set of the preferred semester is
+    /// returned so the UI can still explain that the school has not uploaded it.
+    public static func preferredGroup(_ items: [ScheduleItem]) -> [ScheduleItem] {
+        let published = items.filter { $0.available && $0.pdf != nil }
+        for half in ["2. Halbjahr", "1. Halbjahr"] {
+            let group = published.filter { $0.halbjahr == half }
+            if !group.isEmpty { return group }
+        }
+        let second = items.filter { $0.halbjahr == "2. Halbjahr" }
+        return second.isEmpty ? items.filter { $0.halbjahr == "1. Halbjahr" } : second
     }
 
     /// 0-based page index for the PDF viewer, or nil when the class is not in this PDF.

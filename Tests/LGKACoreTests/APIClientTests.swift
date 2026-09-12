@@ -45,8 +45,14 @@ struct APIClientTests {
         #expect(try await client.check(creds) == true)
         MockURLProtocol.handler = { _ in (401, Data(#"{"error":"unauthorized"}"#.utf8)) }
         #expect(try await client.check(creds) == false)
+        // 403 (WAF / rate limit), 429 and 5xx are the service, not the password
+        MockURLProtocol.handler = { _ in (403, Data("blocked".utf8)) }
+        await #expect(throws: APIError.badStatus(403)) { try await client.check(creds) }
+        MockURLProtocol.handler = { _ in (429, Data()) }
+        await #expect(throws: APIError.badStatus(429)) { try await client.check(creds) }
         MockURLProtocol.handler = { _ in (503, Data()) }
         await #expect(throws: APIError.badStatus(503)) { try await client.check(creds) }
+        #expect(APIError.badStatus(403).isTransient && !APIError.unauthorized.isTransient)
     }
 
     @Test func syncSendsHashesAndDecodes() async throws {
@@ -67,13 +73,53 @@ struct APIClientTests {
         #expect(response.resources.weather?.status == .updated)
     }
 
-    @Test func unauthorizedIsSurfacedAsSuch() async throws {
+    @Test func onlyA401IsUnauthorized() async throws {
         let client = makeClient(credentials: creds)
         MockURLProtocol.handler = { _ in (401, Data(#"{"error":"unauthorized"}"#.utf8)) }
         await #expect(throws: APIError.unauthorized) { try await client.sync(hashes: [:]) }
-        // the WAF answers data routes with 403 for bad credentials; same meaning for the app
+        // a 403 comes from the edge (WAF, rate limit) and must never log anyone out
         MockURLProtocol.handler = { _ in (403, Data("blocked".utf8)) }
-        await #expect(throws: APIError.unauthorized) { try await client.pdf(sha256: String(repeating: "a", count: 64)) }
+        await #expect(throws: APIError.badStatus(403)) { try await client.sync(hashes: [:]) }
+        await #expect(throws: APIError.badStatus(403)) { try await client.pdf(sha256: String(repeating: "a", count: 64)) }
+        MockURLProtocol.handler = { _ in (429, Data()) }
+        await #expect(throws: APIError.badStatus(429)) { try await client.sync(hashes: [:]) }
+    }
+
+    /// The 401 confirmation flow: a data 401 is only believed when /v1/auth/check agrees.
+    @Test func verifyStoredCredentialsAfterA401() async throws {
+        let client = makeClient(credentials: creds)
+        // sync 401, then the check says 204 → the 401 was a fluke
+        MockURLProtocol.handler = { req in req.url?.path == "/v1/auth/check" ? (204, Data()) : (401, Data()) }
+        await #expect(throws: APIError.unauthorized) { try await client.sync(hashes: [:]) }
+        #expect(await client.verifyStoredCredentials() == .valid)
+        // the check says 401 too → the school rotated the password
+        MockURLProtocol.handler = { _ in (401, Data()) }
+        #expect(await client.verifyStoredCredentials() == .rotated)
+        // the check itself is blocked or down → no verdict, nobody is signed out
+        MockURLProtocol.handler = { req in req.url?.path == "/v1/auth/check" ? (403, Data()) : (401, Data()) }
+        #expect(await client.verifyStoredCredentials() == .undetermined)
+        MockURLProtocol.handler = { _ in (503, Data()) }
+        #expect(await client.verifyStoredCredentials() == .undetermined)
+        // no stored login at all → nothing to confirm
+        #expect(await makeClient(credentials: nil).verifyStoredCredentials() == .rotated)
+    }
+
+    /// A rotated password never touches the snapshot: the store is only
+    /// cleared by an explicit sign-out, so the data is back right after re-login.
+    @Test func rotatedPasswordKeepsTheSnapshot() async throws {
+        let store = try Fixtures.tempStore()
+        var state = store.loadState()
+        store.apply(try Fixtures.sync("sync_full"), to: &state)
+        let hashesBefore = state.hashes
+        #expect(!hashesBefore.isEmpty)
+
+        let client = makeClient(credentials: creds)
+        MockURLProtocol.handler = { _ in (401, Data()) }
+        await #expect(throws: APIError.unauthorized) { try await client.sync(hashes: state.hashes) }
+        #expect(await client.verifyStoredCredentials() == .rotated)
+
+        let reloaded = SyncStore(directory: store.directory).loadState()
+        #expect(reloaded.hashes == hashesBefore)
     }
 
     @Test func missingCredentialsNeverHitTheNetwork() async throws {

@@ -65,4 +65,33 @@ struct ScheduleClassPageTests {
         item.gradeLevel = "Klassen 5-10"
         #expect(item.covers("10e") && !item.covers("j11"))
     }
+
+    @Test func classIndexWinsOverGradeDiscovery() {
+        // the index was built from the PDF's text: it knows better than the title
+        var item = ScheduleItem(title: "Stundenpläne - 2026/2027 - 1.HJ - 5-10", url: "", fullUrl: "u", halbjahr: "1. Halbjahr",
+                                gradeLevel: "Klassen 5-10", available: true, pdf: nil, classIndex: ["5a": 1, "j11": 20], pages: [])
+        #expect(item.covers("J11"), "listed in the index although the title says 5-10")
+        #expect(item.covers("7c"), "grade fallback still applies")
+        item.classIndex = [:]
+        #expect(!item.covers("j11") && item.covers("7c"))
+    }
+
+    @Test func preferredGroupOffersPublishedTimetablesOnly() {
+        func item(_ half: String, _ grade: String, published: Bool) -> ScheduleItem {
+            ScheduleItem(title: "Stundenpläne - 2026/2027 - \(half == "1. Halbjahr" ? "1" : "2").HJ - \(grade)", url: "", fullUrl: "\(half)/\(grade)",
+                         halbjahr: half, gradeLevel: grade == "5-10" ? "Klassen 5-10" : grade, available: published,
+                         pdf: published ? PdfRef(url: "/v1/files/x.pdf", sha256: String(repeating: "a", count: 64), bytes: 1, pageCount: 1, base64: nil) : nil,
+                         classIndex: [:], pages: [])
+        }
+        let first = [item("1. Halbjahr", "5-10", published: true), item("1. Halbjahr", "J11", published: true)]
+        let secondUnpublished = [item("2. Halbjahr", "5-10", published: false), item("2. Halbjahr", "J11", published: false)]
+        // 2. Halbjahr listed but not uploaded yet → keep offering the published 1. Halbjahr
+        #expect(ScheduleItem.preferredGroup(first + secondUnpublished).map(\.fullUrl) == first.map(\.fullUrl))
+        // once one 2. Halbjahr PDF is published, only published ones are offered
+        let partlyPublished = [item("2. Halbjahr", "5-10", published: true), item("2. Halbjahr", "J11", published: false)]
+        #expect(ScheduleItem.preferredGroup(first + partlyPublished).map(\.fullUrl) == ["2. Halbjahr/5-10"])
+        // nothing published anywhere → the preferred semester as-is, so the UI can say why
+        #expect(ScheduleItem.preferredGroup(secondUnpublished).count == 2)
+        #expect(ScheduleItem.preferredGroup([]).isEmpty)
+    }
 }
