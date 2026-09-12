@@ -15,7 +15,7 @@ struct NewsListScreen: View {
                 } else {
                     // news_screen.dart parity: one card per article, not a grouped list
                     ScrollView {
-                        LazyVStack(spacing: 16) {
+                        LazyVStack(spacing: 12) {
                             ForEach(articles) { md in
                                 NavigationLink(value: md) {
                                     NewsCard(md: md)
@@ -58,70 +58,48 @@ struct NewsCard: View {
     @Environment(\.appAccent) private var accent
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(md.title)
-                    .font(.title3.weight(.bold))
+                    .font(.headline)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "newspaper.fill")
-                    .font(.body)
-                    .foregroundStyle(accent)
-                    .padding(.top, 3)
-                    .accessibilityHidden(true)
-            }
-            HStack(spacing: 12) {
-                Text(md.createdDate).fontWeight(.medium)
-                Label("\(md.views)", systemImage: "eye")
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(.tertiary)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.top, 8)
-            if !md.description.isEmpty {
-                Text(md.description)
-                    .font(.subheadline)
-                    .lineSpacing(3)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-                    .padding(.top, 12)
-            }
-            if !md.tags.isEmpty {
-                FlowLayout(spacing: 6) {
-                    ForEach(md.tags, id: \.self) { tag in
-                        Text(tag)
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 8).padding(.vertical, 4)
-                            .background(accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(accent.opacity(0.3)))
-                            .foregroundStyle(accent)
-                    }
+                if !md.description.isEmpty {
+                    Text(md.description)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
                 }
-                .padding(.top, 12)
-            }
-            HStack(spacing: 8) {
-                Label(md.author, systemImage: "person")
+                if !md.tags.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(md.tags.prefix(3), id: \.self) { tag in
+                            Text(tag)
+                                .font(.caption2.weight(.medium))
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(accent.opacity(0.12), in: Capsule())
+                                .foregroundStyle(accent)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+                // one quiet caption line, the way Mail and News do it
+                Text("\(md.author) · \(md.createdDate) · \(md.views) \(L.s("views"))")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
-                Spacer(minLength: 8)
-                HStack(spacing: 4) {
-                    Text(L.s("mehrErfahren"))
-                    Image(systemName: "arrow.right")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(accent)
-                .accessibilityHidden(true)
+                    .padding(.top, 2)
             }
-            .padding(.top, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .background(Color.appSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
