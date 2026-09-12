@@ -77,6 +77,8 @@ struct HomeScreen: View {
                 Haptics.medium()
                 await model.loadAll(mode: .refresh)
             }
+            // the system back button and the swipe-back gesture have no haptic of their own
+            .onChange(of: path.count) { old, new in if new < old { Haptics.light() } }
             .task { await model.bootstrap() }
             .sheet(isPresented: $showSettings) {
                 SettingsSheet(onBugReport: {
