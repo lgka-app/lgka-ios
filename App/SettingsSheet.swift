@@ -74,8 +74,8 @@ struct SettingsSheet: View {
                 Button(L.s("logout"), role: .destructive) {
                     Haptics.medium()
                     dismiss()
-                    model.clear() // explicit sign-out: forget the snapshot too
-                    prefs.signOut()
+                    model.clear() // explicit sign-out: snapshot, login and every preference go
+                    prefs.reset() // back to the welcome screen
                 }
                 Button(L.s("cancel"), role: .cancel) { Haptics.light() }
             }

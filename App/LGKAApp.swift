@@ -92,17 +92,18 @@ final class Prefs {
         isAuthenticated = false
     }
 
-    #if DEBUG
-    /// Fresh-install state for automated screenshots.
-    func resetForDebug() {
+    /// Fresh-install state: an explicit sign-out in Settings starts over at the
+    /// welcome screen (also the seed for automated screenshots). A rotated school
+    /// password uses `signOut()` instead and keeps the preferences.
+    func reset() {
         signOut()
         onboardingCompleted = false
         krankmeldungInfoShown = false
         selectedScheduleClass = ""
         accentColor = "blue"
         themeMode = "system"
+        passwordRotated = false
     }
-    #endif
 }
 
 @main
@@ -195,7 +196,7 @@ struct RootView: View {
 enum DebugSeed {
     static func apply(to prefs: Prefs) {
         let env = ProcessInfo.processInfo.environment
-        if env["LGKA_DEBUG_RESET"] != nil { prefs.resetForDebug() }
+        if env["LGKA_DEBUG_RESET"] != nil { prefs.reset() }
         if let pair = env["LGKA_DEBUG_LOGIN"], let sep = pair.firstIndex(of: ":") {
             prefs.signIn(.init(user: String(pair[..<sep]), password: String(pair[pair.index(after: sep)...])))
         }
