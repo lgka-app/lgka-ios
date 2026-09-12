@@ -12,7 +12,8 @@ struct HomeScreen: View {
     @State private var classInput = ""
     @State private var pdfDestination: PdfDestination?
     @State private var scheduleLoadingOverlay = false
-    @State private var path: [HomeRoute] = []
+    /// Type-erased so both HomeRoute pushes and value links (news articles) resolve.
+    @State private var path = NavigationPath()
     @State private var scheduleUnavailable: String?
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize = 40
 
@@ -37,19 +38,24 @@ struct HomeScreen: View {
                 Section(L.s("termine")) { eventsSection }
             }
             .listStyle(.insetGrouped)
+            .readableWidth()
+            .background(Color.appBackground)
             .navigationTitle(L.s("appTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { Haptics.light(); path.append(.news) } label: {
+                    Button { Haptics.light(); path.append(HomeRoute.news) } label: {
                         Label(L.s("news"), systemImage: "newspaper")
                     }
+                    .accessibilityIdentifier("home.news")
                     Button { Haptics.light(); openKrankmeldung() } label: {
                         Label(L.s("krankmeldung"), systemImage: "cross.case")
                     }
+                    .accessibilityIdentifier("home.sick")
                     Button { Haptics.light(); showSettings = true } label: {
                         Label(L.s("settings"), systemImage: "gearshape")
                     }
+                    .accessibilityIdentifier("home.settings")
                 }
             }
             .navigationDestination(for: HomeRoute.self) { route in
@@ -57,7 +63,7 @@ struct HomeScreen: View {
                 case .weather: WeatherPageScreen()
                 case .news: NewsListScreen()
                 case .krankmeldungInfo:
-                    KrankmeldungInfoScreen { path.append(.krankmeldungForm) }
+                    KrankmeldungInfoScreen { path.append(HomeRoute.krankmeldungForm) }
                 case .krankmeldungForm:
                     WebScreen(url: "https://drkrankmeldung.lgka-online.de",
                               title: L.s("krankmeldung"),
@@ -73,7 +79,7 @@ struct HomeScreen: View {
             .sheet(isPresented: $showSettings) {
                 SettingsSheet(onBugReport: {
                     showSettings = false
-                    path.append(.bugReport)
+                    path.append(HomeRoute.bugReport)
                 })
                 .presentationDetents([.medium, .large])
             }
@@ -114,7 +120,7 @@ struct HomeScreen: View {
         if let w = model.weather {
             Button {
                 Haptics.medium()
-                path.append(.weather)
+                path.append(HomeRoute.weather)
             } label: {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 1) {
@@ -163,6 +169,7 @@ struct HomeScreen: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(L.f("a11y.weatherCard", Wmo.description(w.code), Int(w.temp.rounded())))
             .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("home.weather")
         } else if model.weatherError {
             HStack(spacing: 14) {
                 Image(systemName: "cloud.slash").foregroundStyle(.secondary)
@@ -235,8 +242,8 @@ struct HomeScreen: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
         } else {
-            subCard(model.today, isToday: true)
-            subCard(model.tomorrow, isToday: false)
+            subCard(model.today, isToday: true).accessibilityIdentifier("home.plan.today")
+            subCard(model.tomorrow, isToday: false).accessibilityIdentifier("home.plan.tomorrow")
         }
     }
 
@@ -463,6 +470,7 @@ struct HomeScreen: View {
                     Spacer()
                 }
                 .padding(.vertical, 6)
+                .accessibilityIdentifier("home.event")
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(L.f("a11y.event", eventSubtitle(event), event.title))
             }
@@ -491,9 +499,9 @@ struct HomeScreen: View {
 
     private func openKrankmeldung() {
         if prefs.krankmeldungInfoShown {
-            path.append(.krankmeldungForm)
+            path.append(HomeRoute.krankmeldungForm)
         } else {
-            path.append(.krankmeldungInfo)
+            path.append(HomeRoute.krankmeldungInfo)
         }
     }
 }

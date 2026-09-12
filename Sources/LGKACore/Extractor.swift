@@ -24,10 +24,10 @@ public enum Extractor {
 
     private static let segmentGap = 15.0
 
-    private static var footerAnchor: Regex<Substring> { #/\d{1,2}\.\d{1,2}\.\d{4}\s*\(\d+\)\s*SJ\s/# }
-    private static var schoolYearRe: Regex<Substring> { #/SJ \d{4}-\d{4}/# }
+    private static var footerAnchor: Regex<Substring> { #/\d{1,2}\.\d{1,2}\.\d{4}\s*\(\d+\)/# }
+    private static var schoolYearRe: Regex<Substring> { #/(?:SJ|Schuljahr) \d{4}-\d{4}/# }
     private static var generatedAtRe: Regex<Substring> { #/\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{2}/# }
-    private static var footerRe: Regex<(Substring, Substring?, Substring, Substring, Substring, Substring, Substring)> { #/(?:Periode\s+(\d+)\s+)?(\d{1,2})\.(\d{1,2})\.(\d{4})\s+\((\d+)\)\s+SJ\s+(\S+)/# }
+    private static var footerRe: Regex<(Substring, Substring?, Substring, Substring, Substring, Substring, Substring?)> { #/(?:Periode\s+(\d+)\s+)?(\d{1,2})\.(\d{1,2})\.(\d{4})\s+\((\d+)\)(?:\s+SJ\s+(\S+))?/# }
     private static var titleRe: Regex<(Substring, Substring, Substring, Substring)> { #/(\d{1,2})\.(\d{1,2})\.\s*\/\s*(\w+)/# }
     private static var classRangeRe: Regex<(Substring, Substring, Substring)> { #/(\d{1,2})([a-e]{2,})/# }
 
@@ -94,7 +94,7 @@ public enum Extractor {
                 "untisPeriod": g.1.flatMap { Int($0) } as Any? ?? NSNull(),
                 "date": "\(pad(g.2)).\(pad(g.3)).\(g.4)",
                 "calendarWeek": Int(g.5) ?? 0,
-                "schoolYearShort": "SJ \(g.6)",
+                "schoolYearShort": g.6.map { "SJ \($0)" } as Any? ?? NSNull(),
             ] as [String: Any]
         }
 
@@ -169,6 +169,7 @@ public enum Extractor {
                         prevRight = w.right
                     }
                     if cells.allSatisfy(\.isEmpty) { continue }
+                    splitGluedEmptyMarkers(&cells)
 
                     if !cells[0].isEmpty || !cells[1].isEmpty {
                         var entry: [String: Any] = [:]
@@ -195,6 +196,17 @@ public enum Extractor {
         }
 
         return plan
+    }
+
+    /// Untis 2027 draws a cell and the following empty-cell marker "---" as
+    /// one text run without a gap glyph, so geometry yields "7a---" in the
+    /// class column and nothing in the next one. Move the marker over.
+    static func splitGluedEmptyMarkers(_ cells: inout [String]) {
+        for c in 0..<(cells.count - 1) where cells[c + 1].isEmpty && cells[c].count > 3
+            && cells[c].hasSuffix("---") {
+            cells[c + 1] = "---"
+            cells[c] = String(cells[c].dropLast(3)).trimmingCharacters(in: .whitespaces)
+        }
     }
 
     /// "6ab" -> [6a, 6b]; "5a, 7c" -> [5a, 7c]; "J11" -> [J11].

@@ -1,10 +1,12 @@
 import Foundation
 import Security
+import os
 
 /// The school website's read-only HTTP basic-auth credentials, entered by
 /// the user at login, verified against the server and stored in the
 /// Keychain. Nothing in the source tree contains a password.
 enum Credentials {
+    private static let log = Logger(subsystem: "com.lgka", category: "credentials")
     private static let service = "de.lgka.school-website"
     private static let account = "basic-auth"
 
@@ -28,7 +30,11 @@ enum Credentials {
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess,
+        let status = SecItemCopyMatching(q as CFDictionary, &item)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            log.error("keychain read failed: \(status)")
+        }
+        guard status == errSecSuccess,
               let data = item as? Data,
               let text = String(data: data, encoding: .utf8),
               let sep = text.firstIndex(of: "\n") else { return nil }
@@ -42,7 +48,9 @@ enum Credentials {
         var q = query
         q[kSecValueData as String] = data
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        return SecItemAdd(q as CFDictionary, nil) == errSecSuccess
+        let status = SecItemAdd(q as CFDictionary, nil)
+        if status != errSecSuccess { log.error("keychain write failed: \(status)") }
+        return status == errSecSuccess
     }
 
     static func clear() {

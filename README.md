@@ -72,6 +72,17 @@ swift run lgka-extractor classindex ../verification/fixtures/schedule /tmp/out-s
 cargo run --release --manifest-path ../verification/tool/compare-report/Cargo.toml -- --swift /tmp/out-swift
 ```
 
+## Screenshots
+
+The store screenshots are produced by an XCUITest suite (`UITests/ScreenshotTests.swift`) on the simulator — no manual navigation, no coordinates:
+
+```bash
+LGKA_LOGIN=user:pass scripts/screenshots.sh               # de/en × phone/tablet × dark/light
+LGKA_LOGIN=user:pass scripts/screenshots.sh dark phone    # one theme / form factor
+```
+
+Output: `app_store_assets/screenshots/<locale>/ios/<phone|tablet>/<dark|light>/NN_name.png` at native resolution (iPhone 17 Pro Max: 1320×2868, iPad Pro 13-inch: 2064×2752), with the 09:41 status bar override. Every capture is guarded against system prompts (e.g. the AutoFill "Save Password?" sheet). The suite also contains a real login-flow regression test.
+
 ## Login and credentials
 
 The school website's read-only credentials are entered once by the user, verified with a request to the server and stored in the Keychain. They are never part of the source code and are only ever sent to `lessing-gymnasium-karlsruhe.de`.

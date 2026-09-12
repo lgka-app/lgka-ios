@@ -65,6 +65,7 @@ struct SettingsSheet: View {
                     Button { dismiss() } label: {
                         Label(L.s("a11y.close"), systemImage: "xmark")
                     }
+                    .accessibilityIdentifier("settings.close")
                 }
             }
             .confirmationDialog(L.s("logoutConfirm"), isPresented: $confirmLogout, titleVisibility: .visible) {

@@ -21,7 +21,34 @@ packages:
   Vortex:
     url: https://github.com/twostraws/Vortex
     from: 1.0.4
+schemes:
+  LGKA:
+    build:
+      targets:
+        LGKA: all
+        LGKAUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [LGKAUITests]
+    archive:
+      config: Release
 targets:
+  LGKAUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: LGKA
+    settings:
+      base:
+        DEVELOPMENT_TEAM: M8M22924DJ
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: LGKA
+        PRODUCT_BUNDLE_IDENTIFIER: com.lgka.uitests
   LGKA:
     type: application
     platform: iOS
@@ -36,6 +63,11 @@ targets:
         product: LGKACore
       - package: Vortex
         product: Vortex
+    entitlements:
+      path: App/LGKA.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.lgka
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lgka

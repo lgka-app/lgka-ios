@@ -17,7 +17,10 @@ struct NewsListScreen: View {
                         NavigationLink(value: md) {
                             NewsCard(md: md)
                         }
+                        .accessibilityIdentifier("news.row")
                     }
+                    .readableWidth()
+                    .background(Color.appBackground)
                     .listStyle(.insetGrouped)
                 }
             } else if model.newsFailed {
@@ -237,8 +240,10 @@ struct NewsDetailScreen: View {
                     }
                 }
             }
+            .readableWidth()
             .padding(20)
         }
+        .accessibilityIdentifier("news.detail")
     }
 
     @ViewBuilder private var metaLabels: some View {

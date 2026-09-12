@@ -38,6 +38,8 @@ final class Prefs {
     var themeMode: String { didSet { defaults.set(themeMode, forKey: "themeMode") } }
     var krankmeldungInfoShown: Bool { didSet { defaults.set(krankmeldungInfoShown, forKey: "krankmeldungInfoShown") } }
     var selectedScheduleClass: String { didSet { defaults.set(selectedScheduleClass, forKey: "selectedScheduleClass") } }
+    /// Observable mirror of "a credential pair exists in the Keychain".
+    private(set) var hasCredentials: Bool
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -47,6 +49,12 @@ final class Prefs {
         themeMode = defaults.string(forKey: "themeMode") ?? "system"
         krankmeldungInfoShown = defaults.bool(forKey: "krankmeldungInfoShown")
         selectedScheduleClass = defaults.string(forKey: "selectedScheduleClass") ?? ""
+        hasCredentials = Credentials.load() != nil
+        #if DEBUG
+        // Applied here (not in the App initializer) so it acts on the very
+        // instance SwiftUI installs; @State values mutated in App.init are lost.
+        DebugSeed.apply(to: self)
+        #endif
     }
 
     var accent: Color { (Accent(rawValue: accentColor) ?? .blue).color }
@@ -62,12 +70,36 @@ final class Prefs {
     /// Signed in means both the flag and stored credentials exist; a
     /// missing keychain item (restored device, cleared keychain) sends the
     /// user back through the login gate instead of failing every request.
-    var isSignedIn: Bool { isAuthenticated && Credentials.load() != nil }
+    var isSignedIn: Bool { isAuthenticated && hasCredentials }
+
+    /// Stores the verified credentials and completes onboarding. Returns
+    /// false (and changes nothing) if the Keychain refused the write.
+    @discardableResult
+    func signIn(_ pair: Credentials.Pair) -> Bool {
+        guard Credentials.save(pair) else { return false }
+        hasCredentials = true
+        isAuthenticated = true
+        onboardingCompleted = true
+        return true
+    }
 
     func signOut() {
         Credentials.clear()
+        hasCredentials = false
         isAuthenticated = false
     }
+
+    #if DEBUG
+    /// Fresh-install state for automated screenshots.
+    func resetForDebug() {
+        signOut()
+        onboardingCompleted = false
+        krankmeldungInfoShown = false
+        selectedScheduleClass = ""
+        accentColor = "blue"
+        themeMode = "system"
+    }
+    #endif
 }
 
 @main
@@ -77,11 +109,6 @@ struct LGKAApp: App {
     @State private var model = HomeModel()
     @Environment(\.scenePhase) private var scenePhase
 
-    init() {
-        #if DEBUG
-        DebugSeed.apply(to: prefs)
-        #endif
-    }
 
     var body: some Scene {
         WindowGroup {
@@ -138,10 +165,9 @@ struct RootView: View {
 enum DebugSeed {
     static func apply(to prefs: Prefs) {
         let env = ProcessInfo.processInfo.environment
+        if env["LGKA_DEBUG_RESET"] != nil { prefs.resetForDebug() }
         if let pair = env["LGKA_DEBUG_LOGIN"], let sep = pair.firstIndex(of: ":") {
-            Credentials.save(.init(user: String(pair[..<sep]), password: String(pair[pair.index(after: sep)...])))
-            prefs.isAuthenticated = true
-            prefs.onboardingCompleted = true
+            prefs.signIn(.init(user: String(pair[..<sep]), password: String(pair[pair.index(after: sep)...])))
         }
         if let accent = env["LGKA_DEBUG_ACCENT"] { prefs.accentColor = accent }
         if let theme = env["LGKA_DEBUG_THEME"] { prefs.themeMode = theme }

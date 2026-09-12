@@ -88,3 +88,12 @@ extension EnvironmentValues {
         set { self[AppAccentKey.self] = newValue }
     }
 }
+
+extension View {
+    /// HIG Layout: on wide screens (iPad, landscape) content stays in a readable
+    /// column instead of stretching edge to edge. Phones are narrower than the
+    /// limit, so they are unaffected.
+    func readableWidth(_ max: CGFloat = 760) -> some View {
+        frame(maxWidth: max).frame(maxWidth: .infinity)
+    }
+}

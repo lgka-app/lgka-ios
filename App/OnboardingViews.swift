@@ -57,12 +57,14 @@ struct WelcomeScreen: View {
                 .multilineTextAlignment(.center)
             Spacer()
         }
+        .readableWidth(560)
         .padding(.horizontal, 32)
         .safeAreaInset(edge: .bottom) {
             PrimaryButton(title: L.s("continueLabel")) {
                 Haptics.light()
                 onContinue()
             }
+            .accessibilityIdentifier("onboarding.continue")
             .padding(.horizontal, 32)
             .padding(.bottom, 8)
         }
@@ -106,6 +108,7 @@ struct FeaturesScreen: View {
                 Haptics.medium()
                 onContinue()
             }
+            .accessibilityIdentifier("onboarding.continue")
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
         }
@@ -131,12 +134,14 @@ struct AccentColorScreen: View {
                 .scaleEffect(1.3)
             Spacer()
         }
+        .readableWidth(560)
         .padding(.horizontal, 24)
         .safeAreaInset(edge: .bottom) {
             PrimaryButton(title: L.s("continueLabel")) {
                 Haptics.medium()
                 onContinue()
             }
+            .accessibilityIdentifier("onboarding.continue")
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
         }
@@ -149,22 +154,37 @@ struct AccentPalettePicker: View {
     @Environment(Prefs.self) private var prefs
 
     var body: some View {
-        @Bindable var prefs = prefs
-        Picker(L.s("accentColor"), selection: $prefs.accentColor) {
+        HStack(spacing: 10) {
             ForEach(Accent.allCases) { accent in
-                Image(systemName: prefs.accentColor == accent.rawValue
-                    ? "checkmark.circle.fill" : "circle.fill")
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(accent.color)
-                    .tint(accent.color)
-                    .accessibilityLabel(accent.label)
-                    .tag(accent.rawValue)
+                let selected = prefs.accentColor == accent.rawValue
+                Button {
+                    guard !selected else { return }
+                    prefs.accentColor = accent.rawValue
+                    Haptics.light()
+                } label: {
+                    Circle()
+                        .fill(accent.color)
+                        .frame(width: 30, height: 30)
+                        .overlay {
+                            if selected {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .transition(.scale.combined(with: .opacity))
+                            }
+                        }
+                        .overlay(Circle().strokeBorder(.primary.opacity(selected ? 0.3 : 0), lineWidth: 2))
+                        .frame(width: 44, height: 44) // HIG minimum hit target
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(accent.label)
+                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : [.isButton])
+                .animation(.snappy(duration: 0.2), value: selected)
             }
         }
-        .pickerStyle(.palette)
-        .paletteSelectionEffect(.custom)
-        .labelsHidden()
-        .onChange(of: prefs.accentColor) { Haptics.light() }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(L.s("accentColor"))
     }
 }
 
@@ -181,12 +201,14 @@ struct AppearanceScreen: View {
                 .frame(maxWidth: 340)
             Spacer()
         }
+        .readableWidth(560)
         .padding(.horizontal, 24)
         .safeAreaInset(edge: .bottom) {
             PrimaryButton(title: L.s("letsGo")) {
                 Haptics.medium()
                 onContinue()
             }
+            .accessibilityIdentifier("onboarding.continue")
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
         }
@@ -237,18 +259,31 @@ struct AuthScreen: View {
         }
     }
 
+    /// Password AutoFill is always on in release builds. The screenshot suite
+    /// disables it (LGKA_DEBUG_NO_AUTOFILL) so the system "Save Password?" sheet
+    /// never covers a capture.
+    private var autoFillEnabled: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["LGKA_DEBUG_NO_AUTOFILL"] == nil
+        #else
+        true
+        #endif
+    }
+
     var body: some View {
         Form {
             Section {
                 TextField(L.s("username"), text: $username)
-                    .textContentType(.username)
+                    .accessibilityIdentifier("auth.username")
+                    .textContentType(autoFillEnabled ? .username : nil)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focus, equals: .username)
                     .submitLabel(.next)
                     .onSubmit { focus = .password }
                 SecureField(L.s("password"), text: $password)
-                    .textContentType(.password)
+                    .accessibilityIdentifier("auth.password")
+                    .textContentType(autoFillEnabled ? .password : nil)
                     .focused($focus, equals: .password)
                     .submitLabel(.go)
                     .onSubmit { if canLogin { validate() } }
@@ -296,8 +331,10 @@ struct AuthScreen: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
                 .accessibilityLabel(L.s("login"))
+                .accessibilityIdentifier("auth.login")
             }
         }
+        .readableWidth()
         .toolbar(.hidden, for: .navigationBar)
     }
 
@@ -311,12 +348,10 @@ struct AuthScreen: View {
             defer { isLoading = false }
             do {
                 if try await SchoolAPI.verify(pair) {
-                    Credentials.save(pair)
                     flash = .success
                     Haptics.success()
-                    try? await Task.sleep(for: .milliseconds(500))
-                    prefs.isAuthenticated = true
-                    prefs.onboardingCompleted = true
+                    try? await Task.sleep(for: .milliseconds(400))
+                    if !prefs.signIn(pair) { fail(L.s("login.storeFailed")) }
                 } else {
                     fail(L.s("login.failed"))
                 }

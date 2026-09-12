@@ -13,6 +13,7 @@ struct WeatherPageScreen: View {
     #if DEBUG
     /// Debug builds only: preview any sky animation regardless of live conditions.
     @State private var preview: SkyPreview?
+    @State private var showPreviewMenu = false
 
     struct SkyPreview: Hashable {
         let label: String
@@ -77,28 +78,10 @@ struct WeatherPageScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         #if DEBUG
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        preview = nil
-                    } label: {
-                        Label(L.s("live"), systemImage: preview == nil
-                            ? "checkmark" : "dot.radiowaves.left.and.right")
-                    }
-                    Divider()
-                    ForEach(Self.previews, id: \.self) { option in
-                        Button {
-                            preview = option
-                        } label: {
-                            Label(option.label, systemImage: preview == option
-                                ? "checkmark"
-                                : Wmo.symbol(option.code, isDay: option.isDay))
-                        }
-                    }
-                } label: {
-                    Label(L.s("a11y.skyPreview"), systemImage: "theatermasks")
-                }
+        .confirmationDialog(L.s("a11y.skyPreview"), isPresented: $showPreviewMenu, titleVisibility: .visible) {
+            Button(L.s("live")) { preview = nil }
+            ForEach(Self.previews, id: \.self) { option in
+                Button(option.label) { preview = option }
             }
         }
         #endif
@@ -121,8 +104,10 @@ struct WeatherPageScreen: View {
                         .padding(.vertical, 12)
                 }
             }
+            .readableWidth()
             .padding(.horizontal, 16)
         }
+        .accessibilityIdentifier("weather.page")
     }
 
     // ── Hero ────────────────────────────────────────────────────────────────
@@ -145,6 +130,9 @@ struct WeatherPageScreen: View {
         .foregroundStyle(.white)
         .shadow(color: .black.opacity(0.25), radius: 8)
         .accessibilityElement(children: .combine)
+        #if DEBUG
+        .onLongPressGesture { showPreviewMenu = true } // debug-only sky preview, no visible control
+        #endif
     }
 
     // ── Cards ───────────────────────────────────────────────────────────────

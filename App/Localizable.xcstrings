@@ -1208,6 +1208,23 @@
         }
       }
     },
+    "login.storeFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugangsdaten konnten nicht gespeichert werden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The credentials could not be stored."
+          }
+        }
+      }
+    },
     "logout": {
       "extractionState": "manual",
       "localizations": {
