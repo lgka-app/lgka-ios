@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "de",
   "strings": {
+    "a11y.changeClass": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klasse wechseln"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change class"
+          }
+        }
+      }
+    },
     "a11y.close": {
       "extractionState": "manual",
       "localizations": {
@@ -1741,12 +1757,6 @@
         "de": {
           "variations": {
             "plural": {
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Keine Vertretungen"
-                }
-              },
               "one": {
                 "stringUnit": {
                   "state": "translated",
@@ -1758,6 +1768,12 @@
                   "state": "translated",
                   "value": "%lld Vertretungen"
                 }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Keine Vertretungen"
+                }
               }
             }
           }
@@ -1765,12 +1781,6 @@
         "en": {
           "variations": {
             "plural": {
-              "zero": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "No substitutions"
-                }
-              },
               "one": {
                 "stringUnit": {
                   "state": "translated",
@@ -1781,6 +1791,12 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld substitutions"
+                }
+              },
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No substitutions"
                 }
               }
             }

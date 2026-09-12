@@ -2,14 +2,19 @@ import SwiftUI
 import PDFKit
 import LGKACore
 
-/// PDF viewer — mirrors pdf_viewer_screen.dart: share, in-PDF text search
-/// with next/previous, optional target-page jump (schedule class page).
+/// PDF viewer — mirrors pdf_viewer_screen.dart: one page at a time (swipe for
+/// the next page), share, and for schedule PDFs a class selector behind the
+/// school icon that validates against the class index and jumps to the class
+/// page (switching to the other schedule PDF when the class lives there).
+/// Substitution plans get no search at all.
 struct PdfViewerScreen: View {
     let fileUrl: URL
     let title: String
     let targetPage: Int? // display page (pageIndex + 2 contract)
     /// "Klassen 5-10" / "J11/J12" for schedule PDFs, nil for substitution.
     var gradeLevel: String? = nil
+    /// class → display page for the schedule PDF (empty for substitution).
+    var classIndex: [String: Int] = [:]
 
     @Environment(Prefs.self) private var prefs
     @Environment(HomeModel.self) private var model
@@ -17,22 +22,21 @@ struct PdfViewerScreen: View {
     @State private var document: PDFDocument?
     @State private var displayTitle = ""
     @State private var currentGrade: String?
+    @State private var currentIndex: [String: Int] = [:]
     @State private var shareUrl: URL?
     @State private var feedback: String?
-    @State private var searchText = ""
-    @State private var showSearch = false
-    @State private var matches: [PDFSelection] = []
-    @State private var matchIndex = 0
-    @State private var currentSelection: PDFSelection?
+    @State private var classInput = ""
+    @State private var showClassBar = false
     @State private var goToPage: Int?
+    @FocusState private var classFocused: Bool
+
+    private var isSchedule: Bool { currentGrade != nil }
 
     var body: some View {
         NavigationStack {
             Group {
                 if let document {
-                    PdfKitView(document: document,
-                               highlight: currentSelection,
-                               goToPageIndex: $goToPage)
+                    PdfKitView(document: document, goToPageIndex: $goToPage)
                         .ignoresSafeArea(edges: .bottom)
                         .accessibilityLabel(displayTitle)
                 } else {
@@ -48,20 +52,24 @@ struct PdfViewerScreen: View {
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        Haptics.light()
-                        withAnimation { showSearch.toggle() }
-                    } label: {
-                        Label(L.s("a11y.search"), systemImage: "magnifyingglass")
+                    if isSchedule {
+                        Button {
+                            Haptics.light()
+                            withAnimation(.snappy) { showClassBar.toggle() }
+                            classFocused = showClassBar
+                        } label: {
+                            Label(L.s("a11y.changeClass"), systemImage: showClassBar ? "xmark" : "graduationcap")
+                        }
+                        .accessibilityIdentifier("pdf.changeClass")
                     }
                     ShareLink(item: shareUrl ?? fileUrl) {
                         Label(L.s("a11y.share"), systemImage: "square.and.arrow.up")
                     }
                 }
             }
-            .searchable(text: $searchText, isPresented: $showSearch,
-                        prompt: L.s("searchInPdf"))
-            .onSubmit(of: .search, runSearch)
+            .safeAreaInset(edge: .top) {
+                if showClassBar { classBar }
+            }
             .safeAreaInset(edge: .bottom) {
                 if let feedback {
                     Text(feedback)
@@ -70,14 +78,13 @@ struct PdfViewerScreen: View {
                         .glassEffect()
                         .padding(.bottom, 8)
                         .accessibilityAddTraits(.updatesFrequently)
-                } else if !matches.isEmpty {
-                    matchStepper
                 }
             }
             .onAppear {
                 document = PDFDocument(url: fileUrl)
                 displayTitle = title
                 currentGrade = gradeLevel
+                currentIndex = classIndex
                 shareUrl = makeShareUrl(fileUrl, title: title)
                 if let targetPage {
                     // stored contract: display page = zero-based index + 2
@@ -92,50 +99,69 @@ struct PdfViewerScreen: View {
         }
     }
 
-    private var matchStepper: some View {
-        HStack(spacing: 16) {
-            Text("\(matchIndex + 1)/\(matches.count)")
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(L.f("a11y.matchPosition", matchIndex + 1, matches.count))
-            Button { step(-1) } label: {
-                Label(L.s("a11y.previousMatch"), systemImage: "chevron.up")
-            }
-            .buttonStyle(.glass)
-            Button { step(1) } label: {
-                Label(L.s("a11y.nextMatch"), systemImage: "chevron.down")
-            }
-            .buttonStyle(.glass)
+    // ── Class selector (pdf_search_bar.dart parity) ─────────────────────────
+
+    private var canSubmit: Bool { classInput.trimmingCharacters(in: .whitespaces).count >= 2 }
+
+    private var classBar: some View {
+        HStack(spacing: 10) {
+            TextField(L.s("searchHint"), text: $classInput)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.go)
+                .focused($classFocused)
+                .onSubmit(submitClass)
+                .accessibilityIdentifier("pdf.classInput")
+            Button(L.s("setClassButton"), action: submitClass)
+                .buttonStyle(.glassProminent)
+                .disabled(!canSubmit)
+                .accessibilityIdentifier("pdf.classSubmit")
         }
-        .labelStyle(.iconOnly)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .glassEffect()
-        .padding(.bottom, 8)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .glassEffect(in: .rect(cornerRadius: 20))
+        .padding(.horizontal, 16).padding(.top, 6)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
-    private func runSearch() {
-        guard let document, !searchText.isEmpty else { return }
-        feedback = nil
-        let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
-        let isClass = query.wholeMatch(of: #/j1[12]|\d{1,2}[a-e]/#) != nil
-
-        if let grade = currentGrade, isClass {
-            // schedule-PDF parity: persist class; switch PDFs across groups
-            prefs.selectedScheduleClass = query
-            let targetGroup = query.hasPrefix("j") ? "J11/J12" : "Klassen 5-10"
-            if targetGroup != grade {
-                switchPdf(to: targetGroup, className: query)
-                return
-            }
+    /// Validates the class against the index (pdf_viewer_screen _validateAndSaveClass):
+    /// unknown → "Klasse X existiert nicht.", known → persist, jump, confirm.
+    private func submitClass() {
+        let query = classInput.trimmingCharacters(in: .whitespaces).lowercased()
+        guard canSubmit else { return }
+        Haptics.medium()
+        guard query.wholeMatch(of: #/j1[12]|\d{1,2}[a-e]/#) != nil else {
+            flash(L.f("noResults", query.uppercased()), error: true); return
         }
-        matches = document.findString(searchText, withOptions: [.caseInsensitive])
-        matchIndex = 0
-        if matches.isEmpty {
-            feedback = isClass ? L.f("noResults", query.uppercased()) : L.s("noMatches")
-            Task { try? await Task.sleep(for: .seconds(2)); feedback = nil }
-        } else {
-            select(0)
+        let targetGroup = query.hasPrefix("j") ? "J11/J12" : "Klassen 5-10"
+        if targetGroup != currentGrade {
+            switchPdf(to: targetGroup, className: query)
+            return
+        }
+        guard let page = currentIndex[query] else {
+            flash(L.f("noResults", query.uppercased()), error: true); return
+        }
+        applyClass(query, page: page)
+    }
+
+    private func applyClass(_ cls: String, page: Int) {
+        prefs.selectedScheduleClass = cls
+        let name = L.className(cls)
+        displayTitle = name
+        shareUrl = makeShareUrl(fileUrl, title: name)
+        goToPage = max(0, page - 2)
+        classInput = ""
+        classFocused = false
+        withAnimation(.snappy) { showClassBar = false }
+        Haptics.success()
+        flash(L.f("classChanged", name))
+    }
+
+    private func flash(_ text: String, error: Bool = false) {
+        if error { Haptics.error() }
+        withAnimation { feedback = text }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { if feedback == text { feedback = nil } }
         }
     }
 
@@ -143,28 +169,21 @@ struct PdfViewerScreen: View {
     private func switchPdf(to group: String, className: String) {
         guard let schedule = model.preferredGroup
             .first(where: { $0.gradeLevel == group }) else {
-            feedback = L.f("noResults", className.uppercased())
+            flash(L.f("noResults", className.uppercased()), error: true)
             return
         }
         Task {
             do {
                 let (file, index) = try await SchoolAPI.schedulePdf(schedule)
+                guard let page = index[className] else {
+                    flash(L.f("noResults", className.uppercased()), error: true); return
+                }
                 document = PDFDocument(url: file)
                 currentGrade = group
-                let half = schedule.halbjahr == "1. Halbjahr"
-                    ? L.s("firstSemester") : L.s("secondSemester")
-                let name = L.className(className)
-                displayTitle = L.f("titleWithSemester", name, half)
-                shareUrl = makeShareUrl(file, title: name)
-                matches = []
-                if let page = index[className] {
-                    goToPage = max(0, page - 2)
-                }
-                feedback = L.f("classChanged", name)
-                try? await Task.sleep(for: .seconds(2))
-                feedback = nil
+                currentIndex = index
+                applyClass(className, page: page)
             } catch {
-                feedback = L.s("serverConnectionFailed")
+                flash(L.s("serverConnectionFailed"), error: true)
             }
         }
     }
@@ -181,32 +200,18 @@ struct PdfViewerScreen: View {
         try? FileManager.default.copyItem(at: source, to: dest)
         return dest
     }
-
-    private func step(_ delta: Int) {
-        guard !matches.isEmpty else { return }
-        Haptics.light()
-        matchIndex = (matchIndex + delta + matches.count) % matches.count
-        select(matchIndex)
-    }
-
-    private func select(_ index: Int) {
-        guard matches.indices.contains(index) else { return }
-        let selection = matches[index]
-        selection.color = .systemYellow
-        currentSelection = selection
-        if let page = selection.pages.first, let document {
-            goToPage = document.index(for: page)
-        }
-    }
 }
 
+/// One page at a time, swipe horizontally for the next (pdfx PdfView parity).
 struct PdfKitView: UIViewRepresentable {
     let document: PDFDocument
-    let highlight: PDFSelection?
     @Binding var goToPageIndex: Int?
 
     func makeUIView(context: Context) -> JumpingPDFView {
         let view = JumpingPDFView()
+        view.displayMode = .singlePage
+        view.displayDirection = .horizontal
+        view.usePageViewController(true, withViewOptions: nil)
         view.autoScales = true
         view.document = document
         return view
@@ -214,7 +219,6 @@ struct PdfKitView: UIViewRepresentable {
 
     func updateUIView(_ view: JumpingPDFView, context: Context) {
         if view.document !== document { view.document = document }
-        view.highlightedSelections = highlight.map { [$0] }
         if let index = goToPageIndex, document.pageCount > 0 {
             view.jump(toPageIndex: min(max(0, index), document.pageCount - 1))
             Task { @MainActor in goToPageIndex = nil }

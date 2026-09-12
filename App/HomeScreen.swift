@@ -27,6 +27,7 @@ struct HomeScreen: View {
         let title: String
         let targetPage: Int?
         var gradeLevel: String? = nil
+        var classIndex: [String: Int] = [:]
     }
 
     var body: some View {
@@ -86,7 +87,8 @@ struct HomeScreen: View {
             .fullScreenCover(item: $pdfDestination) { dest in
                 PdfViewerScreen(fileUrl: dest.fileUrl, title: dest.title,
                                 targetPage: dest.targetPage,
-                                gradeLevel: dest.gradeLevel)
+                                gradeLevel: dest.gradeLevel,
+                                classIndex: dest.classIndex)
             }
             .alert(scheduleUnavailable ?? "", isPresented: .init(
                 get: { scheduleUnavailable != nil },
@@ -422,9 +424,10 @@ struct HomeScreen: View {
                 let page = index[cls] // display page (pageIndex + 2)
                 pdfDestination = PdfDestination(
                     fileUrl: file,
-                    title: L.f("titleWithSemester", L.className(cls), half),
+                    title: L.className(cls), // pdf_viewer header: class only
                     targetPage: page,
-                    gradeLevel: target.gradeLevel)
+                    gradeLevel: target.gradeLevel,
+                    classIndex: index)
             } catch {
                 // home_screen SnackBar parity
                 scheduleUnavailable = L.f("scheduleNotAvailable", half)
