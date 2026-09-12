@@ -1,4 +1,5 @@
 import SwiftUI
+import LGKACore
 
 /// Weather — Apple-Weather-style: full-bleed animated sky, big hero
 /// typography, standard-material cards scrolling over the scene. The cards
@@ -54,10 +55,10 @@ struct WeatherPageScreen: View {
     var body: some View {
         ZStack {
             if let w = model.weather {
-                WeatherSkyView(code: skyCode ?? w.code,
-                               isDay: skyIsDay ?? w.isDay,
+                WeatherSkyView(code: skyCode ?? w.current.weatherCode,
+                               isDay: skyIsDay ?? w.current.isDay,
                                particles: true)
-                    .id("\(skyCode ?? w.code)-\(skyIsDay ?? w.isDay)")
+                    .id("\(skyCode ?? w.current.weatherCode)-\(skyIsDay ?? w.current.isDay)")
                     .ignoresSafeArea()
                     .accessibilityHidden(true)
                 content(w)
@@ -67,7 +68,7 @@ struct WeatherPageScreen: View {
                 } description: {
                     Text(L.s("checkInternetConnection"))
                 } actions: {
-                    Button(L.s("tryAgain")) { Haptics.light(); Task { await model.loadWeather(mode: .refresh) } }
+                    Button(L.s("tryAgain")) { Haptics.light(); Task { await model.sync(only: [.weather]) } }
                         .buttonStyle(.bordered)
                 }
             } else {
@@ -85,24 +86,19 @@ struct WeatherPageScreen: View {
             }
         }
         #endif
-        .refreshable { Haptics.medium(); await model.loadWeather(mode: .refresh) }
+        .refreshable { Haptics.medium(); await model.sync(only: [.weather]) }
     }
 
-    private func content(_ w: SchoolAPI.WeatherData) -> some View {
+    private func content(_ w: WeatherData) -> some View {
         ScrollView {
             VStack(spacing: 14) {
                 hero(w)
                     .padding(.top, 24)
                     .padding(.bottom, 20)
-                if !w.hourly.isEmpty { hourlyCard(w) }
+                if !model.hourly.isEmpty { hourlyCard(model.hourly) }
                 if !w.daily.isEmpty { dailyCard(w) }
                 statsGrid(w)
-                if let url = URL(string: "https://open-meteo.com/") {
-                    Link(L.s("weatherAttribution"), destination: url)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.8))
-                        .padding(.vertical, 12)
-                }
+                attribution(w)
             }
             .readableWidth()
             .padding(.horizontal, 16)
@@ -112,14 +108,14 @@ struct WeatherPageScreen: View {
 
     // ── Hero ────────────────────────────────────────────────────────────────
 
-    private func hero(_ w: SchoolAPI.WeatherData) -> some View {
+    private func hero(_ w: WeatherData) -> some View {
         VStack(spacing: 2) {
             Text(L.s("city"))
                 .font(.title2.weight(.medium))
-            Text("\(Int(w.temp.rounded()))°")
+            Text("\(Int(w.current.temp.rounded()))°")
                 .font(.system(size: heroSize, weight: .thin, design: .rounded))
                 .padding(.leading, 24) // optically center over the degree sign
-            Text(Wmo.description(w.code))
+            Text(Wmo.description(w.current.weatherCode))
                 .font(.callout.weight(.medium))
                 .opacity(0.9)
             if let today = w.daily.first {
@@ -155,17 +151,17 @@ struct WeatherPageScreen: View {
             : AnyShapeStyle(.thinMaterial)
     }
 
-    private func hourlyCard(_ w: SchoolAPI.WeatherData) -> some View {
+    private func hourlyCard(_ hours: [HourlyForecast]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             cardHeader("clock", L.s("hourlyForecastLabel"))
             Divider().overlay(.white.opacity(0.2))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 22) {
-                    ForEach(w.hourly) { h in
+                    ForEach(hours) { h in
                         VStack(spacing: 8) {
-                            Text(h.time)
+                            Text(h.timeLabel)
                                 .font(.footnote.weight(.semibold))
-                            Image(systemName: Wmo.symbol(h.code, isDay: h.isDay))
+                            Image(systemName: Wmo.symbol(h.weatherCode, isDay: h.isDay))
                                 .symbolRenderingMode(.multicolor)
                                 .font(.title3)
                                 .frame(height: 24)
@@ -178,7 +174,7 @@ struct WeatherPageScreen: View {
                                 .font(.callout.weight(.semibold))
                         }
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(L.f("a11y.hour", h.time, Int(h.temp.rounded()), Wmo.description(h.code)))
+                        .accessibilityLabel(L.f("a11y.hour", h.timeLabel, Int(h.temp.rounded()), Wmo.description(h.weatherCode)))
                     }
                 }
                 .padding(.vertical, 2)
@@ -190,7 +186,7 @@ struct WeatherPageScreen: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private func dailyCard(_ w: SchoolAPI.WeatherData) -> some View {
+    private func dailyCard(_ w: WeatherData) -> some View {
         let weekMin = w.daily.map(\.tempMin).min() ?? 0
         let weekMax = w.daily.map(\.tempMax).max() ?? 1
         let span = max(weekMax - weekMin, 1)
@@ -200,10 +196,10 @@ struct WeatherPageScreen: View {
             ForEach(w.daily) { d in
                 Divider().overlay(.white.opacity(0.2))
                 HStack(spacing: 10) {
-                    Text(dayLabel(d.date))
+                    Text(dayLabel(d.dt))
                         .font(.callout.weight(.medium))
                         .frame(width: 52, alignment: .leading)
-                    Image(systemName: Wmo.symbol(d.code, isDay: true))
+                    Image(systemName: Wmo.symbol(d.weatherCode, isDay: true))
                         .symbolRenderingMode(.multicolor)
                         .frame(width: 28)
                     Text(d.pop >= 0.1 ? "\(Int(d.pop * 100))%" : "")
@@ -232,7 +228,7 @@ struct WeatherPageScreen: View {
                 }
                 .padding(.vertical, 4)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(L.f("a11y.day", dayLabel(d.date), Wmo.description(d.code),
+                .accessibilityLabel(L.f("a11y.day", dayLabel(d.dt), Wmo.description(d.weatherCode),
                                         Int(d.tempMax.rounded()), Int(d.tempMin.rounded())))
             }
         }
@@ -242,15 +238,38 @@ struct WeatherPageScreen: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private func statsGrid(_ w: SchoolAPI.WeatherData) -> some View {
+    private func statsGrid(_ w: WeatherData) -> some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())],
                   spacing: 14) {
-            statTile("humidity", L.s("weatherHumidityShort"), "\(w.humidity) %")
-            statTile("wind", L.s("weatherWindShort"), "\(Int(w.windSpeed.rounded())) km/h")
-            statTile("gauge.with.needle", L.s("pressure"), "\(w.pressure) hPa")
+            statTile("humidity", L.s("weatherHumidityShort"), "\(w.current.humidity) %")
+            statTile("wind", L.s("weatherWindShort"), "\(Int(w.current.windSpeed.rounded())) km/h")
+            statTile("gauge.with.needle", L.s("pressure"), "\(w.current.pressure) hPa")
             statTile("sun.max.fill", L.s("uvIndex"),
-                     "\(String(format: "%.1f", w.uvi)) · \(uviLabel(w.uvi))")
+                     "\(String(format: "%.1f", w.current.uvi)) · \(uviLabel(w.current.uvi))")
         }
+    }
+
+    /// Source + attribution exactly as the API declares them: the school's
+    /// rooftop station for current values when it is healthy, Open-Meteo otherwise.
+    private func attribution(_ w: WeatherData) -> some View {
+        VStack(spacing: 6) {
+            if w.source == .school {
+                Label(L.s("weather.sourceSchool"), systemImage: "building.2")
+                    .font(.caption.weight(.semibold))
+            }
+            ForEach(w.attribution, id: \.self) { line in
+                if line.localizedCaseInsensitiveContains("open-meteo"), let url = URL(string: "https://open-meteo.com/") {
+                    Link(line, destination: url)
+                } else {
+                    Text(line)
+                }
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.white.opacity(0.8))
+        .multilineTextAlignment(.center)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
     }
 
     private func statTile(_ icon: String, _ label: String, _ value: String) -> some View {

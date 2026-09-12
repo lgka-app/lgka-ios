@@ -17,9 +17,9 @@ struct NewsListScreen: View {
                     // news_screen.dart parity: one card per article, not a grouped list
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            ForEach(articles) { md in
-                                NavigationLink(value: md) {
-                                    NewsCard(md: md)
+                            ForEach(articles) { article in
+                                NavigationLink(value: article) {
+                                    NewsCard(article: article)
                                 }
                                 .buttonStyle(.plain)
                                 .tapHaptic()
@@ -36,7 +36,7 @@ struct NewsListScreen: View {
                 ContentUnavailableView {
                     Label(L.s("serverConnectionFailed"), systemImage: "wifi.exclamationmark")
                 } actions: {
-                    Button(L.s("tryAgain")) { Haptics.light(); Task { await model.loadNews(mode: .refresh) } }
+                    Button(L.s("tryAgain")) { Haptics.light(); Task { await model.sync(only: [.news]) } }
                         .buttonStyle(.bordered)
                 }
             } else {
@@ -46,22 +46,22 @@ struct NewsListScreen: View {
         .themeBg()
         .navigationTitle(L.s("news"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: NewsParser.Metadata.self) { md in
-            NewsDetailScreen(md: md)
+        .navigationDestination(for: NewsArticle.self) { article in
+            NewsDetailScreen(article: article)
         }
-        .task { if model.newsList == nil { await model.loadNews() } }
-        .refreshable { Haptics.medium(); await model.loadNews(mode: .refresh) }
+        .task { if model.newsList == nil { await model.sync(only: [.news]) } }
+        .refreshable { Haptics.medium(); await model.sync(only: [.news]) }
     }
 }
 
 struct NewsCard: View {
-    let md: NewsParser.Metadata
+    let article: NewsArticle
     @Environment(\.appAccent) private var accent
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                Text(md.title)
+                Text(article.title)
                     .font(.title3.weight(.bold))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -73,16 +73,16 @@ struct NewsCard: View {
                     .accessibilityHidden(true)
             }
             HStack(spacing: 12) {
-                Text(md.createdDate).fontWeight(.medium)
-                Label("\(md.views)", systemImage: "eye")
+                Text(article.createdDate).fontWeight(.medium)
+                Label("\(article.views)", systemImage: "eye")
                     .labelStyle(.titleAndIcon)
                     .foregroundStyle(.tertiary)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.top, 8)
-            if !md.description.isEmpty {
-                Text(md.description)
+            if !article.description.isEmpty {
+                Text(article.description)
                     .font(.subheadline)
                     .lineSpacing(3)
                     .foregroundStyle(.secondary)
@@ -90,9 +90,9 @@ struct NewsCard: View {
                     .multilineTextAlignment(.leading)
                     .padding(.top, 12)
             }
-            if !md.tags.isEmpty {
+            if !article.tags.isEmpty {
                 FlowLayout(spacing: 6) {
-                    ForEach(md.tags, id: \.self) { tag in
+                    ForEach(article.tags, id: \.self) { tag in
                         Text(tag)
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 8).padding(.vertical, 4)
@@ -103,7 +103,7 @@ struct NewsCard: View {
                 }
                 .padding(.top, 12)
             }
-            Label(md.author, systemImage: "person")
+            Label(article.author, systemImage: "person")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
@@ -148,51 +148,28 @@ struct FlowLayout: Layout {
 }
 
 /// News detail — mirrors news_detail_screen.dart: content with tappable
-/// links, images, download + standalone-link buttons, open-in-browser.
+/// links, images, download + standalone-link buttons, open-in-browser. The
+/// full article arrives with the sync, so there is nothing to load here.
 struct NewsDetailScreen: View {
-    let md: NewsParser.Metadata
+    let article: NewsArticle
     @Environment(HomeModel.self) private var model
-    @State private var article: NewsParser.Article?
-    @State private var failed = false
     @State private var photo: PhotoItem?
     @Environment(\.appAccent) private var accent
 
     var body: some View {
-        Group {
-            if let article {
-                content(article)
-            } else if failed {
-                ContentUnavailableView {
-                    Label(L.s("serverConnectionFailed"), systemImage: "wifi.exclamationmark")
-                } actions: {
-                    Button(L.s("tryAgain")) { Haptics.light(); failed = false; Task { await load() } }
-                        .buttonStyle(.bordered)
-                }
-            } else {
-                ProgressView()
-            }
-        }
-        .themeBg()
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if let url = URL(string: md.url) {
-                    Link(destination: url) {
-                        Label(L.s("openInBrowser"), systemImage: "safari")
+        content(article)
+            .themeBg()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if let url = URL(string: article.url) {
+                        Link(destination: url) {
+                            Label(L.s("openInBrowser"), systemImage: "safari")
+                        }
                     }
                 }
             }
-        }
-        .task(id: md.url) { if article == nil { await load() } }
-        .sheet(item: $photo) { PhotoViewer(item: $0) } // sheet: swipe down dismisses like Photos
-    }
-
-    private func load() async {
-        do {
-            article = try await SchoolAPI.article(url: md.url)
-        } catch {
-            failed = true
-        }
+            .sheet(item: $photo) { PhotoViewer(item: $0) } // sheet: swipe down dismisses like Photos
     }
 
     /// A download or standalone link row (news_detail_screen parity): downloads show a
@@ -221,13 +198,13 @@ struct NewsDetailScreen: View {
             }
         }
 
-        static func download(_ dl: NewsParser.Download) -> ActionLink? {
+        static func download(_ dl: NewsDownload) -> ActionLink? {
             guard let url = URL(string: dl.url) else { return nil }
             return ActionLink(id: "d:" + dl.url, title: dl.title, subtitle: dl.size, url: url,
                               symbol: symbol(forFileType: dl.fileType), favicon: nil, trailing: "arrow.down.circle")
         }
 
-        static func website(_ link: NewsParser.Link) -> ActionLink? {
+        static func website(_ link: NewsLink) -> ActionLink? {
             guard let url = URL(string: link.url) else { return nil }
             let host = url.host ?? link.url
             let favicon = url.host.flatMap { URL(string: "https://www.google.com/s2/favicons?sz=64&domain=\($0)") }
@@ -270,10 +247,10 @@ struct NewsDetailScreen: View {
         .foregroundStyle(.primary)
     }
 
-    private func content(_ article: NewsParser.Article) -> some View {
+    private func content(_ article: NewsArticle) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(md.title).font(.title2.bold())
+                Text(article.title).font(.title2.bold())
                     .accessibilityAddTraits(.isHeader)
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) { metaLabels }
@@ -291,7 +268,7 @@ struct NewsDetailScreen: View {
                         // tap → full-screen, zoomable photo viewer
                         Button {
                             Haptics.light()
-                            photo = PhotoItem(url: url, alt: image.alt ?? md.title)
+                            photo = PhotoItem(url: url, alt: image.alt ?? article.title)
                         } label: {
                             AsyncImage(url: url) { img in
                                 img.resizable().aspectRatio(contentMode: .fit)
@@ -304,7 +281,7 @@ struct NewsDetailScreen: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(image.alt ?? md.title)
+                        .accessibilityLabel(image.alt ?? article.title)
                         .accessibilityHint(L.s("a11y.openPhoto"))
                     }
                 }
@@ -319,7 +296,7 @@ struct NewsDetailScreen: View {
 
                 // "Weitere Neuigkeiten" — recommended articles (news_detail parity)
                 if let all = model.newsList {
-                    let others = all.filter { $0.url != md.url }.prefix(3)
+                    let others = all.filter { $0.url != article.url }.prefix(3)
                     if !others.isEmpty {
                         Divider().padding(.top, 8)
                         Text(L.s("weitereNeuigkeiten"))
@@ -328,7 +305,7 @@ struct NewsDetailScreen: View {
                         // the same cards as the news list, not bare titles
                         ForEach(Array(others)) { other in
                             NavigationLink(value: other) {
-                                NewsCard(md: other)
+                                NewsCard(article: other)
                             }
                             .tapHaptic()
                             .buttonStyle(.plain)
@@ -343,13 +320,13 @@ struct NewsDetailScreen: View {
     }
 
     @ViewBuilder private var metaLabels: some View {
-        Label(md.author, systemImage: "person")
-        Label(md.createdDate, systemImage: "calendar")
-        Label("\(md.views) \(L.s("views"))", systemImage: "eye")
+        Label(article.author, systemImage: "person")
+        Label(article.createdDate, systemImage: "calendar")
+        Label("\(article.views) \(L.s("views"))", systemImage: "eye")
     }
 
     /// Renders content with embedded links tappable (AttributedString).
-    private func linkedText(_ text: String, links: [NewsParser.Link]) -> some View {
+    private func linkedText(_ text: String, links: [NewsLink]) -> some View {
         var attributed = AttributedString(text)
         for link in links {
             guard let url = URL(string: link.url),
