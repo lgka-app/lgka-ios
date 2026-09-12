@@ -11,38 +11,50 @@ import PDFKit
 /// Instead, PDFKit's own `selectionsByLine()` provides the visual line
 /// bands; glyphs are bucketed into the band containing their y-center.
 /// Glyph x-coordinates are reliable and drive word/column geometry.
-public struct Word {
+public struct Word: Sendable, Hashable {
     public let text: String
     public let left: Double
     public let right: Double
+
+    public init(text: String, left: Double, right: Double) {
+        self.text = text
+        self.left = left
+        self.right = right
+    }
 }
 
-public struct Line {
+public struct Line: Sendable, Hashable {
     public let top: Double
     public let words: [Word]
     /// Words joined with single spaces — used for anchor/regex matching.
     public var text: String { words.map(\.text).joined(separator: " ") }
+
+    public init(top: Double, words: [Word]) {
+        self.top = top
+        self.words = words
+    }
 }
 
 /// x-gap above which two glyphs are separate words (whitespace also splits).
 private let wordGap = 3.0
 
-public func extractLines(from url: URL) -> [Line]? {
+public func extractLines(from url: URL) throws -> [Line] {
     guard let doc = PDFDocument(url: url), let page = doc.page(at: 0),
-          let pageString = page.string else { return nil }
+          let pageString = page.string else { throw LGKAError.pdfUnreadable }
 
     let pageHeight = page.bounds(for: .mediaBox).height
     let ns = pageString as NSString
 
     // Visual line bands from PDFKit itself (in PDF coords, y grows upward).
     guard let all = page.selection(for: NSRange(location: 0, length: ns.length))
-    else { return nil }
+    else { throw LGKAError.pdfUnreadable }
     let bands: [(minY: Double, maxY: Double)] = all.selectionsByLine()
         .compactMap { sel in
             let b = sel.bounds(for: page)
             return b.isEmpty ? nil : (Double(b.minY), Double(b.maxY))
         }
         .sorted { $0.maxY > $1.maxY } // top of page first
+    if bands.isEmpty { return [] }
 
     func bandIndex(forMidY midY: Double) -> Int? {
         // containing band, else nearest by center distance

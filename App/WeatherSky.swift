@@ -2,12 +2,13 @@ import SwiftUI
 import Vortex
 
 /// GPU sky (Metal fbm cloud shader) + Vortex particle precipitation.
-/// Replaces the hand-drawn Canvas sky.
+/// Honors Reduce Motion: the shader freezes and particles are dropped.
 struct WeatherSkyView: View {
     let code: Int
     let isDay: Bool
     /// Particle rain/snow overlay — on for the full page, off for small rows.
     var particles = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var cloudiness: Double {
         switch code {
@@ -29,8 +30,8 @@ struct WeatherSkyView: View {
 
     var body: some View {
         ZStack {
-            MetalSky(cloudiness: cloudiness, isDay: isDay)
-            if particles {
+            MetalSky(cloudiness: cloudiness, isDay: isDay, animated: !reduceMotion)
+            if particles && !reduceMotion {
                 switch precip {
                 case .rain:
                     VortexView(.rain) {
@@ -59,10 +60,11 @@ struct WeatherSkyView: View {
 struct MetalSky: View {
     let cloudiness: Double
     let isDay: Bool
+    var animated = true
     private let start = Date()
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !animated)) { timeline in
             Rectangle()
                 .colorEffect(ShaderLibrary.sky(
                     .boundingRect,

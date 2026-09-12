@@ -8,6 +8,9 @@ import Foundation
 /// header blocks (school / "SJ ..." / "Untis ...") into one visual line, so
 /// the pre-title meta zone is re-split into segments on x-gaps > 15pt before
 /// classification. Everything below the title anchors per visual line.
+///
+/// All regular expressions are compile-time checked Swift regex literals;
+/// a structurally unexpected PDF throws `LGKAError` instead of trapping.
 public enum Extractor {
     private static let weekdays = [
         "Montag", "Dienstag", "Mittwoch", "Donnerstag",
@@ -21,7 +24,14 @@ public enum Extractor {
 
     private static let segmentGap = 15.0
 
-    public static func extract(lines: [Line]) -> [String: Any] {
+    private static var footerAnchor: Regex<Substring> { #/\d{1,2}\.\d{1,2}\.\d{4}\s*\(\d+\)\s*SJ\s/# }
+    private static var schoolYearRe: Regex<Substring> { #/SJ \d{4}-\d{4}/# }
+    private static var generatedAtRe: Regex<Substring> { #/\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{2}/# }
+    private static var footerRe: Regex<(Substring, Substring?, Substring, Substring, Substring, Substring, Substring)> { #/(?:Periode\s+(\d+)\s+)?(\d{1,2})\.(\d{1,2})\.(\d{4})\s+\((\d+)\)\s+SJ\s+(\S+)/# }
+    private static var titleRe: Regex<(Substring, Substring, Substring, Substring)> { #/(\d{1,2})\.(\d{1,2})\.\s*\/\s*(\w+)/# }
+    private static var classRangeRe: Regex<(Substring, Substring, Substring)> { #/(\d{1,2})([a-e]{2,})/# }
+
+    public static func extract(lines: [Line]) throws -> [String: Any] {
         var plan: [String: Any] = [
             "school": NSNull(), "address": NSNull(), "schoolYear": NSNull(),
             "untisVersion": NSNull(), "generatedAt": NSNull(),
@@ -53,7 +63,7 @@ public enum Extractor {
                 classesIdx = i
             } else if headerIdx == nil, t.hasPrefix("Art"), t.contains("Stunde") {
                 headerIdx = i
-            } else if firstMatch(#"\d{1,2}\.\d{1,2}\.\d{4}\s*\(\d+\)\s*SJ\s"#, t) != nil {
+            } else if t.contains(footerAnchor) {
                 footerIdx = i
             }
         }
@@ -62,11 +72,11 @@ public enum Extractor {
         for i in 0..<(titleIdx ?? lines.count) {
             for segment in segments(of: lines[i]) {
                 let t = segment.trimmingCharacters(in: .whitespaces)
-                if firstMatch(#"^SJ \d{4}-\d{4}$"#, t) != nil {
+                if t.wholeMatch(of: schoolYearRe) != nil {
                     plan["schoolYear"] = t
                 } else if t.hasPrefix("Untis ") {
                     plan["untisVersion"] = t
-                } else if firstMatch(#"^\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{2}$"#, t) != nil {
+                } else if t.wholeMatch(of: generatedAtRe) != nil {
                     plan["generatedAt"] = collapse(t)
                 } else if plan["school"] is NSNull {
                     plan["school"] = t
@@ -78,34 +88,28 @@ public enum Extractor {
 
         // ---- footer -------------------------------------------------------
         var footerYear: String?
-        if let fi = footerIdx {
-            let text = collapse(lines[fi].text)
-            if let g = firstMatch(
-                #"(?:Periode\s+(\d+)\s+)?(\d{1,2})\.(\d{1,2})\.(\d{4})\s+\((\d+)\)\s+SJ\s+(\S+)"#,
-                text) {
-                footerYear = g[4]
-                plan["footer"] = [
-                    "untisPeriod": g[1].flatMap { Int($0) } as Any? ?? NSNull(),
-                    "date": "\(pad(g[2]!)).\(pad(g[3]!)).\(g[4]!)",
-                    "calendarWeek": Int(g[5]!)!,
-                    "schoolYearShort": "SJ \(g[6]!)",
-                ] as [String: Any]
-            }
+        if let fi = footerIdx, let g = collapse(lines[fi].text).firstMatch(of: footerRe) {
+            footerYear = String(g.4)
+            plan["footer"] = [
+                "untisPeriod": g.1.flatMap { Int($0) } as Any? ?? NSNull(),
+                "date": "\(pad(g.2)).\(pad(g.3)).\(g.4)",
+                "calendarWeek": Int(g.5) ?? 0,
+                "schoolYearShort": "SJ \(g.6)",
+            ] as [String: Any]
         }
 
         // ---- title --------------------------------------------------------
-        if let ti = titleIdx,
-           let g = firstMatch(#"(\d{1,2})\.(\d{1,2})\.\s*/\s*(\w+)"#, lines[ti].text) {
-            plan["weekday"] = g[3]!
+        if let ti = titleIdx, let g = lines[ti].text.firstMatch(of: titleRe) {
+            plan["weekday"] = String(g.3)
             if let year = footerYear {
-                plan["planDate"] = "\(pad(g[1]!)).\(pad(g[2]!)).\(year)"
+                plan["planDate"] = "\(pad(g.1)).\(pad(g.2)).\(year)"
             }
         }
 
         // ---- announcements ------------------------------------------------
-        let annEnd = [teachersIdx, classesIdx, headerIdx, footerIdx, lines.count]
-            .compactMap { $0 }.min()!
-        if let ti = titleIdx {
+        let annEnd = [teachersIdx, classesIdx, headerIdx, footerIdx]
+            .compactMap { $0 }.min() ?? lines.count
+        if let ti = titleIdx, ti + 1 <= annEnd {
             var announcements: [String] = []
             for i in (ti + 1)..<annEnd {
                 let t = collapse(lines[i].text.trimmingCharacters(in: .whitespaces))
@@ -128,13 +132,14 @@ public enum Extractor {
         // ---- table --------------------------------------------------------
         if let hi = headerIdx {
             var xs: [Double] = []
-            var lastRight: Double?
+            var lastRight = -Double.infinity
             for w in lines[hi].words where !w.text.isEmpty {
-                if xs.isEmpty || w.left - lastRight! > 3 { xs.append(w.left) }
+                if xs.isEmpty || w.left - lastRight > 3 { xs.append(w.left) }
                 lastRight = w.right
             }
-            precondition(xs.count == columnNames.count,
-                         "expected \(columnNames.count) columns, found \(xs.count): \(xs)")
+            guard xs.count == columnNames.count else {
+                throw LGKAError.unexpectedTableHeader(found: xs.count, expected: columnNames.count)
+            }
 
             func columnOf(_ left: Double) -> Int {
                 for c in xs.indices.reversed() where left >= xs[c] - 3 { return c }
@@ -144,41 +149,45 @@ public enum Extractor {
             var entries: [[String: Any]] = []
             var currentIdx: Int?
             let tableEnd = footerIdx ?? lines.count
-            for i in (hi + 1)..<tableEnd {
-                var cells = [String](repeating: "", count: columnNames.count)
-                var prevCol: Int?
-                var prevRight: Double?
-                for w in lines[i].words {
-                    let t = w.text.trimmingCharacters(in: .whitespaces)
-                    if t.isEmpty { continue }
-                    let c = columnOf(w.left)
-                    if cells[c].isEmpty {
-                        cells[c] = t
-                    } else if c == prevCol, w.left - prevRight! <= 3 {
-                        cells[c] += t // glyph fragment of the same word
-                    } else {
-                        cells[c] += " " + t
+            if hi + 1 < tableEnd {
+                for i in (hi + 1)..<tableEnd {
+                    var cells = [String](repeating: "", count: columnNames.count)
+                    var prevCol: Int?
+                    var prevRight = -Double.infinity
+                    for w in lines[i].words {
+                        let t = w.text.trimmingCharacters(in: .whitespaces)
+                        if t.isEmpty { continue }
+                        let c = columnOf(w.left)
+                        if cells[c].isEmpty {
+                            cells[c] = t
+                        } else if c == prevCol, w.left - prevRight <= 3 {
+                            cells[c] += t // glyph fragment of the same word
+                        } else {
+                            cells[c] += " " + t
+                        }
+                        prevCol = c
+                        prevRight = w.right
                     }
-                    prevCol = c
-                    prevRight = w.right
-                }
-                if cells.allSatisfy(\.isEmpty) { continue }
+                    if cells.allSatisfy(\.isEmpty) { continue }
 
-                if !cells[0].isEmpty || !cells[1].isEmpty {
-                    var entry: [String: Any] = [:]
-                    for c in columnNames.indices {
-                        entry[columnNames[c]] = cells[c].isEmpty ? NSNull() : cells[c]
-                    }
-                    entry["classesRaw"] = cells[2].isEmpty ? NSNull() : cells[2]
-                    entry["classes"] = expandClasses(cells[2])
-                    entries.append(entry)
-                    currentIdx = entries.count - 1
-                } else if let ci = currentIdx {
-                    for c in columnNames.indices {
-                        if cells[c].isEmpty || columnNames[c] == "classes" { continue }
-                        let prev = entries[ci][columnNames[c]] as? String
-                        entries[ci][columnNames[c]] =
-                            prev == nil ? cells[c] : "\(prev!) \(cells[c])"
+                    if !cells[0].isEmpty || !cells[1].isEmpty {
+                        var entry: [String: Any] = [:]
+                        for c in columnNames.indices {
+                            entry[columnNames[c]] = cells[c].isEmpty ? NSNull() : cells[c]
+                        }
+                        entry["classesRaw"] = cells[2].isEmpty ? NSNull() : cells[2]
+                        entry["classes"] = expandClasses(cells[2])
+                        entries.append(entry)
+                        currentIdx = entries.count - 1
+                    } else if let ci = currentIdx {
+                        for c in columnNames.indices {
+                            if cells[c].isEmpty || columnNames[c] == "classes" { continue }
+                            if let prev = entries[ci][columnNames[c]] as? String {
+                                entries[ci][columnNames[c]] = "\(prev) \(cells[c])"
+                            } else {
+                                entries[ci][columnNames[c]] = cells[c]
+                            }
+                        }
                     }
                 }
             }
@@ -194,8 +203,8 @@ public enum Extractor {
         for part in cell.split(separator: ",") {
             let p = part.trimmingCharacters(in: .whitespaces)
             if p.isEmpty { continue }
-            if let g = firstMatch(#"^(\d{1,2})([a-e]{2,})$"#, p) {
-                for letter in g[2]! { out.append("\(g[1]!)\(letter)") }
+            if let g = p.wholeMatch(of: classRangeRe) {
+                for letter in g.2 { out.append("\(g.1)\(letter)") }
             } else {
                 out.append(p)
             }
@@ -207,9 +216,9 @@ public enum Extractor {
     private static func segments(of line: Line) -> [String] {
         var out: [String] = []
         var current = ""
-        var prevRight: Double?
+        var prevRight = -Double.infinity
         for w in line.words {
-            if !current.isEmpty, w.left - prevRight! > segmentGap {
+            if !current.isEmpty, w.left - prevRight > segmentGap {
                 out.append(current)
                 current = ""
             }
@@ -223,23 +232,11 @@ public enum Extractor {
 
     // ---- small helpers ----------------------------------------------------
 
-    /// First regex match; returns capture groups (index 0 = whole match).
-    private static func firstMatch(_ pattern: String, _ text: String) -> [String?]? {
-        let re = try! NSRegularExpression(pattern: pattern)
-        let range = NSRange(text.startIndex..., in: text)
-        guard let m = re.firstMatch(in: text, range: range) else { return nil }
-        return (0..<m.numberOfRanges).map { i in
-            let r = m.range(at: i)
-            guard r.location != NSNotFound, let sr = Range(r, in: text) else { return nil }
-            return String(text[sr])
-        }
-    }
-
     private static func collapse(_ s: String) -> String {
         s.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
     }
 
-    private static func pad(_ s: String) -> String {
-        s.count >= 2 ? s : "0" + s
+    private static func pad(_ s: Substring) -> String {
+        s.count >= 2 ? String(s) : "0" + s
     }
 }

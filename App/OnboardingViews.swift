@@ -2,21 +2,19 @@ import SwiftUI
 
 /// welcome -> what-you-can-do -> accent-color -> appearance -> auth
 struct OnboardingFlow: View {
-    @State private var path: [String] = []
+    @State private var path: [Step] = []
+
+    enum Step: Hashable { case features, accent, appearance, auth }
 
     var body: some View {
         NavigationStack(path: $path) {
-            WelcomeScreen { path.append("features") }
-                .navigationDestination(for: String.self) { step in
+            WelcomeScreen { path.append(.features) }
+                .navigationDestination(for: Step.self) { step in
                     switch step {
-                    case "features":
-                        FeaturesScreen { path.append("accent") }
-                    case "accent":
-                        AccentColorScreen { path.append("appearance") }
-                    case "appearance":
-                        AppearanceScreen { path.append("auth") }
-                    default:
-                        AuthScreen()
+                    case .features: FeaturesScreen { path.append(.accent) }
+                    case .accent: AccentColorScreen { path.append(.appearance) }
+                    case .appearance: AppearanceScreen { path.append(.auth) }
+                    case .auth: AuthScreen()
                     }
                 }
         }
@@ -49,8 +47,10 @@ struct WelcomeScreen: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 160, height: 160)
+                .accessibilityHidden(true)
             Text(L.s("welcomeHeadline"))
                 .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
             Text(L.s("welcomeSubtitle"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -95,6 +95,7 @@ struct FeaturesScreen: View {
                     Image(systemName: icon).foregroundStyle(accent)
                 }
                 .padding(.vertical, 4)
+                .accessibilityElement(children: .combine)
             }
         }
         .listStyle(.insetGrouped)
@@ -113,13 +114,14 @@ struct FeaturesScreen: View {
 
 struct AccentColorScreen: View {
     let onContinue: () -> Void
-    @EnvironmentObject private var prefs: Prefs
 
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
             Text(L.s("accentColorTitle"))
                 .font(.largeTitle.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
             Text(L.s("accentColorDescription"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -144,16 +146,18 @@ struct AccentColorScreen: View {
 
 /// Native palette picker bound to the accent preference.
 struct AccentPalettePicker: View {
-    @EnvironmentObject private var prefs: Prefs
+    @Environment(Prefs.self) private var prefs
 
     var body: some View {
+        @Bindable var prefs = prefs
         Picker(L.s("accentColor"), selection: $prefs.accentColor) {
-            ForEach(Accent.allCases, id: \.rawValue) { accent in
+            ForEach(Accent.allCases) { accent in
                 Image(systemName: prefs.accentColor == accent.rawValue
                     ? "checkmark.circle.fill" : "circle.fill")
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(accent.color)
                     .tint(accent.color)
+                    .accessibilityLabel(accent.label)
                     .tag(accent.rawValue)
             }
         }
@@ -166,13 +170,13 @@ struct AccentPalettePicker: View {
 
 struct AppearanceScreen: View {
     let onContinue: () -> Void
-    @EnvironmentObject private var prefs: Prefs
 
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
             Text(L.s("appearanceTitle"))
                 .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
             ThemeModePicker()
                 .frame(maxWidth: 340)
             Spacer()
@@ -192,9 +196,10 @@ struct AppearanceScreen: View {
 
 /// Native segmented control bound to the theme preference.
 struct ThemeModePicker: View {
-    @EnvironmentObject private var prefs: Prefs
+    @Environment(Prefs.self) private var prefs
 
     var body: some View {
+        @Bindable var prefs = prefs
         Picker(L.s("appearanceTitle"), selection: $prefs.themeMode) {
             Label(L.s("themeDark"), systemImage: "moon.fill").tag("dark")
             Label(L.s("themeAuto"), systemImage: "circle.lefthalf.filled").tag("system")
@@ -206,13 +211,15 @@ struct ThemeModePicker: View {
     }
 }
 
-/// Password gate — native Form with content-typed fields.
+/// Login gate — the school website's credentials are verified against the
+/// server and stored in the Keychain; the app never compares them locally.
 struct AuthScreen: View {
-    @EnvironmentObject private var prefs: Prefs
+    @Environment(Prefs.self) private var prefs
     @State private var username = ""
     @State private var password = ""
     @State private var flash: Flash = .none
     @State private var isLoading = false
+    @State private var message: String?
     @FocusState private var focus: Field?
     enum Flash { case none, error, success }
     enum Field { case username, password }
@@ -250,6 +257,7 @@ struct AuthScreen: View {
                     Text(L.s("authTitle"))
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity)
+                        .accessibilityAddTraits(.isHeader)
                     Text(L.s("authSubtitle"))
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
@@ -258,6 +266,13 @@ struct AuthScreen: View {
                 .foregroundStyle(.primary)
                 .padding(.bottom, 24)
                 .padding(.top, 40)
+            } footer: {
+                if let message {
+                    Text(message)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityAddTraits(.updatesFrequently)
+                }
             }
 
             Section {
@@ -280,33 +295,44 @@ struct AuthScreen: View {
                 .animation(.easeInOut(duration: 0.3), value: flash)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
+                .accessibilityLabel(L.s("login"))
             }
         }
         .toolbar(.hidden, for: .navigationBar)
     }
 
     private func validate() {
-        // Same gate as the Flutter app: the school website's public credentials.
-        if username.trimmingCharacters(in: .whitespaces) == "vertretungsplan"
-            && password.trimmingCharacters(in: .whitespaces) == "ephraim" {
-            flash = .success
-            focus = nil
-            Haptics.intense()
-            Task {
-                try? await Task.sleep(for: .milliseconds(600))
-                isLoading = true
-                try? await Task.sleep(for: .milliseconds(600))
-                Haptics.light()
-                prefs.isAuthenticated = true
-                prefs.onboardingCompleted = true
+        let pair = Credentials.Pair(user: username.trimmingCharacters(in: .whitespaces),
+                                    password: password.trimmingCharacters(in: .whitespaces))
+        focus = nil
+        isLoading = true
+        message = nil
+        Task {
+            defer { isLoading = false }
+            do {
+                if try await SchoolAPI.verify(pair) {
+                    Credentials.save(pair)
+                    flash = .success
+                    Haptics.success()
+                    try? await Task.sleep(for: .milliseconds(500))
+                    prefs.isAuthenticated = true
+                    prefs.onboardingCompleted = true
+                } else {
+                    fail(L.s("login.failed"))
+                }
+            } catch {
+                fail(L.s("login.offline"))
             }
-        } else {
-            flash = .error
-            Haptics.medium()
-            Task {
-                try? await Task.sleep(for: .milliseconds(600))
-                withAnimation { flash = .none }
-            }
+        }
+    }
+
+    private func fail(_ text: String) {
+        flash = .error
+        message = text
+        Haptics.error()
+        Task {
+            try? await Task.sleep(for: .milliseconds(700))
+            withAnimation { flash = .none }
         }
     }
 }

@@ -1,19 +1,34 @@
 name: LGKA
 options:
+  bundleIdPrefix: com.lgka
   deploymentTarget:
     iOS: "26.0"
+  developmentLanguage: de
+  xcodeVersion: "26.6"
+  generateEmptyDirectories: false
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    STRING_CATALOG_GENERATE_SYMBOLS: NO
 packages:
   LGKACore:
     path: .
   Vortex:
     url: https://github.com/twostraws/Vortex
-    from: 1.0.0
+    from: 1.0.4
 targets:
   LGKA:
     type: application
     platform: iOS
     sources:
       - path: App
+        excludes:
+          - "**/.DS_Store"
     dependencies:
       - package: LGKACore
         product: LGKACore
@@ -25,11 +40,14 @@ targets:
         DEVELOPMENT_TEAM: M8M22924DJ
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: 3.0.0
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: LGKA+
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
-        SWIFT_VERSION: 5.0
         SUPPORTS_MACCATALYST: NO
+        SWIFT_EMIT_LOC_STRINGS: YES

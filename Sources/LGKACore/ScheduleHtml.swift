@@ -6,13 +6,21 @@ import SwiftSoup
 public enum ScheduleHtmlParser {
     static let base = "https://lessing-gymnasium-karlsruhe.de"
 
-    public static func parse(_ html: String) throws -> [[String: Any]] {
+    public struct Schedule: Sendable, Hashable, Identifiable {
+        public var id: String { fullUrl }
+        public let title: String
+        public let url: String
+        public let halbjahr: String
+        public let gradeLevel: String
+        public let fullUrl: String
+    }
+
+    public static func schedules(_ html: String) throws -> [Schedule] {
         let doc = try SwiftSoup.parse(html)
         guard let module = try doc.select("#mod-custom213").first() else {
-            throw NSError(domain: "lgka", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Serververbindung fehlgeschlagen"])
+            throw LGKAError.scheduleModuleMissing
         }
-        var schedules: [[String: Any]] = []
+        var schedules: [Schedule] = []
         var seenUrls = Set<String>()
 
         for link in try module.select("a[href*=stundenplan]").array() {
@@ -25,13 +33,11 @@ public enum ScheduleHtmlParser {
             var fullUrl = href
             if href.hasPrefix("/cm3/../") {
                 fullUrl = href.replacingOccurrences(
-                    of: "/cm3/../", with: "\(base)/",
-                    options: .anchored)
+                    of: "/cm3/../", with: "\(base)/", options: .anchored)
             } else if href.hasPrefix("/") {
                 fullUrl = "\(base)\(href)"
             }
-            if seenUrls.contains(fullUrl) { continue }
-            seenUrls.insert(fullUrl)
+            if !seenUrls.insert(fullUrl).inserted { continue }
 
             let halbjahr: String
             if href.contains("hj2") { halbjahr = "2. Halbjahr" }
@@ -45,16 +51,19 @@ public enum ScheduleHtmlParser {
             else if title.contains("J11/12") || title.contains("11-12") { gradeLevel = "J11/J12" }
             else { gradeLevel = "Unbekannt" }
 
-            schedules.append([
-                "title": title, "url": href, "halbjahr": halbjahr,
-                "gradeLevel": gradeLevel, "fullUrl": fullUrl,
-            ])
+            schedules.append(Schedule(title: title, url: href, halbjahr: halbjahr,
+                                      gradeLevel: gradeLevel, fullUrl: fullUrl))
         }
-        if schedules.isEmpty {
-            throw NSError(domain: "lgka", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "Serververbindung fehlgeschlagen"])
-        }
+        if schedules.isEmpty { throw LGKAError.noSchedulesFound }
         return schedules
+    }
+
+    /// Golden-shaped output.
+    public static func parse(_ html: String) throws -> [[String: Any]] {
+        try schedules(html).map {
+            ["title": $0.title, "url": $0.url, "halbjahr": $0.halbjahr,
+             "gradeLevel": $0.gradeLevel, "fullUrl": $0.fullUrl]
+        }
     }
 }
 

@@ -1,33 +1,74 @@
 import Foundation
+import os
 import LGKACore
+
+enum SchoolAPIError: Error, Sendable {
+    case notAuthenticated
+    case badStatus(Int)
+    case invalidURL(String)
+}
 
 /// UI-facing data access: networking + typed wrappers around the verified
 /// LGKACore parsers. All parsing lives in the core — this file only fetches
-/// and re-shapes dictionaries into models the views can render.
+/// and re-shapes parser output into models the views can render.
 enum SchoolAPI {
+    static let log = Logger(subsystem: "com.lgka", category: "api")
     static let base = "https://lessing-gymnasium-karlsruhe.de"
+    static let host = "lessing-gymnasium-karlsruhe.de"
     /// Same User-Agent format the Flutter app sends (app_info.dart).
     static let userAgent = "LGKA-App-Luka-Loehr/" +
         (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0.0")
-    private static let auth =
-        "Basic " + Data("vertretungsplan:ephraim".utf8).base64EncodedString()
 
-    static func get(_ url: String, authenticated: Bool = true) async throws -> Data {
-        var request = URLRequest(url: URL(string: url)!, timeoutInterval: 15)
-        if authenticated { request.setValue(auth, forHTTPHeaderField: "Authorization") }
+    static func isSchoolHost(_ host: String?) -> Bool {
+        guard let host else { return false }
+        return host == Self.host || host.hasSuffix("." + Self.host)
+    }
+
+    private static func request(_ url: String, authorization: String?) throws -> URLRequest {
+        guard let target = URL(string: url) else { throw SchoolAPIError.invalidURL(url) }
+        var request = URLRequest(url: target, timeoutInterval: 15)
+        if let authorization, isSchoolHost(target.host) {
+            request.setValue(authorization, forHTTPHeaderField: "Authorization")
+        }
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw URLError(.badServerResponse)
+        return request
+    }
+
+    static func fetch(_ url: String, authenticated: Bool = true) async throws -> Data {
+        var authorization: String? = nil
+        if authenticated {
+            guard let creds = Credentials.load() else { throw SchoolAPIError.notAuthenticated }
+            authorization = creds.authorizationHeader
+        }
+        let (data, response) = try await URLSession.shared.data(for: request(url, authorization: authorization))
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard http.statusCode == 200 else {
+            log.error("GET \(url, privacy: .public) -> \(http.statusCode)")
+            throw SchoolAPIError.badStatus(http.statusCode)
         }
         return data
     }
 
+    /// Login gate: the credentials are checked against the server (a HEAD
+    /// on the substitution PDF), never against a string in the app.
+    static func verify(_ pair: Credentials.Pair) async throws -> Bool {
+        var req = try request("\(base)/stundenplan/schueler/v_schueler_heute.pdf",
+                              authorization: pair.authorizationHeader)
+        req.httpMethod = "HEAD"
+        let (_, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        switch http.statusCode {
+        case 200: return true
+        case 401, 403: return false
+        default: throw SchoolAPIError.badStatus(http.statusCode)
+        }
+    }
+
     // ── Substitution ────────────────────────────────────────────────────────
 
-    struct SubPlan {
-        struct Entry: Identifiable {
-            let id = UUID()
+    struct SubPlan: Sendable {
+        struct Entry: Sendable, Identifiable {
+            let id: Int
             let type: String?, period: String?, classes: [String]
             let substitute: String?, subject: String?, room: String?
             let originalSubject: String?, originalTeacher: String?, originalRoom: String?
@@ -52,10 +93,10 @@ enum SchoolAPI {
             announcements = dict["announcements"] as? [String] ?? []
             absentTeachers = dict["absentTeachers"] as? [String] ?? []
             absentClasses = dict["absentClasses"] as? [String] ?? []
-            entries = (dict["entries"] as? [[String: Any]] ?? []).map { e in
+            entries = (dict["entries"] as? [[String: Any]] ?? []).enumerated().map { i, e in
                 func es(_ k: String) -> String? { e[k] as? String }
                 return Entry(
-                    type: es("type"), period: es("period"),
+                    id: i, type: es("type"), period: es("period"),
                     classes: e["classes"] as? [String] ?? [],
                     substitute: es("substitute"), subject: es("subject"), room: es("room"),
                     originalSubject: es("originalSubject"),
@@ -67,36 +108,35 @@ enum SchoolAPI {
 
     static func substitutionPlan(today: Bool, mode: FetchMode = .cacheFirst) async throws -> SubPlan {
         let name = today ? "heute" : "morgen"
-        let data = try await cachedGet(
-            "\(base)/stundenplan/schueler/v_schueler_\(name).pdf",
-            ttl: TTL.substitution, mode: mode)
+        let url = "\(base)/stundenplan/schueler/v_schueler_\(name).pdf"
+        let data = try await cachedGet(url, ttl: TTL.substitution, mode: mode)
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("sub_\(name).pdf")
-        try data.write(to: tmp)
-        guard let lines = extractLines(from: tmp) else {
-            throw URLError(.cannotParseResponse)
+        try data.write(to: tmp, options: .atomic)
+        do {
+            var plan = SubPlan(dict: try Extractor.extract(lines: try extractLines(from: tmp)))
+            plan.fileUrl = tmp
+            return plan
+        } catch {
+            // A payload that cannot be parsed must not be served again from
+            // the cache on the next cold start.
+            Cache.remove(url)
+            throw error
         }
-        var plan = SubPlan(dict: Extractor.extract(lines: lines))
-        plan.fileUrl = tmp
-        return plan
     }
 
     // ── Schedule ────────────────────────────────────────────────────────────
 
-    struct Schedule: Identifiable {
-        var id: String { fullUrl }
-        let title: String, halbjahr: String, gradeLevel: String, fullUrl: String
-    }
+    typealias Schedule = ScheduleHtmlParser.Schedule
 
     static func schedules(mode: FetchMode = .cacheFirst) async throws -> [Schedule] {
-        let data = try await cachedGet("\(base)/cm3/index.php/unterricht/stundenplan",
-                                       ttl: TTL.schedules, mode: mode)
-        let html = String(decoding: data, as: UTF8.self)
-        return try ScheduleHtmlParser.parse(html).map {
-            Schedule(title: $0["title"] as? String ?? "",
-                     halbjahr: $0["halbjahr"] as? String ?? "",
-                     gradeLevel: $0["gradeLevel"] as? String ?? "",
-                     fullUrl: $0["fullUrl"] as? String ?? "")
+        let url = "\(base)/cm3/index.php/unterricht/stundenplan"
+        let data = try await cachedGet(url, ttl: TTL.schedules, mode: mode)
+        do {
+            return try ScheduleHtmlParser.schedules(String(decoding: data, as: UTF8.self))
+        } catch {
+            Cache.remove(url)
+            throw error
         }
     }
 
@@ -104,12 +144,12 @@ enum SchoolAPI {
     static func schedulePdf(_ schedule: Schedule, mode: FetchMode = .cacheFirst) async throws -> (URL, [String: Int]) {
         let data = try await cachedGet(schedule.fullUrl, ttl: TTL.schedules, mode: mode)
         let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("schedule_\(abs(schedule.fullUrl.hashValue)).pdf")
-        try data.write(to: tmp)
+            .appendingPathComponent("schedule_\(Cache.key(schedule.fullUrl)).pdf")
+        try data.write(to: tmp, options: .atomic)
         if schedule.gradeLevel == "J11/J12" {
             return (tmp, ["j11": 2, "j12": 3]) // app-constant, never parsed
         }
-        return (tmp, buildClassIndex(url: tmp) ?? [:])
+        return (tmp, try buildClassIndex(url: tmp))
     }
 
     // ── News ────────────────────────────────────────────────────────────────
@@ -127,8 +167,8 @@ enum SchoolAPI {
 
     // ── Events ──────────────────────────────────────────────────────────────
 
-    struct Event: Identifiable {
-        let id = UUID()
+    struct Event: Sendable, Identifiable, Hashable {
+        var id: String { "\(date)|\(title)" }
         let date: String // yyyy-MM-dd
         let time: String?, title: String
     }
@@ -136,34 +176,30 @@ enum SchoolAPI {
     static func events(mode: FetchMode = .cacheFirst) async throws -> [Event] {
         let cal = Calendar.current
         let today = Date()
-        let df = DateFormatter()
-        df.dateFormat = "yyyy/MM/dd"
         var htmls: [String] = []
         for week in 0..<3 {
-            let target = cal.date(byAdding: .day, value: week * 7, to: today)!
-            let url = "\(base)/cm3/index.php/termine/week.listevents/\(df.string(from: target))/-?catids="
-            let data = try await cachedGet(url, authenticated: false,
-                                           ttl: TTL.events, mode: mode)
+            guard let target = cal.date(byAdding: .day, value: week * 7, to: today) else { continue }
+            let c = cal.dateComponents([.year, .month, .day], from: target)
+            let path = String(format: "%04d/%02d/%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+            let url = "\(base)/cm3/index.php/termine/week.listevents/\(path)/-?catids="
+            let data = try await cachedGet(url, authenticated: false, ttl: TTL.events, mode: mode)
             htmls.append(String(decoding: data, as: UTF8.self))
         }
-        df.dateFormat = "yyyy-MM-dd"
-        let todayStr = df.string(from: today)
-        return EventsParser.aggregate(weekHtmls: htmls, today: todayStr).map {
-            Event(date: String(($0["date"] as? String ?? "").prefix(10)),
-                  time: $0["time"] as? String,
-                  title: $0["title"] as? String ?? "")
+        let todayStr = LocalDate.isoString(today)
+        return EventsParser.upcoming(weekHtmls: htmls, today: todayStr).map {
+            Event(date: $0.date, time: $0.time, title: $0.title)
         }
     }
 
     // ── Weather ─────────────────────────────────────────────────────────────
 
-    struct WeatherData {
-        struct Hour: Identifiable {
-            let id = UUID()
+    struct WeatherData: Sendable {
+        struct Hour: Sendable, Identifiable {
+            var id: String { time }
             let time: String, temp: Double, pop: Double, code: Int, isDay: Bool
         }
-        struct Day: Identifiable {
-            let id = UUID()
+        struct Day: Sendable, Identifiable {
+            var id: String { date }
             let date: String, tempMax: Double, tempMin: Double, pop: Double, code: Int
         }
         let temp: Double, feelsLike: Double, humidity: Int, windSpeed: Double
@@ -171,19 +207,23 @@ enum SchoolAPI {
         let hourly: [Hour], daily: [Day]
     }
 
+    static let weatherURL = "https://api.open-meteo.com/v1/forecast?latitude=49.00775&longitude=8.375&elevation=122"
+        + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cloud_cover,visibility,uv_index,is_day"
+        + "&hourly=temperature_2m,relative_humidity_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,is_day"
+        + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m_max,sunrise,sunset"
+        + "&timezone=Europe%2FBerlin&forecast_days=3"
+
     static func weather(mode: FetchMode = .cacheFirst) async throws -> WeatherData {
-        let url = "https://api.open-meteo.com/v1/forecast?latitude=49.00775&longitude=8.375&elevation=122"
-            + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cloud_cover,visibility,uv_index,is_day"
-            + "&hourly=temperature_2m,relative_humidity_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,is_day"
-            + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m_max,sunrise,sunset"
-            + "&timezone=Europe%2FBerlin&forecast_days=3"
-        let data = try await cachedGet(url, authenticated: false,
+        let data = try await cachedGet(weatherURL, authenticated: false,
                                        ttl: TTL.weather, mode: mode)
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd'T'HH:00"
-        let refNow = df.string(from: Date())
-        let parsed = try WeatherParser.parse(
-            String(decoding: data, as: UTF8.self), referenceNow: refNow)
+        let refNow = LocalDate.hourString(Date())
+        let parsed: [String: Any]
+        do {
+            parsed = try WeatherParser.parse(String(decoding: data, as: UTF8.self), referenceNow: refNow)
+        } catch {
+            Cache.remove(weatherURL)
+            throw error
+        }
 
         let c = parsed["current"] as? [String: Any] ?? [:]
         func d(_ v: Any?) -> Double { (v as? NSNumber)?.doubleValue ?? 0 }
@@ -218,8 +258,7 @@ enum Wmo {
         case 3: return "cloud.fill"
         case 45, 48: return "cloud.fog.fill"
         case 51, 53, 55, 56, 57: return "cloud.drizzle.fill"
-        case 61, 80: return "cloud.rain.fill"
-        case 63, 81: return "cloud.rain.fill"
+        case 61, 63, 80, 81: return "cloud.rain.fill"
         case 65, 82: return "cloud.heavyrain.fill"
         case 66, 67: return "cloud.sleet.fill"
         case 71, 73, 75, 77, 85, 86: return "cloud.snow.fill"
@@ -228,33 +267,39 @@ enum Wmo {
         }
     }
 
+    /// Localized description (String Catalog keys `wmo.<code>`).
     static func description(_ code: Int) -> String {
-        switch code {
-        case 0: return "Klarer Himmel"
-        case 1: return "Überwiegend klar"
-        case 2: return "Teilweise bewölkt"
-        case 3: return "Bedeckt"
-        case 45: return "Nebel"
-        case 48: return "Gefrierender Nebel"
-        case 51: return "Leichter Nieselregen"
-        case 53: return "Mäßiger Nieselregen"
-        case 55: return "Dichter Nieselregen"
-        case 56, 57: return "Gefrierender Nieselregen"
-        case 61: return "Leichter Regen"
-        case 63: return "Mäßiger Regen"
-        case 65: return "Starker Regen"
-        case 66, 67: return "Gefrierender Regen"
-        case 71: return "Leichter Schneefall"
-        case 73: return "Mäßiger Schneefall"
-        case 75: return "Starker Schneefall"
-        case 77: return "Schneekörner"
-        case 80: return "Leichte Regenschauer"
-        case 81: return "Mäßige Regenschauer"
-        case 82: return "Starke Regenschauer"
-        case 85, 86: return "Schneeschauer"
-        case 95: return "Gewitter"
-        case 96, 99: return "Gewitter mit Hagel"
-        default: return "Unbekannt"
-        }
+        let known: Set<Int> = [0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67,
+                               71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]
+        return L.s(known.contains(code) ? "wmo.\(code)" : "wmo.unknown")
+    }
+}
+
+/// Calendar-day helpers replacing ad-hoc DateFormatters in view bodies.
+enum LocalDate {
+    static var calendar: Calendar { Calendar.current }
+
+    /// "yyyy-MM-dd" -> Date at local midnight, nil if malformed.
+    static func parse(_ iso: String) -> Date? {
+        let parts = iso.prefix(10).split(separator: "-")
+        guard parts.count == 3, let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2])
+        else { return nil }
+        return calendar.date(from: DateComponents(year: y, month: m, day: d))
+    }
+
+    static func isoString(_ date: Date) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    /// "yyyy-MM-ddTHH:00" (Open-Meteo hourly window start).
+    static func hourString(_ date: Date) -> String {
+        let c = calendar.dateComponents([.hour], from: date)
+        return isoString(date) + String(format: "T%02d:00", c.hour ?? 0)
+    }
+
+    static func isToday(_ iso: String) -> Bool {
+        guard let date = parse(iso) else { return false }
+        return calendar.isDateInToday(date)
     }
 }

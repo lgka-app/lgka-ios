@@ -3,3 +3,5 @@
 .DS_Store
 xcuserdata/
 LGKA.xcodeproj/
+build/
+report.html

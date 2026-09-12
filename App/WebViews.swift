@@ -20,7 +20,7 @@ struct WebScreen: View {
 /// Krankmeldung pre-info — mirrors krankmeldung_info_screen.dart.
 struct KrankmeldungInfoScreen: View {
     let onContinue: () -> Void
-    @EnvironmentObject private var prefs: Prefs
+    @Environment(Prefs.self) private var prefs
     @Environment(\.appAccent) private var accent
 
     var body: some View {
@@ -49,10 +49,11 @@ struct KrankmeldungInfoScreen: View {
     private func infoCard(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 18) {
             Image(systemName: icon)
-                .font(.system(size: 24))
+                .font(.title2)
                 .foregroundStyle(accent)
                 .frame(width: 52, height: 52)
-                .background(accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+                .background(accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .accessibilityHidden(true)
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -78,43 +79,38 @@ struct BugReportScreen: View {
 struct WebContainer: View {
     let url: String
     var confineToHost: String? = nil
-    @State private var progress = 0.0
+    @State private var isLoading = true
     @State private var failed = false
     @State private var reloadToken = 0
 
     var body: some View {
         ZStack {
             WebViewRepresentable(url: url, confineToHost: confineToHost,
-                                 progress: $progress,
+                                 isLoading: $isLoading,
                                  failed: $failed, reloadToken: reloadToken)
             if failed {
-                VStack(spacing: 8) {
-                    Image(systemName: "wifi.exclamationmark")
-                        .font(.system(size: 52))
-                        .foregroundStyle(.secondary.opacity(0.5))
-                    Text(L.s("formLoadError")).font(.callout.weight(.semibold))
+                ContentUnavailableView {
+                    Label(L.s("formLoadError"), systemImage: "wifi.exclamationmark")
+                } description: {
                     Text(L.s("formLoadErrorHint"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                } actions: {
                     Button(L.s("tryAgain")) {
                         Haptics.light()
                         failed = false
+                        isLoading = true
                         reloadToken += 1
                     }
                     .buttonStyle(.borderedProminent)
-                    .padding(.top, 12)
                 }
-                .padding(32)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .themeBg()
-            } else if progress < 1.0 {
+            } else if isLoading {
                 VStack(spacing: 16) {
                     ProgressView()
                     Text(L.s("loading")).font(.subheadline).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .themeBg()
+                .accessibilityAddTraits(.updatesFrequently)
             }
         }
     }
@@ -123,7 +119,7 @@ struct WebContainer: View {
 struct WebViewRepresentable: UIViewRepresentable {
     let url: String
     var confineToHost: String? = nil
-    @Binding var progress: Double
+    @Binding var isLoading: Bool
     @Binding var failed: Bool
     let reloadToken: Int
 
@@ -136,12 +132,12 @@ struct WebViewRepresentable: UIViewRepresentable {
         view.navigationDelegate = context.coordinator
         view.customUserAgent = SchoolAPI.userAgent
         view.isOpaque = false
-        context.coordinator.observe(view)
         load(view)
         return view
     }
 
     func updateUIView(_ view: WKWebView, context: Context) {
+        context.coordinator.parent = self
         if context.coordinator.lastReloadToken != reloadToken {
             context.coordinator.lastReloadToken = reloadToken
             load(view)
@@ -153,55 +149,68 @@ struct WebViewRepresentable: UIViewRepresentable {
         view.load(URLRequest(url: target, timeoutInterval: 20))
     }
 
+    /// Host suffix match: "lgka-online.de" confines to that domain and its
+    /// subdomains, never to unrelated hosts that merely contain the string.
+    static func isConfined(_ host: String?, to confined: String) -> Bool {
+        guard let host else { return false }
+        return host == confined || host.hasSuffix("." + confined)
+    }
+
+    @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate {
-        private let parent: WebViewRepresentable
-        private var observation: NSKeyValueObservation?
+        var parent: WebViewRepresentable
         var lastReloadToken = 0
 
         init(_ parent: WebViewRepresentable) { self.parent = parent }
 
-        func observe(_ view: WKWebView) {
-            observation = view.observe(\.estimatedProgress) { [weak self] view, _ in
-                DispatchQueue.main.async { self?.parent.progress = view.estimatedProgress }
-            }
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            parent.isLoading = true
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            parent.isLoading = false
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!,
-                     withError error: Error) {
+                     withError error: any Error) {
+            parent.isLoading = false
             parent.failed = true
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
-                     withError error: Error) {
+                     withError error: any Error) {
+            if (error as NSError).code == NSURLErrorCancelled { return }
+            parent.isLoading = false
             parent.failed = true
         }
 
-        // webview_screen parity: answer HTTP basic-auth challenges
-        func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge,
-                     completionHandler: @escaping (URLSession.AuthChallengeDisposition,
-                                                   URLCredential?) -> Void) {
-            if challenge.protectionSpace.authenticationMethod
-                == NSURLAuthenticationMethodHTTPBasic {
-                completionHandler(.useCredential,
-                    URLCredential(user: "vertretungsplan", password: "ephraim",
-                                  persistence: .forSession))
-            } else {
-                completionHandler(.performDefaultHandling, nil)
+        // webview_screen parity: answer HTTP basic-auth challenges — but only
+        // for the school's own host, and only with the user's stored login.
+        func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge)
+            async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+            let space = challenge.protectionSpace
+            if space.authenticationMethod == NSURLAuthenticationMethodHTTPBasic,
+               SchoolAPI.isSchoolHost(space.host),
+               challenge.previousFailureCount == 0,
+               let creds = Credentials.load() {
+                return (.useCredential,
+                        URLCredential(user: creds.user, password: creds.password,
+                                      persistence: .forSession))
             }
+            return (.performDefaultHandling, nil)
         }
 
         // webview_screen parity: external links leave the in-app webview
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction)
+            async -> WKNavigationActionPolicy {
             if let confined = parent.confineToHost,
                navigationAction.navigationType == .linkActivated,
                let target = navigationAction.request.url,
-               let host = target.host, !host.contains(confined) {
-                UIApplication.shared.open(target)
-                decisionHandler(.cancel)
-                return
+               !WebViewRepresentable.isConfined(target.host, to: confined) {
+                await UIApplication.shared.open(target)
+                return .cancel
             }
-            decisionHandler(.allow)
+            return .allow
         }
     }
 }

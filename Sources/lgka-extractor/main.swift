@@ -13,8 +13,7 @@ let args = CommandLine.arguments
 let modes = ["substitution", "classindex", "schedulehtml", "news", "events", "weather"]
 guard args.count >= 4, modes.contains(args[1]) else {
     FileHandle.standardError.write(
-        "usage: lgka-extractor <mode> <fixturesDir> <outDir> [referenceNow]\n"
-            .data(using: .utf8)!)
+        Data("usage: lgka-extractor <mode> <fixturesDir> <outDir> [referenceNow]\n".utf8))
     exit(1)
 }
 let mode = args[1]
@@ -36,7 +35,9 @@ func write(_ name: String, _ result: Any) throws {
 }
 
 func readManifest(_ url: URL) throws -> [String: Any] {
-    try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    guard let m = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+    else { throw LGKAError.invalidJSON(url.lastPathComponent) }
+    return m
 }
 
 func stamp(_ manifest: URL) -> String {
@@ -50,7 +51,7 @@ if ProcessInfo.processInfo.environment["DUMP_RAW"] != nil, let first = pdfs.firs
     exit(0)
 }
 if ProcessInfo.processInfo.environment["DUMP_LINES"] != nil, let first = pdfs.first {
-    for line in extractLines(from: first) ?? [] {
+    for line in (try? extractLines(from: first)) ?? [] {
         let words = line.words.map { "\($0.text)@\(Int($0.left))-\(Int($0.right))" }
         print("y=\(String(format: "%.1f", line.top)) \(words.joined(separator: " | "))")
     }
@@ -61,19 +62,19 @@ switch mode {
 case "substitution":
     for pdf in pdfs {
         let name = pdf.deletingPathExtension().lastPathComponent
-        if let lines = extractLines(from: pdf) {
-            try write(name, Extractor.extract(lines: lines))
-        } else {
-            try write(name, ["error": "failed to load PDF or page 0"])
+        do {
+            try write(name, Extractor.extract(lines: extractLines(from: pdf)))
+        } catch {
+            try write(name, ["error": "\(error)"])
         }
     }
 case "classindex":
     for pdf in pdfs {
         let name = "class_index_\(pdf.deletingPathExtension().lastPathComponent)"
-        if let index = buildClassIndex(url: pdf) {
-            try write(name, ["classIndex5to10": index])
-        } else {
-            try write(name, ["error": "failed to load PDF"])
+        do {
+            try write(name, ["classIndex5to10": buildClassIndex(url: pdf)])
+        } catch {
+            try write(name, ["error": "\(error)"])
         }
     }
 case "schedulehtml":
@@ -86,10 +87,14 @@ case "news":
     for mf in files("json", prefix: "manifest_") {
         let m = try readManifest(mf)
         var urlToFile: [String: String] = [:]
-        for a in m["articles"] as! [[String: String]] { urlToFile[a["url"]!] = a["file"]! }
+        for a in m["articles"] as? [[String: String]] ?? [] {
+            if let u = a["url"], let f = a["file"] { urlToFile[u] = f }
+        }
+        guard let listFile = m["listFile"] as? String else {
+            throw LGKAError.missingField("listFile")
+        }
         let listHtml = try String(
-            contentsOf: fixturesDir.appendingPathComponent(m["listFile"] as! String),
-            encoding: .utf8)
+            contentsOf: fixturesDir.appendingPathComponent(listFile), encoding: .utf8)
         let result = try NewsParser.run(listHtml: listHtml, urlToFile: urlToFile) { name in
             try String(contentsOf: fixturesDir.appendingPathComponent(name), encoding: .utf8)
         }
@@ -98,15 +103,15 @@ case "news":
 case "events":
     for mf in files("json", prefix: "manifest_") {
         let m = try readManifest(mf)
-        let today = m["today"] as! String
-        let htmls = try (m["weeks"] as! [[String: String]]).map {
-            try String(contentsOf: fixturesDir.appendingPathComponent($0["file"]!), encoding: .utf8)
+        guard let today = m["today"] as? String else { throw LGKAError.missingField("today") }
+        let htmls = try (m["weeks"] as? [[String: String]] ?? []).compactMap { $0["file"] }.map {
+            try String(contentsOf: fixturesDir.appendingPathComponent($0), encoding: .utf8)
         }
         try write("events_\(stamp(mf))", EventsParser.aggregate(weekHtmls: htmls, today: today))
     }
 default: // weather
     guard args.count == 5 else {
-        FileHandle.standardError.write("weather mode needs <referenceNow>\n".data(using: .utf8)!)
+        FileHandle.standardError.write(Data("weather mode needs <referenceNow>\n".utf8))
         exit(1)
     }
     for snap in files("json", prefix: "openmeteo_") {

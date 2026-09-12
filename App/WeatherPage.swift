@@ -1,12 +1,17 @@
 import SwiftUI
 
 /// Weather — Apple-Weather-style: full-bleed animated sky, big hero
-/// typography, translucent material cards scrolling over the scene.
+/// typography, standard-material cards scrolling over the scene. The cards
+/// are content, so they use standard materials, not Liquid Glass (HIG:
+/// "Don't use Liquid Glass in the content layer").
 struct WeatherPageScreen: View {
-    @ObservedObject var model: HomeModel
+    @Environment(HomeModel.self) private var model
     @Environment(\.appAccent) private var accent
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @ScaledMetric(relativeTo: .largeTitle) private var heroSize = 96
 
-    /// Debug: preview any sky animation regardless of live conditions.
+    #if DEBUG
+    /// Debug builds only: preview any sky animation regardless of live conditions.
     @State private var preview: SkyPreview?
 
     struct SkyPreview: Hashable {
@@ -27,15 +32,33 @@ struct WeatherPageScreen: View {
         .init(label: "Schnee (Tag)", code: 73, isDay: true),
         .init(label: "Schnee (Nacht)", code: 73, isDay: false),
     ]
+    #endif
+
+    private var skyCode: Int? {
+        #if DEBUG
+        preview?.code
+        #else
+        nil
+        #endif
+    }
+
+    private var skyIsDay: Bool? {
+        #if DEBUG
+        preview?.isDay
+        #else
+        nil
+        #endif
+    }
 
     var body: some View {
         ZStack {
             if let w = model.weather {
-                WeatherSkyView(code: preview?.code ?? w.code,
-                               isDay: preview?.isDay ?? w.isDay,
+                WeatherSkyView(code: skyCode ?? w.code,
+                               isDay: skyIsDay ?? w.isDay,
                                particles: true)
-                    .id(preview) // restart particles when switching previews
+                    .id("\(skyCode ?? w.code)-\(skyIsDay ?? w.isDay)")
                     .ignoresSafeArea()
+                    .accessibilityHidden(true)
                 content(w)
             } else if model.weatherError {
                 ContentUnavailableView {
@@ -53,13 +76,14 @@ struct WeatherPageScreen: View {
         .navigationTitle(L.s("weatherPageTitle"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        #if DEBUG
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
                         preview = nil
                     } label: {
-                        Label("Live", systemImage: preview == nil
+                        Label(L.s("live"), systemImage: preview == nil
                             ? "checkmark" : "dot.radiowaves.left.and.right")
                     }
                     Divider()
@@ -73,10 +97,11 @@ struct WeatherPageScreen: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "theatermasks")
+                    Label(L.s("a11y.skyPreview"), systemImage: "theatermasks")
                 }
             }
         }
+        #endif
         .refreshable { await model.loadWeather(mode: .refresh) }
     }
 
@@ -89,11 +114,12 @@ struct WeatherPageScreen: View {
                 if !w.hourly.isEmpty { hourlyCard(w) }
                 if !w.daily.isEmpty { dailyCard(w) }
                 statsGrid(w)
-                Link(L.s("weatherAttribution"),
-                     destination: URL(string: "https://open-meteo.com/")!)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .padding(.vertical, 12)
+                if let url = URL(string: "https://open-meteo.com/") {
+                    Link(L.s("weatherAttribution"), destination: url)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.8))
+                        .padding(.vertical, 12)
+                }
             }
             .padding(.horizontal, 16)
         }
@@ -103,21 +129,22 @@ struct WeatherPageScreen: View {
 
     private func hero(_ w: SchoolAPI.WeatherData) -> some View {
         VStack(spacing: 2) {
-            Text("Karlsruhe")
+            Text(L.s("city"))
                 .font(.title2.weight(.medium))
             Text("\(Int(w.temp.rounded()))°")
-                .font(.system(size: 96, weight: .thin))
+                .font(.system(size: heroSize, weight: .thin, design: .rounded))
                 .padding(.leading, 24) // optically center over the degree sign
-            Text(L.wmo(w.code))
+            Text(Wmo.description(w.code))
                 .font(.callout.weight(.medium))
                 .opacity(0.9)
             if let today = w.daily.first {
-                Text("H: \(Int(today.tempMax.rounded()))°  T: \(Int(today.tempMin.rounded()))°")
+                Text(L.f("highLow", Int(today.tempMax.rounded()), Int(today.tempMin.rounded())))
                     .font(.callout.weight(.medium))
             }
         }
         .foregroundStyle(.white)
         .shadow(color: .black.opacity(0.25), radius: 8)
+        .accessibilityElement(children: .combine)
     }
 
     // ── Cards ───────────────────────────────────────────────────────────────
@@ -129,7 +156,15 @@ struct WeatherPageScreen: View {
             Spacer()
         }
         .font(.footnote.weight(.semibold))
-        .foregroundStyle(.white.opacity(0.65))
+        .foregroundStyle(.white.opacity(0.75))
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    private func cardBackground() -> some ShapeStyle {
+        // Reduce Transparency: fall back to a solid dark surface.
+        reduceTransparency
+            ? AnyShapeStyle(Color.black.opacity(0.7))
+            : AnyShapeStyle(.thinMaterial)
     }
 
     private func hourlyCard(_ w: SchoolAPI.WeatherData) -> some View {
@@ -140,7 +175,7 @@ struct WeatherPageScreen: View {
                 HStack(spacing: 22) {
                     ForEach(w.hourly) { h in
                         VStack(spacing: 8) {
-                            Text(h.time == w.hourly.first?.time ? L.s("today").prefix(5) + "" : h.time)
+                            Text(h.time)
                                 .font(.footnote.weight(.semibold))
                             Image(systemName: Wmo.symbol(h.code, isDay: h.isDay))
                                 .symbolRenderingMode(.multicolor)
@@ -154,6 +189,8 @@ struct WeatherPageScreen: View {
                             Text("\(Int(h.temp.rounded()))°")
                                 .font(.callout.weight(.semibold))
                         }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(L.f("a11y.hour", h.time, Int(h.temp.rounded()), Wmo.description(h.code)))
                     }
                 }
                 .padding(.vertical, 2)
@@ -161,7 +198,7 @@ struct WeatherPageScreen: View {
         }
         .foregroundStyle(.white)
         .padding(14)
-        .background(.ultraThinMaterial.opacity(0.85), in: RoundedRectangle(cornerRadius: 18))
+        .background(cardBackground(), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .environment(\.colorScheme, .dark)
     }
 
@@ -172,7 +209,7 @@ struct WeatherPageScreen: View {
 
         return VStack(alignment: .leading, spacing: 4) {
             cardHeader("calendar", L.s("threeDayForecastLabel"))
-            ForEach(Array(w.daily.enumerated()), id: \.element.id) { i, d in
+            ForEach(w.daily) { d in
                 Divider().overlay(.white.opacity(0.2))
                 HStack(spacing: 10) {
                     Text(dayLabel(d.date))
@@ -206,11 +243,14 @@ struct WeatherPageScreen: View {
                         .font(.callout.weight(.semibold))
                 }
                 .padding(.vertical, 4)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L.f("a11y.day", dayLabel(d.date), Wmo.description(d.code),
+                                        Int(d.tempMax.rounded()), Int(d.tempMin.rounded())))
             }
         }
         .foregroundStyle(.white)
         .padding(14)
-        .background(.ultraThinMaterial.opacity(0.85), in: RoundedRectangle(cornerRadius: 18))
+        .background(cardBackground(), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .environment(\.colorScheme, .dark)
     }
 
@@ -219,8 +259,8 @@ struct WeatherPageScreen: View {
                   spacing: 14) {
             statTile("humidity", L.s("weatherHumidityShort"), "\(w.humidity) %")
             statTile("wind", L.s("weatherWindShort"), "\(Int(w.windSpeed.rounded())) km/h")
-            statTile("gauge.with.needle", "hPa", "\(w.pressure)")
-            statTile("sun.max.fill", "UV-Index",
+            statTile("gauge.with.needle", L.s("pressure"), "\(w.pressure) hPa")
+            statTile("sun.max.fill", L.s("uvIndex"),
                      "\(String(format: "%.1f", w.uvi)) · \(uviLabel(w.uvi))")
         }
     }
@@ -232,7 +272,7 @@ struct WeatherPageScreen: View {
                 Text(label.uppercased())
             }
             .font(.caption.weight(.semibold))
-            .foregroundStyle(.white.opacity(0.65))
+            .foregroundStyle(.white.opacity(0.75))
             Text(value)
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.white)
@@ -240,8 +280,10 @@ struct WeatherPageScreen: View {
         }
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
         .padding(14)
-        .background(.ultraThinMaterial.opacity(0.85), in: RoundedRectangle(cornerRadius: 18))
+        .background(cardBackground(), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .environment(\.colorScheme, .dark)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(value)")
     }
 
     private func uviLabel(_ uvi: Double) -> String {
@@ -253,13 +295,8 @@ struct WeatherPageScreen: View {
     }
 
     private func dayLabel(_ iso: String) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        if iso == df.string(from: Date()) { return L.s("today") }
-        guard let date = df.date(from: iso) else { return iso }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: L.isGerman ? "de_DE" : "en_US")
-        out.dateFormat = "EEE"
-        return out.string(from: date)
+        if LocalDate.isToday(iso) { return L.s("today") }
+        guard let date = LocalDate.parse(iso) else { return iso }
+        return date.formatted(.dateTime.weekday(.abbreviated))
     }
 }

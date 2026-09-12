@@ -38,7 +38,8 @@ public enum NewsParser {
 
     // ---- list page metadata ------------------------------------------------
 
-    public struct Metadata {
+    public struct Metadata: Sendable, Hashable, Identifiable {
+        public var id: String { url }
         public let title: String, author: String, description: String
         public let createdDate: String, parsedDateIso: String?
         public let views: Int, url: String, tags: [String]
@@ -107,8 +108,8 @@ public enum NewsParser {
         let parts = s.components(separatedBy: ".")
         guard parts.count == 3,
               let day = Int(parts[0]), let month = Int(parts[1]), let year = Int(parts[2]),
-              (1...12).contains(month), (1...31).contains(day) else { return nil }
-        let tz = TimeZone(identifier: "Europe/Berlin")!
+              (1...12).contains(month), (1...31).contains(day),
+              let tz = TimeZone(identifier: "Europe/Berlin") else { return nil }
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = tz
         var comp = DateComponents()
@@ -123,10 +124,28 @@ public enum NewsParser {
 
     // ---- article page ------------------------------------------------------
 
-    public struct Article {
+    public struct Link: Sendable, Hashable {
+        public let text: String
+        public let url: String
+    }
+
+    public struct Image: Sendable, Hashable {
+        public let url: String
+        public let thumbnailUrl: String?
+        public let alt: String?
+    }
+
+    public struct Download: Sendable, Hashable {
+        public let title: String
+        public let url: String
+        public let fileType: String
+        public let size: String?
+    }
+
+    public struct Article: Sendable, Hashable {
         public let content: String?, htmlContent: String?
-        public let links: [[String: String]], standaloneLinks: [[String: String]]
-        public let images: [[String: Any]], downloads: [[String: Any]]
+        public let links: [Link], standaloneLinks: [Link]
+        public let images: [Image], downloads: [Download]
     }
 
     private static let emptyArticle = Article(
@@ -150,7 +169,7 @@ public enum NewsParser {
         }
 
         // downloads
-        var downloads: [[String: Any]] = []
+        var downloads: [Download] = []
         for dl in try body.select("a.doclink-insert").array() {
             let href = (try? dl.attr("href")) ?? ""
             if href.isEmpty { continue }
@@ -182,52 +201,45 @@ public enum NewsParser {
                     size = candidate
                 }
             }
-            var entry: [String: Any] = ["title": title, "url": fullUrl, "file_type": fileType]
-            if let s = size { entry["size"] = s }
-            downloads.append(entry)
+            downloads.append(Download(title: title, url: fullUrl, fileType: fileType, size: size))
         }
 
         // links (embedded vs standalone)
-        var embedded: [[String: String]] = []
-        var standalone: [[String: String]] = []
+        var embedded: [Link] = []
+        var standalone: [Link] = []
         for link in try body.select("a").array() {
             if ((try? link.classNames()) ?? []).contains("doclink-insert") { continue }
             guard let href = attrOrNil(link, "href"), !href.isEmpty else { continue }
             let text = trim(rawText(link))
             if text.isEmpty { continue }
             let fullUrl = absolutize(href)
-            let entry = ["text": text, "url": fullUrl]
+            let entry = Link(text: text, url: fullUrl)
             if isStandalone(link, text, href, fullUrl) { standalone.append(entry) }
             else { embedded.append(entry) }
         }
 
         // images: galleries first, then non-gallery <img>
-        var images: [[String: Any]] = []
+        var images: [Image] = []
         for gallery in try body.select(".sigFreeContainer").array() {
             for link in try gallery.select("a.sigFreeLink").array() {
                 guard let imageUrl = attrOrNil(link, "href"), !imageUrl.isEmpty else { continue }
-                let thumbnailUrl = attrOrNil(link, "data-thumb")
+                let thumb = attrOrNil(link, "data-thumb").flatMap { $0.isEmpty ? nil : absolutize($0) }
                 let img = try link.select("img").first()
                 let alt = img.flatMap { attrOrNil($0, "alt") ?? attrOrNil($0, "title") }
-                var entry: [String: Any] = ["url": absolutize(imageUrl)]
-                if let t = thumbnailUrl, !t.isEmpty { entry["thumbnail_url"] = absolutize(t) }
-                if let a = alt { entry["alt"] = a }
-                images.append(entry)
+                images.append(Image(url: absolutize(imageUrl), thumbnailUrl: thumb, alt: alt))
             }
         }
         for img in try body.select("img").array() {
             if ((try? img.classNames()) ?? []).contains("sigFreeImg") { continue }
             guard let src = attrOrNil(img, "src"), !src.isEmpty else { continue }
             let fullImageUrl = absolutize(src)
-            if !images.contains(where: { ($0["url"] as? String) == fullImageUrl }) {
-                var entry: [String: Any] = ["url": fullImageUrl]
-                if let a = attrOrNil(img, "alt") { entry["alt"] = a }
-                images.append(entry)
+            if !images.contains(where: { $0.url == fullImageUrl }) {
+                images.append(Image(url: fullImageUrl, thumbnailUrl: nil, alt: attrOrNil(img, "alt")))
             }
         }
 
         // cloned body with downloads + standalone links removed
-        let clone = body.copy() as! Element
+        guard let clone = body.copy() as? Element else { throw LGKAError.htmlCloneFailed }
         for dl in try clone.select("a.doclink-insert").array() { try dl.remove() }
         for link in try clone.select("a:not(.doclink-insert)").array() {
             guard let href = attrOrNil(link, "href"), !href.isEmpty else { continue }
@@ -254,7 +266,7 @@ public enum NewsParser {
             htmlContent = cleanHtml(try clone.html())
             content = trim(rawText(clone))
         } else {
-            htmlContent = paragraphs.compactMap { try? cleanHtml($0.html()) }
+            htmlContent = try paragraphs.map { cleanHtml(try $0.html()) }
                 .filter { !$0.isEmpty }.joined(separator: "\n\n")
             content = paragraphs.map { trim(rawText($0)) }
                 .filter { !$0.isEmpty }.joined(separator: "\n\n")
@@ -267,8 +279,10 @@ public enum NewsParser {
 
     // ---- aggregation -------------------------------------------------------
 
+    /// Full golden-shaped pipeline over local fixtures; `urlToFile` maps
+    /// article URL -> html file name.
     public static func run(listHtml: String, urlToFile: [String: String],
-                    readFile: (String) throws -> String) throws -> [[String: Any]] {
+                           readFile: (String) throws -> String) throws -> [[String: Any]] {
         let metadata = try parseListPage(listHtml)
         var events: [[String: Any]] = []
         for md in metadata {
@@ -286,10 +300,19 @@ public enum NewsParser {
             e["created_date"] = md.createdDate
             e["views"] = md.views
             e["url"] = md.url
-            e["links"] = article.links
-            e["standalone_links"] = article.standaloneLinks
-            e["images"] = article.images
-            e["downloads"] = article.downloads
+            e["links"] = article.links.map { ["text": $0.text, "url": $0.url] }
+            e["standalone_links"] = article.standaloneLinks.map { ["text": $0.text, "url": $0.url] }
+            e["images"] = article.images.map { img -> [String: Any] in
+                var d: [String: Any] = ["url": img.url]
+                if let t = img.thumbnailUrl { d["thumbnail_url"] = t }
+                if let a = img.alt { d["alt"] = a }
+                return d
+            }
+            e["downloads"] = article.downloads.map { dl -> [String: Any] in
+                var d: [String: Any] = ["title": dl.title, "url": dl.url, "file_type": dl.fileType]
+                if let s = dl.size { d["size"] = s }
+                return d
+            }
             e["tags"] = md.tags
             e["parsed_date"] = md.parsedDateIso as Any? ?? NSNull()
             events.append(e)

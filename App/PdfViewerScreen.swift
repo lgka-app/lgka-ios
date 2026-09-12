@@ -1,5 +1,6 @@
 import SwiftUI
 import PDFKit
+import LGKACore
 
 /// PDF viewer — mirrors pdf_viewer_screen.dart: share, in-PDF text search
 /// with next/previous, optional target-page jump (schedule class page).
@@ -10,7 +11,8 @@ struct PdfViewerScreen: View {
     /// "Klassen 5-10" / "J11/J12" for schedule PDFs, nil for substitution.
     var gradeLevel: String? = nil
 
-    @EnvironmentObject private var prefs: Prefs
+    @Environment(Prefs.self) private var prefs
+    @Environment(HomeModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var document: PDFDocument?
     @State private var displayTitle = ""
@@ -32,8 +34,9 @@ struct PdfViewerScreen: View {
                                highlight: currentSelection,
                                goToPageIndex: $goToPage)
                         .ignoresSafeArea(edges: .bottom)
+                        .accessibilityLabel(displayTitle)
                 } else {
-                    ProgressView()
+                    ContentUnavailableView(L.s("errorLoading"), systemImage: "doc.questionmark")
                 }
             }
             .navigationTitle(displayTitle.isEmpty ? title : displayTitle)
@@ -41,7 +44,7 @@ struct PdfViewerScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { Haptics.light(); dismiss() } label: {
-                        Image(systemName: "xmark")
+                        Label(L.s("a11y.close"), systemImage: "xmark")
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -49,10 +52,10 @@ struct PdfViewerScreen: View {
                         Haptics.light()
                         withAnimation { showSearch.toggle() }
                     } label: {
-                        Image(systemName: "magnifyingglass")
+                        Label(L.s("a11y.search"), systemImage: "magnifyingglass")
                     }
                     ShareLink(item: shareUrl ?? fileUrl) {
-                        Image(systemName: "square.and.arrow.up")
+                        Label(L.s("a11y.share"), systemImage: "square.and.arrow.up")
                     }
                 }
             }
@@ -66,6 +69,7 @@ struct PdfViewerScreen: View {
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .glassEffect()
                         .padding(.bottom, 8)
+                        .accessibilityAddTraits(.updatesFrequently)
                 } else if !matches.isEmpty {
                     matchStepper
                 }
@@ -80,13 +84,10 @@ struct PdfViewerScreen: View {
                     goToPage = max(0, targetPage - 2)
                 }
                 // pdf_viewer parity: PDFs may rotate; app stays portrait
-                AppDelegate.orientationLock = .all
+                OrientationLock.shared.allowAll()
             }
             .onDisappear {
-                AppDelegate.orientationLock = .portrait
-                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-                    scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
-                }
+                OrientationLock.shared.restorePortrait()
             }
         }
     }
@@ -96,11 +97,17 @@ struct PdfViewerScreen: View {
             Text("\(matchIndex + 1)/\(matches.count)")
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(.secondary)
-            Button { step(-1) } label: { Image(systemName: "chevron.up") }
-                .buttonStyle(.glass)
-            Button { step(1) } label: { Image(systemName: "chevron.down") }
-                .buttonStyle(.glass)
+                .accessibilityLabel(L.f("a11y.matchPosition", matchIndex + 1, matches.count))
+            Button { step(-1) } label: {
+                Label(L.s("a11y.previousMatch"), systemImage: "chevron.up")
+            }
+            .buttonStyle(.glass)
+            Button { step(1) } label: {
+                Label(L.s("a11y.nextMatch"), systemImage: "chevron.down")
+            }
+            .buttonStyle(.glass)
         }
+        .labelStyle(.iconOnly)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .glassEffect()
@@ -111,8 +118,7 @@ struct PdfViewerScreen: View {
         guard let document, !searchText.isEmpty else { return }
         feedback = nil
         let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
-        let isClass = query.range(of: "^(j1[12]|\\d{1,2}[a-e])$",
-                                  options: .regularExpression) != nil
+        let isClass = query.wholeMatch(of: #/j1[12]|\d{1,2}[a-e]/#) != nil
 
         if let grade = currentGrade, isClass {
             // schedule-PDF parity: persist class; switch PDFs across groups
@@ -126,8 +132,7 @@ struct PdfViewerScreen: View {
         matches = document.findString(searchText, withOptions: [.caseInsensitive])
         matchIndex = 0
         if matches.isEmpty {
-            feedback = isClass ? L.noResults(query)
-                : (L.isGerman ? "Keine Treffer" : "No matches")
+            feedback = isClass ? L.f("noResults", query.uppercased()) : L.s("noMatches")
             Task { try? await Task.sleep(for: .seconds(2)); feedback = nil }
         } else {
             select(0)
@@ -136,9 +141,9 @@ struct PdfViewerScreen: View {
 
     /// Cross-PDF class switching (pdf_viewer_screen _navigateCrossPdf parity).
     private func switchPdf(to group: String, className: String) {
-        guard let schedule = HomeModel.shared.preferredGroup
+        guard let schedule = model.preferredGroup
             .first(where: { $0.gradeLevel == group }) else {
-            feedback = L.noResults(className)
+            feedback = L.f("noResults", className.uppercased())
             return
         }
         Task {
@@ -148,16 +153,14 @@ struct PdfViewerScreen: View {
                 currentGrade = group
                 let half = schedule.halbjahr == "1. Halbjahr"
                     ? L.s("firstSemester") : L.s("secondSemester")
-                let name = className == "j11" ? L.s("jahrgang11")
-                    : className == "j12" ? L.s("jahrgang12")
-                    : (L.isGerman ? "Klasse " : "Class ") + className.uppercased()
-                displayTitle = "\(name) – \(half)"
+                let name = L.className(className)
+                displayTitle = L.f("titleWithSemester", name, half)
                 shareUrl = makeShareUrl(file, title: name)
                 matches = []
                 if let page = index[className] {
                     goToPage = max(0, page - 2)
                 }
-                feedback = L.classChanged(name)
+                feedback = L.f("classChanged", name)
                 try? await Task.sleep(for: .seconds(2))
                 feedback = nil
             } catch {
@@ -212,10 +215,10 @@ struct PdfKitView: UIViewRepresentable {
     func updateUIView(_ view: PDFView, context: Context) {
         if view.document !== document { view.document = document }
         view.highlightedSelections = highlight.map { [$0] }
-        if let index = goToPageIndex, let page = document.page(
-            at: min(max(0, index), document.pageCount - 1)) {
+        if let index = goToPageIndex, document.pageCount > 0,
+           let page = document.page(at: min(max(0, index), document.pageCount - 1)) {
             view.go(to: page)
-            DispatchQueue.main.async { goToPageIndex = nil }
+            Task { @MainActor in goToPageIndex = nil }
         }
     }
 }

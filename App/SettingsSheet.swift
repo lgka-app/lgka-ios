@@ -1,12 +1,12 @@
 import SwiftUI
 
 /// Settings — native Form: DARSTELLUNG (segmented theme + palette accent),
-/// MEHR (bug report, privacy, legal), version footer.
+/// MEHR (bug report, privacy, legal, log out), version footer.
 struct SettingsSheet: View {
     var onBugReport: () -> Void
-    @EnvironmentObject private var prefs: Prefs
-    @Environment(\.openURL) private var openURL
+    @Environment(Prefs.self) private var prefs
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmLogout = false
 
     private let appVersion =
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -30,21 +30,20 @@ struct SettingsSheet: View {
                     } label: {
                         Label(L.s("bugReport"), systemImage: "ladybug")
                     }
-                    Button {
-                        Haptics.light()
-                        openURL(URL(string: "https://luka-loehr.github.io/LGKA/privacy.html")!)
-                    } label: {
-                        Label {
-                            Text(L.s("privacyLabel"))
-                        } icon: {
-                            Image(systemName: "hand.raised")
+                    if let url = URL(string: "https://luka-loehr.github.io/LGKA/privacy.html") {
+                        Link(destination: url) {
+                            Label(L.s("privacyLabel"), systemImage: "hand.raised")
                         }
                     }
-                    Button {
-                        Haptics.light()
-                        openURL(URL(string: "https://luka-loehr.github.io/LGKA/impressum.html")!)
+                    if let url = URL(string: "https://luka-loehr.github.io/LGKA/impressum.html") {
+                        Link(destination: url) {
+                            Label(L.s("legalLabel"), systemImage: "info.circle")
+                        }
+                    }
+                    Button(role: .destructive) {
+                        confirmLogout = true
                     } label: {
-                        Label(L.s("legalLabel"), systemImage: "info.circle")
+                        Label(L.s("logout"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 } header: {
                     Text(L.s("settingsSectionMore"))
@@ -63,17 +62,27 @@ struct SettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                    Button { dismiss() } label: {
+                        Label(L.s("a11y.close"), systemImage: "xmark")
+                    }
                 }
+            }
+            .confirmationDialog(L.s("logoutConfirm"), isPresented: $confirmLogout, titleVisibility: .visible) {
+                Button(L.s("logout"), role: .destructive) {
+                    dismiss()
+                    prefs.signOut()
+                }
+                Button(L.s("cancel"), role: .cancel) {}
             }
         }
     }
 }
 
 /// New Year's Day fireworks — mirrors fireworks_overlay.dart + provider
-/// (visible on January 1st, Europe/Berlin).
+/// (visible on January 1st, Europe/Berlin). Respects Reduce Motion.
 struct FireworksOverlay: View {
     @State private var isNewYear = isNewYearsDay()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     static func isNewYearsDay() -> Bool {
         var cal = Calendar(identifier: .gregorian)
@@ -84,8 +93,9 @@ struct FireworksOverlay: View {
 
     var body: some View {
         Group {
-            if isNewYear {
+            if isNewYear && !reduceMotion {
                 FireworksEmitter().allowsHitTesting(false).ignoresSafeArea()
+                    .accessibilityHidden(true)
             }
         }
         .task {
@@ -105,6 +115,14 @@ struct FireworksEmitter: UIViewRepresentable {
         emitter.renderMode = .additive
         let colors: [UIColor] = [.systemYellow, .systemOrange, .systemPink,
                                  .systemTeal, .systemPurple]
+        let dot: CGImage? = {
+            let size = CGSize(width: 12, height: 12)
+            let renderer = UIGraphicsImageRenderer(size: size)
+            return renderer.image { _ in
+                UIColor.white.setFill()
+                UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+            }.cgImage
+        }()
         emitter.emitterCells = colors.map { color in
             let cell = CAEmitterCell()
             cell.birthRate = 1.2
@@ -117,15 +135,7 @@ struct FireworksEmitter: UIViewRepresentable {
             cell.alphaSpeed = -0.45
             cell.yAcceleration = 90
             cell.color = color.cgColor
-            cell.contents = {
-                let size = CGSize(width: 12, height: 12)
-                UIGraphicsBeginImageContextWithOptions(size, false, 0)
-                UIColor.white.setFill()
-                UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
-                let img = UIGraphicsGetImageFromCurrentImageContext()
-                UIGraphicsEndImageContext()
-                return img?.cgImage
-            }()
+            cell.contents = dot
             return cell
         }
         view.layer.addSublayer(emitter)
@@ -139,5 +149,7 @@ struct FireworksEmitter: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
+
+    @MainActor
     final class Coordinator { var emitter: CAEmitterLayer? }
 }

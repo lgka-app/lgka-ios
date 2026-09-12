@@ -1,9 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// Accent palette — mirrors ColorProvider (color_provider.dart).
-enum Accent: String, CaseIterable {
+/// Brand accent palette — mirrors ColorProvider (color_provider.dart).
+/// See DESIGN_GUIDELINES.md for the contrast rules that go with it.
+enum Accent: String, CaseIterable, Identifiable {
     case blue, mint, lavender, rose, peach
+
+    var id: String { rawValue }
 
     var color: Color {
         switch self {
@@ -14,31 +17,29 @@ enum Accent: String, CaseIterable {
         case .peach: return Color(red: 0xBF / 255, green: 0x7F / 255, blue: 0x46 / 255)
         }
     }
+
+    /// Localized name for VoiceOver.
+    var label: String { L.s("accent.\(rawValue)") }
 }
 
-/// Theme surfaces — mirrors app_theme.dart (pure black dark / F2F2F7 light).
+/// Backgrounds use the system semantic colors so Liquid Glass bars, sheets
+/// and scroll-edge effects blend correctly; the values match the brand
+/// (pure black / #F2F2F7) in both appearances.
 extension Color {
-    static let darkBg = Color.black
-    static let darkSurface = Color(red: 0x1E / 255, green: 0x1E / 255, blue: 0x1E / 255)
-    static let lightBg = Color(red: 0xF2 / 255, green: 0xF2 / 255, blue: 0xF7 / 255)
-    static let lightSurface = Color.white
+    static let appBackground = Color(uiColor: .systemGroupedBackground)
+    static let appSurface = Color(uiColor: .secondarySystemGroupedBackground)
 }
 
 struct ThemeBg: ViewModifier {
-    @Environment(\.colorScheme) private var scheme
     func body(content: Content) -> some View {
-        content.background(
-            (scheme == .dark ? Color.darkBg : Color.lightBg).ignoresSafeArea())
+        content.background(Color.appBackground.ignoresSafeArea())
     }
 }
 
 struct SurfaceCard: ViewModifier {
-    @Environment(\.colorScheme) private var scheme
     var radius: CGFloat = 16
     func body(content: Content) -> some View {
-        content.background(
-            scheme == .dark ? Color.darkSurface : Color.lightSurface,
-            in: RoundedRectangle(cornerRadius: radius))
+        content.background(Color.appSurface, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }
 
@@ -49,11 +50,15 @@ extension View {
     }
 }
 
-/// Haptics — mirrors HapticService.
+/// Haptics — mirrors HapticService. UIKit feedback generators are
+/// main-actor only.
+@MainActor
 enum Haptics {
     static func light() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
     static func medium() { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
     static func intense() { UIImpactFeedbackGenerator(style: .heavy).impactOccurred() }
+    static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+    static func error() { UINotificationFeedbackGenerator().notificationOccurred(.error) }
 }
 
 /// 44pt tinted icon square used across the home cards.
@@ -61,12 +66,15 @@ struct IconSquare: View {
     let systemName: String
     var alpha: Double = 0.12
     @Environment(\.appAccent) private var accent
+    @ScaledMetric(relativeTo: .body) private var size = 44
+
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: 18, weight: .medium))
+            .font(.body.weight(.medium))
             .foregroundStyle(accent)
-            .frame(width: 44, height: 44)
-            .background(accent.opacity(alpha), in: RoundedRectangle(cornerRadius: 12))
+            .frame(width: size, height: size)
+            .background(accent.opacity(alpha), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 

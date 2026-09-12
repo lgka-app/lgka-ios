@@ -3,135 +3,18 @@ import LGKACore
 
 /// Home hub — mirrors home_screen.dart: weather card, substitution cards,
 /// schedule class card, upcoming events; toolbar: news / sick note / settings.
-@MainActor
-final class HomeModel: ObservableObject {
-    static let shared = HomeModel()
-
-    @Published var newsList: [NewsParser.Metadata]?
-    @Published var newsFailed = false
-    @Published var today: SchoolAPI.SubPlan?
-    @Published var tomorrow: SchoolAPI.SubPlan?
-    @Published var subError = false
-    @Published var subLoading = true
-
-    @Published var weather: SchoolAPI.WeatherData?
-    @Published var weatherError = false
-
-    @Published var schedules: [SchoolAPI.Schedule] = []
-    @Published var scheduleError = false
-    @Published var scheduleLoading = true
-
-    @Published var events: [SchoolAPI.Event] = []
-    @Published var eventsError = false
-    @Published var eventsLoading = true
-
-    private var bootstrapped = false
-
-    /// Startup preload, mirroring main.dart's _preloadData:
-    /// phase 1 shows any cached data instantly, phase 2 refreshes per TTL,
-    /// then news article contents are prefetched into the cache.
-    func bootstrap() async {
-        guard !bootstrapped else { return }
-        bootstrapped = true
-        await loadAll(mode: .cacheAny)
-        await loadAll(mode: .cacheFirst)
-        await prefetchArticles()
-    }
-
-    func loadAll(mode: FetchMode = .cacheFirst) async {
-        async let a: () = loadSubstitution(mode: mode)
-        async let b: () = loadWeather(mode: mode)
-        async let c: () = loadSchedules(mode: mode)
-        async let d: () = loadEvents(mode: mode)
-        async let e: () = loadNews(mode: mode)
-        _ = await (a, b, c, d, e)
-    }
-
-    func loadNews(mode: FetchMode = .cacheFirst) async {
-        do {
-            newsList = try await SchoolAPI.newsList(mode: mode)
-            newsFailed = false
-        } catch {
-            if newsList == nil { newsFailed = true }
-        }
-    }
-
-    /// Prefer 2. Halbjahr — mirrors the provider's active-group logic.
-    var preferredGroup: [SchoolAPI.Schedule] {
-        let second = schedules.filter { $0.halbjahr == "2. Halbjahr" }
-        return second.isEmpty
-            ? schedules.filter { $0.halbjahr == "1. Halbjahr" }
-            : second
-    }
-
-    /// Fetch all article pages into the disk cache so detail opens instantly
-    /// (the Flutter app fetches full contents up front too).
-    func prefetchArticles() async {
-        guard let list = newsList else { return }
-        await withTaskGroup(of: Void.self) { group in
-            for md in list.prefix(20) {
-                group.addTask {
-                    _ = try? await SchoolAPI.article(url: md.url, mode: .cacheFirst)
-                }
-            }
-        }
-    }
-
-    func loadSubstitution(mode: FetchMode = .cacheFirst) async {
-        subLoading = today == nil && tomorrow == nil
-        do {
-            async let t = SchoolAPI.substitutionPlan(today: true, mode: mode)
-            async let m = SchoolAPI.substitutionPlan(today: false, mode: mode)
-            today = try await t
-            tomorrow = try await m
-            subError = false
-        } catch {
-            if today == nil { subError = true }
-        }
-        subLoading = false
-    }
-
-    func loadWeather(mode: FetchMode = .cacheFirst) async {
-        do {
-            weather = try await SchoolAPI.weather(mode: mode)
-            weatherError = false
-        } catch {
-            if weather == nil { weatherError = true }
-        }
-    }
-
-    func loadSchedules(mode: FetchMode = .cacheFirst) async {
-        scheduleLoading = schedules.isEmpty
-        do {
-            schedules = try await SchoolAPI.schedules(mode: mode)
-            scheduleError = false
-        } catch {
-            if schedules.isEmpty { scheduleError = true }
-        }
-        scheduleLoading = false
-    }
-
-    func loadEvents(mode: FetchMode = .cacheFirst) async {
-        eventsLoading = events.isEmpty
-        do {
-            events = try await SchoolAPI.events(mode: mode)
-            eventsError = false
-        } catch {
-            if events.isEmpty { eventsError = true }
-        }
-        eventsLoading = false
-    }
-}
-
 struct HomeScreen: View {
-    @EnvironmentObject private var prefs: Prefs
-    @ObservedObject private var model = HomeModel.shared
+    @Environment(Prefs.self) private var prefs
+    @Environment(HomeModel.self) private var model
+    @Environment(\.appAccent) private var accent
     @State private var showSettings = false
     @State private var showClassDialog = false
     @State private var classInput = ""
     @State private var pdfDestination: PdfDestination?
     @State private var scheduleLoadingOverlay = false
     @State private var path: [HomeRoute] = []
+    @State private var scheduleUnavailable: String?
+    @ScaledMetric(relativeTo: .largeTitle) private var heroSize = 40
 
     enum HomeRoute: Hashable {
         case weather, news, krankmeldungInfo, krankmeldungForm, bugReport
@@ -144,8 +27,6 @@ struct HomeScreen: View {
         let targetPage: Int?
         var gradeLevel: String? = nil
     }
-
-    @State private var scheduleUnavailable: String?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -161,19 +42,19 @@ struct HomeScreen: View {
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { Haptics.light(); path.append(.news) } label: {
-                        Image(systemName: "newspaper")
+                        Label(L.s("news"), systemImage: "newspaper")
                     }
                     Button { Haptics.light(); openKrankmeldung() } label: {
-                        Image(systemName: "cross.case")
+                        Label(L.s("krankmeldung"), systemImage: "cross.case")
                     }
                     Button { Haptics.light(); showSettings = true } label: {
-                        Image(systemName: "gearshape")
+                        Label(L.s("settings"), systemImage: "gearshape")
                     }
                 }
             }
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
-                case .weather: WeatherPageScreen(model: model)
+                case .weather: WeatherPageScreen()
                 case .news: NewsListScreen()
                 case .krankmeldungInfo:
                     KrankmeldungInfoScreen { path.append(.krankmeldungForm) }
@@ -209,6 +90,7 @@ struct HomeScreen: View {
             .alert(L.s("setClassTitle"), isPresented: $showClassDialog) {
                 TextField(L.s("searchHint"), text: $classInput)
                     .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                 Button(L.s("cancel"), role: .cancel) {}
                 Button(L.s("setClassButton")) {
                     let cls = classInput.trimmingCharacters(in: .whitespaces).lowercased()
@@ -219,7 +101,8 @@ struct HomeScreen: View {
                 if scheduleLoadingOverlay {
                     ProgressView(L.s("loadingSchedule"))
                         .padding(24)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .accessibilityAddTraits(.updatesFrequently)
                 }
             }
         }
@@ -235,12 +118,12 @@ struct HomeScreen: View {
             } label: {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Karlsruhe")
+                        Text(L.s("city"))
                             .font(.footnote.weight(.semibold))
                             .opacity(0.85)
                         Text("\(Int(w.temp.rounded()))°")
-                            .font(.system(size: 40, weight: .medium))
-                        Text(L.wmo(w.code))
+                            .font(.system(size: heroSize, weight: .medium, design: .rounded))
+                        Text(Wmo.description(w.code))
                             .font(.footnote.weight(.medium))
                             .opacity(0.9)
                             .lineLimit(1)
@@ -249,13 +132,13 @@ struct HomeScreen: View {
                             .opacity(0.8)
                             .lineLimit(1)
                     }
-                    Spacer()
+                    Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 3) {
                         Image(systemName: Wmo.symbol(w.code, isDay: w.isDay))
-                            .font(.system(size: 28))
+                            .font(.title)
                             .symbolRenderingMode(.multicolor)
                         if let today = w.daily.first {
-                            Text("H: \(Int(today.tempMax.rounded()))°  T: \(Int(today.tempMin.rounded()))°")
+                            Text(L.f("highLow", Int(today.tempMax.rounded()), Int(today.tempMin.rounded())))
                                 .font(.caption.weight(.medium))
                                 .opacity(0.9)
                         }
@@ -264,9 +147,10 @@ struct HomeScreen: View {
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.3), radius: 4)
                 .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .frame(height: 112)
-                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+                // The whole card is the hit target, not only the glyphs.
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .listRowInsets(EdgeInsets())
@@ -274,7 +158,11 @@ struct HomeScreen: View {
                 WeatherSkyView(code: w.code, isDay: w.isDay, particles: false)
                     .overlay(LinearGradient(colors: [.clear, .black.opacity(0.18)],
                                             startPoint: .top, endPoint: .bottom))
-                    .clipShape(RoundedRectangle(cornerRadius: 10)))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .accessibilityHidden(true))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(L.f("a11y.weatherCard", Wmo.description(w.code), Int(w.temp.rounded())))
+            .accessibilityAddTraits(.isButton)
         } else if model.weatherError {
             HStack(spacing: 14) {
                 Image(systemName: "cloud.slash").foregroundStyle(.secondary)
@@ -282,19 +170,25 @@ struct HomeScreen: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button { Haptics.light(); Task { await model.loadWeather() } } label: {
-                    Image(systemName: "arrow.clockwise").font(.footnote)
-                }
+                retryButton { await model.loadWeather(mode: .refresh) }
             }
-            .frame(height: 56)
+            .frame(minHeight: 56)
         } else {
             skeletonRow
         }
     }
 
+    private func retryButton(_ action: @escaping @MainActor () async -> Void) -> some View {
+        Button { Haptics.light(); Task { await action() } } label: {
+            Image(systemName: "arrow.clockwise").font(.footnote)
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel(L.s("a11y.retry"))
+    }
+
     private var skeletonRow: some View {
         HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 12).fill(.quaternary)
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.quaternary)
                 .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Placeholder Title").font(.callout)
@@ -304,19 +198,15 @@ struct HomeScreen: View {
         }
         .redacted(reason: .placeholder)
         .padding(.vertical, 8)
+        .accessibilityLabel(L.s("loading"))
     }
 
     private func feelsLikeLine(_ w: SchoolAPI.WeatherData) -> String {
         let feels = Int(w.feelsLike.rounded())
         if let today = w.daily.first {
-            let hi = Int(today.tempMax.rounded()), lo = Int(today.tempMin.rounded())
-            return L.isGerman
-                ? "Gefühlt \(feels)°  ·  \(lo)° – \(hi)°"
-                : "Feels like \(feels)°  ·  \(lo)° – \(hi)°"
+            return L.f("feelsLike.range", feels, Int(today.tempMin.rounded()), Int(today.tempMax.rounded()))
         }
-        return L.isGerman
-            ? "Gefühlt \(feels)°  ·  \(w.humidity)% Luftfeuchte"
-            : "Feels like \(feels)°  ·  \(w.humidity)% humidity"
+        return L.f("feelsLike.humidity", feels, w.humidity)
     }
 
     // ── Substitution cards ──────────────────────────────────────────────────
@@ -328,8 +218,9 @@ struct HomeScreen: View {
         } else if model.subError {
             VStack(spacing: 12) {
                 Image(systemName: "cloud.slash")
-                    .font(.system(size: 36))
+                    .font(.largeTitle)
                     .foregroundStyle(.secondary.opacity(0.6))
+                    .accessibilityHidden(true)
                 Text(L.s("serverConnectionFailed")).font(.subheadline.weight(.semibold))
                 Text(L.s("serverConnectionHint"))
                     .font(.caption)
@@ -337,7 +228,7 @@ struct HomeScreen: View {
                     .multilineTextAlignment(.center)
                 Button(L.s("tryAgain")) {
                     Haptics.light()
-                    Task { await model.loadSubstitution() }
+                    Task { await model.loadSubstitution(mode: .refresh) }
                 }
                 .buttonStyle(.bordered)
             }
@@ -367,8 +258,11 @@ struct HomeScreen: View {
                         .foregroundStyle(.tint)
                 }
                 .padding(.vertical, 6)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(L.s("errorLoading"))
+            .accessibilityHint(L.s("a11y.retry"))
         } else {
             subCardContent(plan)
         }
@@ -378,6 +272,10 @@ struct HomeScreen: View {
         let canOpen = plan?.canDisplay ?? false
         let weekday = displayWeekday(plan?.weekday)
         let title = canOpen ? weekday : L.s("noInfoYet")
+        let subtitle: String? = {
+            guard canOpen, let plan, let date = plan.planDate else { return nil }
+            return "\(date) · " + String(localized: "substitutions.count \(plan.entries.count)")
+        }()
         Button {
             guard let plan, let file = plan.fileUrl, canOpen else { return }
             Haptics.medium()
@@ -390,8 +288,8 @@ struct HomeScreen: View {
                     Text(title)
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(canOpen ? .primary : Color.primary.opacity(0.35))
-                    if canOpen, let plan, let date = plan.planDate {
-                        Text("\(date) · \(entriesLabel(plan.entries.count))")
+                    if let subtitle {
+                        Text(subtitle)
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -404,31 +302,20 @@ struct HomeScreen: View {
             }
             .opacity(canOpen ? 1 : 0.6)
             .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!canOpen)
-    }
-
-    private func entriesLabel(_ count: Int) -> String {
-        if L.isGerman {
-            return count == 0 ? "Keine Vertretungen"
-                : count == 1 ? "1 Vertretung" : "\(count) Vertretungen"
-        }
-        return count == 0 ? "No substitutions"
-            : count == 1 ? "1 substitution" : "\(count) substitutions"
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L.f("a11y.subPlan", title, subtitle ?? ""))
+        .accessibilityAddTraits(canOpen ? .isButton : [])
     }
 
     private func displayWeekday(_ weekday: String?) -> String {
         guard let weekday, weekday != "weekend", !weekday.isEmpty else {
             return L.s("noInfoYet")
         }
-        if !L.isGerman {
-            let map = ["Montag": "Monday", "Dienstag": "Tuesday", "Mittwoch": "Wednesday",
-                       "Donnerstag": "Thursday", "Freitag": "Friday",
-                       "Samstag": "Saturday", "Sonntag": "Sunday"]
-            return map[weekday] ?? weekday
-        }
-        return weekday
+        return L.weekday(weekday)
     }
 
     // ── Schedule card ───────────────────────────────────────────────────────
@@ -440,17 +327,17 @@ struct HomeScreen: View {
             HStack(spacing: 12) {
                 Image(systemName: "clock.badge.exclamationmark")
                     .foregroundStyle(.secondary.opacity(0.5))
+                    .accessibilityHidden(true)
                 Text(L.s("serverConnectionFailed"))
                     .font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
-                Button { Haptics.light(); Task { await model.loadSchedules() } } label: {
-                    Image(systemName: "arrow.clockwise").font(.footnote)
-                }
+                retryButton { await model.loadSchedules(mode: .refresh) }
             }
             .padding(.vertical, 8)
         } else if model.schedules.isEmpty {
             HStack(spacing: 12) {
                 Image(systemName: "clock").foregroundStyle(.secondary.opacity(0.4))
+                    .accessibilityHidden(true)
                 Text(L.s("noSchedulesAvailable"))
                     .font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
@@ -469,13 +356,13 @@ struct HomeScreen: View {
             let half = preferredGroup.first?.halbjahr == "1. Halbjahr"
                 ? L.s("firstSemester") : L.s("secondSemester")
             homeCard(icon: "tablecells",
-                     title: formatClassName(cls),
+                     title: L.className(cls),
                      subtitle: half) {
                 Haptics.medium()
                 openSchedule(for: cls)
             }
             .contextMenu {
-                Button(L.s("setClassTitle")) {
+                Button(L.s("setClassTitle"), systemImage: "pencil") {
                     classInput = cls
                     showClassDialog = true
                 }
@@ -499,18 +386,15 @@ struct HomeScreen: View {
                     .foregroundStyle(.secondary.opacity(0.5))
             }
             .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityAddTraits(.isButton)
     }
 
     private var preferredGroup: [SchoolAPI.Schedule] { model.preferredGroup }
-
-    private func formatClassName(_ cls: String) -> String {
-        if cls == "j11" { return L.s("jahrgang11") }
-        if cls == "j12" { return L.s("jahrgang12") }
-        let name = cls.prefix(1).uppercased() + cls.dropFirst()
-        return L.isGerman ? "Klasse \(name)" : "Class \(name)"
-    }
 
     private func openSchedule(for cls: String) {
         let isJahrgang = cls.hasPrefix("j")
@@ -530,12 +414,12 @@ struct HomeScreen: View {
                 let page = index[cls] // display page (pageIndex + 2)
                 pdfDestination = PdfDestination(
                     fileUrl: file,
-                    title: "\(formatClassName(cls)) – \(half)",
+                    title: L.f("titleWithSemester", L.className(cls), half),
                     targetPage: page,
                     gradeLevel: target.gradeLevel)
             } catch {
                 // home_screen SnackBar parity
-                scheduleUnavailable = "\(half) \(L.s("scheduleNotAvailable"))"
+                scheduleUnavailable = L.f("scheduleNotAvailable", half)
             }
         }
     }
@@ -549,17 +433,17 @@ struct HomeScreen: View {
             HStack(spacing: 12) {
                 Image(systemName: "calendar.badge.exclamationmark")
                     .foregroundStyle(.secondary.opacity(0.5))
+                    .accessibilityHidden(true)
                 Text(L.s("serverConnectionFailed"))
                     .font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
-                Button { Haptics.light(); Task { await model.loadEvents() } } label: {
-                    Image(systemName: "arrow.clockwise").font(.footnote)
-                }
+                retryButton { await model.loadEvents(mode: .refresh) }
             }
             .padding(.vertical, 8)
         } else if model.events.isEmpty {
             HStack(spacing: 12) {
                 Image(systemName: "calendar").foregroundStyle(.secondary.opacity(0.4))
+                    .accessibilityHidden(true)
                 Text(L.s("noEventsAvailable"))
                     .font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
@@ -567,50 +451,42 @@ struct HomeScreen: View {
             .padding(.vertical, 8)
         } else {
             ForEach(model.events.prefix(4)) { event in
-                    HStack(spacing: 14) {
-                        dateTile(event.date)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(event.title)
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                            Text(eventSubtitle(event))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
+                HStack(spacing: 14) {
+                    dateTile(event.date)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.title)
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(2)
+                        Text(eventSubtitle(event))
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                    .padding(.vertical, 6)
+                    Spacer()
                 }
+                .padding(.vertical, 6)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L.f("a11y.event", eventSubtitle(event), event.title))
+            }
         }
     }
 
-    @Environment(\.appAccent) private var accent
-
     private func dateTile(_ iso: String) -> some View {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let date = df.date(from: iso)
+        let date = LocalDate.parse(iso)
         let day = date.map { Calendar.current.component(.day, from: $0) } ?? 0
-        let out = DateFormatter()
-        out.locale = Locale(identifier: L.isGerman ? "de_DE" : "en_US")
-        out.dateFormat = "MMM"
-        let month = date.map { out.string(from: $0) } ?? ""
+        let month = date?.formatted(.dateTime.month(.abbreviated)) ?? ""
         return VStack(spacing: 0) {
             Text("\(day)").font(.title3.weight(.bold)).foregroundStyle(accent)
             Text(month).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
         }
         .frame(width: 44, height: 44)
-        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityHidden(true)
     }
 
     private func eventSubtitle(_ event: SchoolAPI.Event) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        guard let date = df.date(from: event.date) else { return event.time ?? "" }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: L.isGerman ? "de_DE" : "en_US")
-        out.dateFormat = "EEE, d. MMMM"
-        let base = out.string(from: date)
-        return event.time != nil ? "\(base) · \(event.time!)" : base
+        guard let date = LocalDate.parse(event.date) else { return event.time ?? "" }
+        let base = date.formatted(.dateTime.weekday(.abbreviated).day().month(.wide))
+        if let time = event.time { return "\(base) · \(time)" }
+        return base
     }
 
     private func openKrankmeldung() {
