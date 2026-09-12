@@ -102,21 +102,11 @@ struct NewsCard: View {
                 }
                 .padding(.top, 12)
             }
-            HStack(spacing: 8) {
-                Label(md.author, systemImage: "person")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                HStack(spacing: 4) {
-                    Text(L.s("mehrErfahren"))
-                    Image(systemName: "arrow.right")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(accent)
-                .accessibilityHidden(true)
-            }
-            .padding(.top, 16)
+            Label(md.author, systemImage: "person")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .padding(.top, 16)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
