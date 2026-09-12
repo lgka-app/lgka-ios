@@ -19,7 +19,7 @@ struct HomeScreen: View {
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize = 40
 
     enum HomeRoute: Hashable {
-        case weather, news, krankmeldungInfo, krankmeldungForm, bugReport
+        case weather, news, krankmeldungInfo, bugReport
     }
 
     struct PdfDestination: Identifiable {
