@@ -232,6 +232,19 @@ struct PdfKitView: UIViewRepresentable {
 final class JumpingPDFView: PDFView {
     private var pendingIndex: Int?
 
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        // Never let a pinch leave the page smaller than the screen: the scroll view
+        // rubber-bands back to the fit scale, and a stray smaller scale snaps back.
+        // (selector observers are removed automatically on deallocation)
+        NotificationCenter.default.addObserver(self, selector: #selector(scaleChanged),
+                                               name: .PDFViewScaleChanged, object: self)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    @objc private func scaleChanged() { snapBackIfTooSmall() }
+
     func jump(toPageIndex index: Int) {
         pendingIndex = index
         applyPendingJump()
@@ -239,7 +252,25 @@ final class JumpingPDFView: PDFView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        clampZoomToFit()
         applyPendingJump()
+    }
+
+    /// Fit-to-screen is the floor; four times that is the ceiling.
+    private func clampZoomToFit() {
+        let fit = scaleFactorForSizeToFit
+        guard fit > 0, document != nil else { return }
+        minScaleFactor = fit
+        maxScaleFactor = fit * 4
+        if scaleFactor < fit { scaleFactor = fit }
+    }
+
+    private func snapBackIfTooSmall() {
+        let fit = scaleFactorForSizeToFit
+        guard fit > 0, scaleFactor < fit * 0.999 else { return }
+        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
+            self.scaleFactor = fit
+        }
     }
 
     private func applyPendingJump() {
