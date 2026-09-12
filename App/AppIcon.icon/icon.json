@@ -1,0 +1,83 @@
+{
+  "supported-platforms": {
+    "squares": "shared"
+  },
+  "fill-specializations": [
+    {
+      "value": {
+        "solid": "srgb:0.00000,0.00000,0.00000,1.00000"
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "solid": "srgb:0.00000,0.00000,0.00000,1.00000"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "Lions",
+      "specular": false,
+      "shadow": {
+        "kind": "none",
+        "opacity": 0.0
+      },
+      "blur-material": null,
+      "translucency": {
+        "enabled": false,
+        "value": 0.0
+      },
+      "lighting": "individual",
+      "layers": [
+        {
+          "image-name": "lions.png",
+          "name": "lions",
+          "glass": true
+        }
+      ]
+    },
+    {
+      "name": "Pillars",
+      "specular": false,
+      "shadow": {
+        "kind": "none",
+        "opacity": 0.0
+      },
+      "blur-material": null,
+      "translucency": {
+        "enabled": false,
+        "value": 0.0
+      },
+      "lighting": "individual",
+      "layers": [
+        {
+          "image-name": "pillars.png",
+          "name": "pillars",
+          "glass": true
+        }
+      ]
+    },
+    {
+      "name": "Arch",
+      "specular": false,
+      "shadow": {
+        "kind": "none",
+        "opacity": 0.0
+      },
+      "blur-material": null,
+      "translucency": {
+        "enabled": false,
+        "value": 0.0
+      },
+      "lighting": "individual",
+      "layers": [
+        {
+          "image-name": "arch.png",
+          "name": "arch",
+          "glass": true
+        }
+      ]
+    }
+  ]
+}

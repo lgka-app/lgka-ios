@@ -44,7 +44,7 @@ App/                     SwiftUI app (XcodeGen spec in project.yml)
   Credentials.swift      Keychain-stored school website login
   Localizable.xcstrings  String Catalog (de source, en)
   PrivacyInfo.xcprivacy  privacy manifest
-DESIGN_GUIDELINES.md     brand rules + reference copy of the Apple HIG chapters we follow
+designguidelines/        brand rules, screenshots and a cited reference of the Apple HIG chapters we follow
 ```
 
 ## Build

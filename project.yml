@@ -29,6 +29,8 @@ targets:
       - path: App
         excludes:
           - "**/.DS_Store"
+          - "AppIcon.icon/**"
+      - path: App/AppIcon.icon   # Icon Composer bundle (iOS 26 layered icon); Xcode compiles it into the asset catalog
     dependencies:
       - package: LGKACore
         product: LGKACore

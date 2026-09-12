@@ -77,6 +77,12 @@ struct LGKAApp: App {
     @State private var model = HomeModel()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        #if DEBUG
+        DebugSeed.apply(to: prefs)
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -122,3 +128,24 @@ struct RootView: View {
         }
     }
 }
+
+#if DEBUG
+/// Debug builds only: seed login and preferences from launch environment
+/// variables so simulator screenshots can skip onboarding, e.g.
+/// `SIMCTL_CHILD_LGKA_DEBUG_LOGIN=user:pass xcrun simctl launch booted com.lgka`
+/// (also LGKA_DEBUG_ACCENT=mint, LGKA_DEBUG_THEME=dark, LGKA_DEBUG_CLASS=7b).
+@MainActor
+enum DebugSeed {
+    static func apply(to prefs: Prefs) {
+        let env = ProcessInfo.processInfo.environment
+        if let pair = env["LGKA_DEBUG_LOGIN"], let sep = pair.firstIndex(of: ":") {
+            Credentials.save(.init(user: String(pair[..<sep]), password: String(pair[pair.index(after: sep)...])))
+            prefs.isAuthenticated = true
+            prefs.onboardingCompleted = true
+        }
+        if let accent = env["LGKA_DEBUG_ACCENT"] { prefs.accentColor = accent }
+        if let theme = env["LGKA_DEBUG_THEME"] { prefs.themeMode = theme }
+        if let cls = env["LGKA_DEBUG_CLASS"] { prefs.selectedScheduleClass = cls }
+    }
+}
+#endif
