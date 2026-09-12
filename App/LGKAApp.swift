@@ -134,6 +134,8 @@ struct LGKAApp: App {
                 .environment(prefs)
                 .environment(model)
                 .environment(\.appAccent, prefs.accent)
+                // every Link / inline link in the app: tap haptic, then the system handles the URL
+                .environment(\.openURL, OpenURLAction { _ in Haptics.light(); return .systemAction })
                 .tint(prefs.accent)
                 .preferredColorScheme(prefs.colorScheme)
                 .overlay(FireworksOverlay())

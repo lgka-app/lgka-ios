@@ -94,14 +94,15 @@ struct HomeScreen: View {
             .alert(scheduleUnavailable ?? "", isPresented: .init(
                 get: { scheduleUnavailable != nil },
                 set: { if !$0 { scheduleUnavailable = nil } })) {
-                Button("OK", role: .cancel) {}
+                Button("OK", role: .cancel) { Haptics.light() }
             }
             .alert(L.s("setClassTitle"), isPresented: $showClassDialog) {
                 TextField(L.s("searchHint"), text: $classInput)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                Button(L.s("cancel"), role: .cancel) {}
+                Button(L.s("cancel"), role: .cancel) { Haptics.light() }
                 Button(L.s("setClassButton")) {
+                    Haptics.medium()
                     let cls = classInput.trimmingCharacters(in: .whitespaces).lowercased()
                     if !cls.isEmpty { prefs.selectedScheduleClass = cls }
                 }
@@ -368,12 +369,12 @@ struct HomeScreen: View {
             homeCard(icon: "tablecells",
                      title: L.className(cls),
                      subtitle: half) {
-                Haptics.medium()
                 openSchedule(for: cls)
             }
             .accessibilityIdentifier("home.schedule")
             .contextMenu {
                 Button(L.s("setClassTitle"), systemImage: "pencil") {
+                    Haptics.light()
                     classInput = cls
                     showClassDialog = true
                 }
@@ -383,7 +384,7 @@ struct HomeScreen: View {
 
     private func homeCard(icon: String, title: String, subtitle: String,
                           action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button { Haptics.medium(); action() } label: {
             HStack(spacing: 14) {
                 IconSquare(systemName: icon)
                 VStack(alignment: .leading, spacing: 2) {

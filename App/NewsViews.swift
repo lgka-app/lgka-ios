@@ -17,6 +17,7 @@ struct NewsListScreen: View {
                         NavigationLink(value: md) {
                             NewsCard(md: md)
                         }
+                        .tapHaptic()
                         .accessibilityIdentifier("news.row")
                     }
                     .readableWidth()
@@ -27,7 +28,7 @@ struct NewsListScreen: View {
                 ContentUnavailableView {
                     Label(L.s("serverConnectionFailed"), systemImage: "wifi.exclamationmark")
                 } actions: {
-                    Button(L.s("tryAgain")) { Task { await model.loadNews(mode: .refresh) } }
+                    Button(L.s("tryAgain")) { Haptics.light(); Task { await model.loadNews(mode: .refresh) } }
                         .buttonStyle(.bordered)
                 }
             } else {
@@ -41,7 +42,7 @@ struct NewsListScreen: View {
             NewsDetailScreen(md: md)
         }
         .task { if model.newsList == nil { await model.loadNews() } }
-        .refreshable { await model.loadNews(mode: .refresh) }
+        .refreshable { Haptics.medium(); await model.loadNews(mode: .refresh) }
     }
 }
 
@@ -115,7 +116,7 @@ struct NewsDetailScreen: View {
                 ContentUnavailableView {
                     Label(L.s("serverConnectionFailed"), systemImage: "wifi.exclamationmark")
                 } actions: {
-                    Button(L.s("tryAgain")) { failed = false; Task { await load() } }
+                    Button(L.s("tryAgain")) { Haptics.light(); failed = false; Task { await load() } }
                         .buttonStyle(.bordered)
                 }
             } else {
@@ -235,6 +236,7 @@ struct NewsDetailScreen: View {
                                 .surfaceCard(radius: 12)
                                 .contentShape(Rectangle())
                             }
+                            .tapHaptic()
                             .buttonStyle(.plain)
                         }
                     }

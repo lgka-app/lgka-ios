@@ -27,7 +27,7 @@ struct PrimaryButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button { Haptics.medium(); action() } label: {
             Text(title)
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
@@ -105,7 +105,6 @@ struct FeaturesScreen: View {
         .navigationBarBackButtonHidden()
         .safeAreaInset(edge: .bottom) {
             PrimaryButton(title: L.s("continueLabel")) {
-                Haptics.medium()
                 onContinue()
             }
             .accessibilityIdentifier("onboarding.continue")
@@ -138,7 +137,6 @@ struct AccentColorScreen: View {
         .padding(.horizontal, 24)
         .safeAreaInset(edge: .bottom) {
             PrimaryButton(title: L.s("continueLabel")) {
-                Haptics.medium()
                 onContinue()
             }
             .accessibilityIdentifier("onboarding.continue")
@@ -205,7 +203,6 @@ struct AppearanceScreen: View {
         .padding(.horizontal, 24)
         .safeAreaInset(edge: .bottom) {
             PrimaryButton(title: L.s("letsGo")) {
-                Haptics.medium()
                 onContinue()
             }
             .accessibilityIdentifier("onboarding.continue")
@@ -339,6 +336,7 @@ struct AuthScreen: View {
     }
 
     private func validate() {
+        Haptics.medium()
         let pair = Credentials.Pair(user: username.trimmingCharacters(in: .whitespaces),
                                     password: password.trimmingCharacters(in: .whitespaces))
         focus = nil

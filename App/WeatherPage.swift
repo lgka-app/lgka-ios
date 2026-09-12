@@ -67,7 +67,7 @@ struct WeatherPageScreen: View {
                 } description: {
                     Text(L.s("checkInternetConnection"))
                 } actions: {
-                    Button(L.s("tryAgain")) { Task { await model.loadWeather(mode: .refresh) } }
+                    Button(L.s("tryAgain")) { Haptics.light(); Task { await model.loadWeather(mode: .refresh) } }
                         .buttonStyle(.bordered)
                 }
             } else {
@@ -79,13 +79,13 @@ struct WeatherPageScreen: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         #if DEBUG
         .confirmationDialog(L.s("a11y.skyPreview"), isPresented: $showPreviewMenu, titleVisibility: .visible) {
-            Button(L.s("live")) { preview = nil }
+            Button(L.s("live")) { Haptics.light(); preview = nil }
             ForEach(Self.previews, id: \.self) { option in
-                Button(option.label) { preview = option }
+                Button(option.label) { Haptics.light(); preview = option }
             }
         }
         #endif
-        .refreshable { await model.loadWeather(mode: .refresh) }
+        .refreshable { Haptics.medium(); await model.loadWeather(mode: .refresh) }
     }
 
     private func content(_ w: SchoolAPI.WeatherData) -> some View {

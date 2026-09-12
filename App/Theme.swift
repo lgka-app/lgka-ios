@@ -97,3 +97,11 @@ extension View {
         frame(maxWidth: max).frame(maxWidth: .infinity)
     }
 }
+
+extension View {
+    /// Tap haptic for controls SwiftUI drives itself (NavigationLink, ShareLink):
+    /// fires alongside the control's own tap without swallowing it.
+    func tapHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .light) -> some View {
+        simultaneousGesture(TapGesture().onEnded { UIImpactFeedbackGenerator(style: style).impactOccurred() })
+    }
+}

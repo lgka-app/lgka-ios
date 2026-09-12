@@ -67,6 +67,7 @@ struct PdfViewerScreen: View {
                     ShareLink(item: shareUrl ?? fileUrl) {
                         Label(L.s("a11y.share"), systemImage: "square.and.arrow.up")
                     }
+                    .tapHaptic()
                 }
             }
             .safeAreaInset(edge: .top) {

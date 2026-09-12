@@ -41,6 +41,7 @@ struct SettingsSheet: View {
                         }
                     }
                     Button(role: .destructive) {
+                        Haptics.light()
                         confirmLogout = true
                     } label: {
                         Label(L.s("logout"), systemImage: "rectangle.portrait.and.arrow.right")
@@ -62,7 +63,7 @@ struct SettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: {
+                    Button { Haptics.light(); dismiss() } label: {
                         Label(L.s("a11y.close"), systemImage: "xmark")
                     }
                     .accessibilityIdentifier("settings.close")
@@ -70,10 +71,11 @@ struct SettingsSheet: View {
             }
             .confirmationDialog(L.s("logoutConfirm"), isPresented: $confirmLogout, titleVisibility: .visible) {
                 Button(L.s("logout"), role: .destructive) {
+                    Haptics.medium()
                     dismiss()
                     prefs.signOut()
                 }
-                Button(L.s("cancel"), role: .cancel) {}
+                Button(L.s("cancel"), role: .cancel) { Haptics.light() }
             }
         }
     }
