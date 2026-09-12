@@ -146,10 +146,13 @@ enum SchoolAPI {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("schedule_\(Cache.key(schedule.fullUrl)).pdf")
         try data.write(to: tmp, options: .atomic)
-        if schedule.gradeLevel == "J11/J12" {
-            return (tmp, ["j11": 2, "j12": 3]) // app-constant, never parsed
-        }
-        return (tmp, try buildClassIndex(url: tmp))
+        // classes 5a…10e from the page texts, Jahrgänge from the "J11"/"J12"/… page headers
+        var index = try buildClassIndex(url: tmp)
+        index.merge(try buildJahrgangIndex(url: tmp)) { first, _ in first }
+        // a single-Jahrgang PDF whose page carries no header still maps to its first page
+        let grades = schedule.grades
+        if grades.count == 1, let g = grades.first, g >= 11, index["j\(g)"] == nil { index["j\(g)"] = 2 }
+        return (tmp, index)
     }
 
     // ── News ────────────────────────────────────────────────────────────────

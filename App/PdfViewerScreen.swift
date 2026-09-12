@@ -11,8 +11,8 @@ struct PdfViewerScreen: View {
     let fileUrl: URL
     let title: String
     let targetPage: Int? // display page (pageIndex + 2 contract)
-    /// "Klassen 5-10" / "J11/J12" for schedule PDFs, nil for substitution.
-    var gradeLevel: String? = nil
+    /// The schedule this PDF belongs to (grades discovered from its title); nil for substitution.
+    var schedule: SchoolAPI.Schedule? = nil
     /// class → display page for the schedule PDF (empty for substitution).
     var classIndex: [String: Int] = [:]
 
@@ -21,7 +21,7 @@ struct PdfViewerScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var document: PDFDocument?
     @State private var displayTitle = ""
-    @State private var currentGrade: String?
+    @State private var currentSchedule: SchoolAPI.Schedule?
     @State private var currentIndex: [String: Int] = [:]
     @State private var shareUrl: URL?
     @State private var feedback: String?
@@ -30,7 +30,7 @@ struct PdfViewerScreen: View {
     @State private var goToPage: Int?
     @FocusState private var classFocused: Bool
 
-    private var isSchedule: Bool { currentGrade != nil }
+    private var isSchedule: Bool { currentSchedule != nil }
 
     var body: some View {
         NavigationStack {
@@ -83,7 +83,7 @@ struct PdfViewerScreen: View {
             .onAppear {
                 document = PDFDocument(url: fileUrl)
                 displayTitle = title
-                currentGrade = gradeLevel
+                currentSchedule = schedule
                 currentIndex = classIndex
                 shareUrl = makeShareUrl(fileUrl, title: title)
                 if let targetPage {
@@ -129,12 +129,11 @@ struct PdfViewerScreen: View {
         let query = classInput.trimmingCharacters(in: .whitespaces).lowercased()
         guard canSubmit else { return }
         Haptics.medium()
-        guard query.wholeMatch(of: #/j1[12]|\d{1,2}[a-e]/#) != nil else {
+        guard ScheduleGrades.isClassToken(query) else {
             flash(L.f("noResults", query.uppercased()), error: true); return
         }
-        let targetGroup = query.hasPrefix("j") ? "J11/J12" : "Klassen 5-10"
-        if targetGroup != currentGrade {
-            switchPdf(to: targetGroup, className: query)
+        if let current = currentSchedule, !current.covers(query) {
+            switchPdf(className: query) // the class lives in another schedule PDF
             return
         }
         guard let page = currentIndex[query] else {
@@ -165,10 +164,10 @@ struct PdfViewerScreen: View {
         }
     }
 
-    /// Cross-PDF class switching (pdf_viewer_screen _navigateCrossPdf parity).
-    private func switchPdf(to group: String, className: String) {
-        guard let schedule = model.preferredGroup
-            .first(where: { $0.gradeLevel == group }) else {
+    /// Cross-PDF class switching (pdf_viewer_screen _navigateCrossPdf parity):
+    /// the PDF whose discovered grades contain the class, whatever it is called.
+    private func switchPdf(className: String) {
+        guard let schedule = model.preferredGroup.first(where: { $0.covers(className) }) else {
             flash(L.f("noResults", className.uppercased()), error: true)
             return
         }
@@ -179,7 +178,7 @@ struct PdfViewerScreen: View {
                     flash(L.f("noResults", className.uppercased()), error: true); return
                 }
                 document = PDFDocument(url: file)
-                currentGrade = group
+                currentSchedule = schedule
                 currentIndex = index
                 applyClass(className, page: page)
             } catch {
@@ -190,7 +189,7 @@ struct PdfViewerScreen: View {
 
     /// Friendly share filename (pdf_share_service parity).
     private func makeShareUrl(_ source: URL, title: String) -> URL {
-        let prefix = currentGrade != nil || gradeLevel != nil
+        let prefix = currentSchedule != nil || schedule != nil
             ? "LGKA_Stundenplan_" : "LGKA_Vertretungsplan_"
         let safe = title.components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }.joined(separator: "_")

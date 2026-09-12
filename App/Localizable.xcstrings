@@ -969,36 +969,18 @@
         }
       }
     },
-    "jahrgang11": {
-      "extractionState": "manual",
+    "jahrgang.named": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jahrgang 11"
+            "value": "Jahrgang %lld"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Year 11"
-          }
-        }
-      }
-    },
-    "jahrgang12": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jahrgang 12"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Year 12"
+            "value": "Year %lld"
           }
         }
       }

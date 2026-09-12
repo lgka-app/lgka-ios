@@ -26,6 +26,23 @@ public func buildClassIndex(url: URL) throws -> [String: Int] {
     return index
 }
 
+/// Jahrgang-to-page index: every page whose text carries a "J11"/"J12"/"J13"… header
+/// (Untis prints the Jahrgang where class pages print "5b"). Same page contract as
+/// `buildClassIndex`; the first page wins. Discovered, never hardcoded, so a split
+/// "J11" upload or a future J13 needs no app update.
+public func buildJahrgangIndex(url: URL) throws -> [String: Int] {
+    guard let doc = PDFDocument(url: url) else { throw LGKAError.pdfUnreadable }
+    var index: [String: Int] = [:]
+    for pageIndex in 0..<doc.pageCount {
+        guard let text = doc.page(at: pageIndex)?.string?.lowercased() else { continue }
+        for m in text.matches(of: #/\bj(1\d)\b/#) {
+            let key = "j\(m.1)"
+            if index[key] == nil { index[key] = pageIndex + 2 }
+        }
+    }
+    return index
+}
+
 /// Lowercased text of every page — used by the PDF viewer's search.
 public func pageTexts(url: URL) throws -> [String] {
     guard let doc = PDFDocument(url: url) else { throw LGKAError.pdfUnreadable }

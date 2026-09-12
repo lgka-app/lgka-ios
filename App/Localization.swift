@@ -1,4 +1,5 @@
 import Foundation
+import LGKACore
 
 /// Thin wrapper over the String Catalog (App/Localizable.xcstrings).
 /// German is the source language; English is the second localization.
@@ -17,8 +18,9 @@ enum L {
 
     /// "Klasse 7b" / "Jahrgang 11".
     static func className(_ cls: String) -> String {
-        if cls == "j11" { return s("jahrgang11") }
-        if cls == "j12" { return s("jahrgang12") }
+        if let grade = ScheduleGrades.gradeOf(cls), cls.lowercased().hasPrefix("j") {
+            return f("jahrgang.named", grade)
+        }
         let name = cls.prefix(1).uppercased() + cls.dropFirst()
         return f("class.named", name)
     }

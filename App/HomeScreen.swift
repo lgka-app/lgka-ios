@@ -26,7 +26,7 @@ struct HomeScreen: View {
         let fileUrl: URL
         let title: String
         let targetPage: Int?
-        var gradeLevel: String? = nil
+        var schedule: SchoolAPI.Schedule? = nil
         var classIndex: [String: Int] = [:]
     }
 
@@ -87,7 +87,7 @@ struct HomeScreen: View {
             .fullScreenCover(item: $pdfDestination) { dest in
                 PdfViewerScreen(fileUrl: dest.fileUrl, title: dest.title,
                                 targetPage: dest.targetPage,
-                                gradeLevel: dest.gradeLevel,
+                                schedule: dest.schedule,
                                 classIndex: dest.classIndex)
             }
             .alert(scheduleUnavailable ?? "", isPresented: .init(
@@ -407,12 +407,8 @@ struct HomeScreen: View {
     private var preferredGroup: [SchoolAPI.Schedule] { model.preferredGroup }
 
     private func openSchedule(for cls: String) {
-        let isJahrgang = cls.hasPrefix("j")
-        let group = preferredGroup
-        let target = isJahrgang
-            ? group.first(where: { $0.gradeLevel == "J11/J12" }) ?? group.first
-            : group.first(where: { $0.gradeLevel == "Klassen 5-10" }) ?? group.first
-        guard let target else { return }
+        // the PDF whose discovered grades contain the class (5-10, J11, J12, a future J13, …)
+        guard let target = HomeScreen.schedule(for: cls, in: preferredGroup) else { return }
         let half = target.halbjahr == "1. Halbjahr"
             ? L.s("firstSemester") : L.s("secondSemester")
 
@@ -426,13 +422,23 @@ struct HomeScreen: View {
                     fileUrl: file,
                     title: L.className(cls), // pdf_viewer header: class only
                     targetPage: page,
-                    gradeLevel: target.gradeLevel,
+                    schedule: target,
                     classIndex: index)
             } catch {
                 // home_screen SnackBar parity
                 scheduleUnavailable = L.f("scheduleNotAvailable", half)
             }
         }
+    }
+
+    /// The schedule PDF for a class: by discovered grades first, then by the legacy
+    /// gradeLevel label, then the first available PDF.
+    static func schedule(for cls: String, in group: [SchoolAPI.Schedule]) -> SchoolAPI.Schedule? {
+        if let exact = group.first(where: { $0.covers(cls) }) { return exact }
+        let jahrgang = (ScheduleGrades.gradeOf(cls) ?? 0) >= 11
+        return group.first(where: { jahrgang ? $0.grades.contains(where: { $0 >= 11 }) : $0.grades.contains(where: { $0 <= 10 }) })
+            ?? group.first(where: { jahrgang ? $0.gradeLevel == "J11/J12" : $0.gradeLevel == "Klassen 5-10" })
+            ?? group.first
     }
 
     // ── Events ──────────────────────────────────────────────────────────────
