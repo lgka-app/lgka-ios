@@ -2,147 +2,137 @@ import Foundation
 import os
 import LGKACore
 
-/// Home hub state — mirrors home_screen.dart: weather, substitution plans,
-/// schedules, upcoming events, news list. Observable and main-actor
-/// isolated; injected through the environment (no singleton).
+/// Home hub state. Everything the screens show comes from one `SyncState`:
+/// loaded from disk first (instant, offline), then reconciled with a single
+/// `/v1/sync` call carrying the hashes we hold. Observable, main-actor.
 @Observable
 @MainActor
 final class HomeModel {
     private static let log = Logger(subsystem: "com.lgka", category: "home")
+    private let client: APIClient
+    private let store: SyncStore
 
-    var newsList: [NewsParser.Metadata]?
-    var newsFailed = false
-    var today: SchoolAPI.SubPlan?
-    var tomorrow: SchoolAPI.SubPlan?
-    var subError = false
-    var subLoading = true
-
-    var weather: SchoolAPI.WeatherData?
-    var weatherError = false
-
-    var schedules: [SchoolAPI.Schedule] = []
-    var scheduleError = false
-    var scheduleLoading = true
-
-    var events: [SchoolAPI.Event] = []
-    var eventsError = false
-    var eventsLoading = true
+    private(set) var state = SyncState()
+    private(set) var isSyncing = false
+    /// The last sync could not reach the API (offline, 5xx, decoding).
+    private(set) var syncFailed = false
+    /// Resources the API reported as never fetched.
+    private(set) var unavailable: Set<Resource> = []
+    /// Set when the API rejected the stored credentials (school rotated the password).
+    var unauthorized = false
 
     private var bootstrapped = false
     private var bootstrapFinished = false
     private var lastForegroundRefresh = Date.distantPast
 
-    /// Startup preload, mirroring main.dart's _preloadData:
-    /// phase 1 shows any cached data instantly, phase 2 refreshes per TTL,
-    /// then news article contents are prefetched into the cache.
+    init(client: APIClient = SchoolAPI.client, store: SyncStore = SchoolAPI.store) {
+        self.client = client
+        self.store = store
+    }
+
+    // ── Derived views of the state ──────────────────────────────────────────
+
+    var today: DayPlan? { state.substitutions?.data.today }
+    var tomorrow: DayPlan? { state.substitutions?.data.tomorrow }
+    var subLoading: Bool { loading(.substitutions) }
+    var subError: Bool { failed(.substitutions) }
+
+    var weather: WeatherData? { state.weather?.data }
+    var weatherError: Bool { failed(.weather) }
+    /// The next 24 hours from the current Berlin hour (the API ships 72).
+    var hourly: [HourlyForecast] { weather?.hourly(from: WeatherWindow.localNow()) ?? [] }
+
+    var schedules: [ScheduleItem] { state.schedules?.data.items ?? [] }
+    var scheduleLoading: Bool { loading(.schedules) }
+    var scheduleError: Bool { failed(.schedules) }
+
+    var events: [SchoolEvent] { state.events?.data.events ?? [] }
+    var eventsLoading: Bool { loading(.events) }
+    var eventsError: Bool { failed(.events) }
+
+    var newsList: [NewsArticle]? { state.news?.data.articles }
+    var newsFailed: Bool { failed(.news) }
+
+    /// Published timetables of the newest semester (2. Halbjahr over 1. Halbjahr).
+    var preferredGroup: [ScheduleItem] { ScheduleItem.preferredGroup(schedules) }
+
+    private func has(_ r: Resource) -> Bool { state.hashes[r] != nil }
+    /// Nothing on disk yet and no verdict from the API yet → skeleton.
+    private func loading(_ r: Resource) -> Bool { !has(r) && !syncFailed && !unavailable.contains(r) }
+    /// Nothing on disk and the API could not help → error state with retry.
+    private func failed(_ r: Resource) -> Bool { !has(r) && (syncFailed || unavailable.contains(r)) }
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
+
+    /// Startup: render the last known state immediately, then one sync.
     func bootstrap() async {
         guard !bootstrapped else { return }
         bootstrapped = true
-        Cache.evictStale()
-        await loadAll(mode: .cacheAny)
-        await loadAll(mode: .cacheFirst)
+        state = store.loadState()
+        await sync()
         bootstrapFinished = true
         lastForegroundRefresh = Date()
-        await prefetchArticles()
     }
 
-    /// Scene became active: refresh substitution + weather unless bootstrap
-    /// is still running or we refreshed seconds ago (launch fires both).
+    /// Scene became active: one sync unless bootstrap is still running or we
+    /// synced seconds ago (launch fires both).
     func refreshOnForeground() async {
-        guard bootstrapFinished,
-              Date().timeIntervalSince(lastForegroundRefresh) > 10 else { return }
+        guard bootstrapFinished, Date().timeIntervalSince(lastForegroundRefresh) > 10 else { return }
         lastForegroundRefresh = Date()
-        async let a: () = loadSubstitution(mode: .refresh)
-        async let b: () = loadWeather(mode: .refresh)
-        _ = await (a, b)
+        await sync()
     }
 
-    func loadAll(mode: FetchMode = .cacheFirst) async {
-        async let a: () = loadSubstitution(mode: mode)
-        async let b: () = loadWeather(mode: mode)
-        async let c: () = loadSchedules(mode: mode)
-        async let d: () = loadEvents(mode: mode)
-        async let e: () = loadNews(mode: mode)
-        _ = await (a, b, c, d, e)
-    }
-
-    func loadNews(mode: FetchMode = .cacheFirst) async {
+    /// The one network call. `only` narrows it to a retry of specific resources.
+    func sync(only: [Resource]? = nil) async {
+        if isSyncing { return }
+        isSyncing = true
+        defer { isSyncing = false }
         do {
-            newsList = try await SchoolAPI.newsList(mode: mode)
-            newsFailed = false
-        } catch {
-            Self.log.error("news: \(error)")
-            if newsList == nil { newsFailed = true }
-        }
-    }
-
-    /// Prefer 2. Halbjahr — mirrors the provider's active-group logic.
-    var preferredGroup: [SchoolAPI.Schedule] {
-        let second = schedules.filter { $0.halbjahr == "2. Halbjahr" }
-        return second.isEmpty
-            ? schedules.filter { $0.halbjahr == "1. Halbjahr" }
-            : second
-    }
-
-    /// Fetch all article pages into the disk cache so detail opens instantly
-    /// (the Flutter app fetches full contents up front too).
-    func prefetchArticles() async {
-        guard let list = newsList else { return }
-        await withTaskGroup(of: Void.self) { group in
-            for md in list.prefix(20) {
-                group.addTask {
-                    _ = try? await SchoolAPI.article(url: md.url, mode: .cacheFirst)
-                }
+            let response = try await client.sync(hashes: state.hashes, only: only, embedPdf: true)
+            var next = state
+            let outcome = store.apply(response, to: &next)
+            state = next
+            syncFailed = false
+            unavailable.subtract(only ?? Resource.allCases)
+            unavailable.formUnion(outcome.unavailable)
+            if !outcome.updated.isEmpty {
+                Self.log.info("sync: updated \(outcome.updated.map(\.rawValue).sorted().joined(separator: ","), privacy: .public)")
             }
+        } catch APIError.unauthorized {
+            // A 401 on a data route is confirmed with one /v1/auth/check before
+            // anyone is signed out; the on-disk snapshot is kept either way.
+            switch await client.verifyStoredCredentials() {
+            case .rotated:
+                Self.log.error("sync: credentials rejected, confirmed by /v1/auth/check")
+                unauthorized = true
+            case .valid, .undetermined:
+                Self.log.error("sync: 401 not confirmed by /v1/auth/check, treating as transient")
+                syncFailed = true
+            }
+        } catch {
+            Self.log.error("sync: \(error)")
+            syncFailed = true
         }
     }
 
-    func loadSubstitution(mode: FetchMode = .cacheFirst) async {
-        subLoading = today == nil && tomorrow == nil
-        do {
-            async let t = SchoolAPI.substitutionPlan(today: true, mode: mode)
-            async let m = SchoolAPI.substitutionPlan(today: false, mode: mode)
-            today = try await t
-            tomorrow = try await m
-            subError = false
-        } catch {
-            Self.log.error("substitution: \(error)")
-            if today == nil { subError = true }
-        }
-        subLoading = false
+    /// Wipes the local snapshot. Only for an explicit sign-out in Settings; a
+    /// rotated school password keeps the data (public school content — the
+    /// user gets it back right after re-login).
+    func clear() {
+        store.removeAll()
+        state = SyncState()
+        unavailable = []
+        syncFailed = false
     }
 
-    func loadWeather(mode: FetchMode = .cacheFirst) async {
-        do {
-            weather = try await SchoolAPI.weather(mode: mode)
-            weatherError = false
-        } catch {
-            Self.log.error("weather: \(error)")
-            if weather == nil { weatherError = true }
-        }
-    }
+    // ── Files ───────────────────────────────────────────────────────────────
 
-    func loadSchedules(mode: FetchMode = .cacheFirst) async {
-        scheduleLoading = schedules.isEmpty
-        do {
-            schedules = try await SchoolAPI.schedules(mode: mode)
-            scheduleError = false
-        } catch {
-            Self.log.error("schedules: \(error)")
-            if schedules.isEmpty { scheduleError = true }
-        }
-        scheduleLoading = false
-    }
-
-    func loadEvents(mode: FetchMode = .cacheFirst) async {
-        eventsLoading = events.isEmpty
-        do {
-            events = try await SchoolAPI.events(mode: mode)
-            eventsError = false
-        } catch {
-            Self.log.error("events: \(error)")
-            if events.isEmpty { eventsError = true }
-        }
-        eventsLoading = false
+    /// Local file for a mirrored PDF: written by the sync (embedded), or fetched
+    /// once from the API when an older snapshot lacks the file.
+    func pdfURL(for ref: PdfRef) async throws -> URL {
+        if store.hasPdf(sha256: ref.sha256) { return store.pdfURL(sha256: ref.sha256) }
+        let bytes = try await client.pdf(sha256: ref.sha256)
+        try store.storePdf(sha256: ref.sha256, bytes: bytes)
+        return store.pdfURL(sha256: ref.sha256)
     }
 }

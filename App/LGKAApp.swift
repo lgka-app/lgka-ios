@@ -40,6 +40,8 @@ final class Prefs {
     var selectedScheduleClass: String { didSet { defaults.set(selectedScheduleClass, forKey: "selectedScheduleClass") } }
     /// Observable mirror of "a credential pair exists in the Keychain".
     private(set) var hasCredentials: Bool
+    /// Transient: the API rejected the stored login, so the login screen explains why.
+    var passwordRotated = false
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -80,6 +82,7 @@ final class Prefs {
         hasCredentials = true
         isAuthenticated = true
         onboardingCompleted = true
+        passwordRotated = false
         return true
     }
 
@@ -115,22 +118,28 @@ struct LGKAApp: App {
         WindowGroup {
             RootView()
                 .onChange(of: scenePhase) { _, phase in
-                    // main.dart parity: substitution + weather are
-                    // invalidated on background; resume force-refreshes them.
+                    // resume: one hash sync (fresh answers cost ~0.5 KB)
                     if phase == .active && prefs.isSignedIn {
                         Task { await model.refreshOnForeground() }
                     }
                 }
                 .task(id: scenePhase) {
-                    // main.dart parity: 1-minute expired-cache refresh timer,
-                    // only while the scene is active.
+                    // while active: re-sync every minute (substitution plans change during the day)
                     guard scenePhase == .active else { return }
                     while !Task.isCancelled {
                         try? await Task.sleep(for: .seconds(60))
                         if !Task.isCancelled && prefs.isSignedIn {
-                            await model.loadAll()
+                            await model.sync()
                         }
                     }
+                }
+                .onChange(of: model.unauthorized) { _, rejected in
+                    // the school rotated the password (confirmed by /v1/auth/check):
+                    // back to the login gate; the snapshot stays on disk
+                    guard rejected else { return }
+                    model.unauthorized = false
+                    prefs.passwordRotated = true
+                    prefs.signOut()
                 }
                 .environment(prefs)
                 .environment(model)

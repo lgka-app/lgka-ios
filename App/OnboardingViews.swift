@@ -1,4 +1,5 @@
 import SwiftUI
+import LGKACore
 
 /// welcome -> what-you-can-do -> accent-color -> appearance -> auth
 struct OnboardingFlow: View {
@@ -230,8 +231,9 @@ struct ThemeModePicker: View {
     }
 }
 
-/// Login gate — the school website's credentials are verified against the
-/// server and stored in the Keychain; the app never compares them locally.
+/// Login gate — the school's credentials are verified by the API
+/// (`/v1/auth/check`) and stored in the Keychain; the app never compares them
+/// locally and never sends them anywhere but api.lgka.app.
 struct AuthScreen: View {
     @Environment(Prefs.self) private var prefs
     @State private var username = ""
@@ -333,6 +335,10 @@ struct AuthScreen: View {
         }
         .readableWidth()
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear {
+            // the API rejected the stored login: the school rotated the password
+            if prefs.passwordRotated { message = L.s("login.passwordChanged") }
+        }
     }
 
     private func validate() {
@@ -353,6 +359,9 @@ struct AuthScreen: View {
                 } else {
                     fail(L.s("login.failed"))
                 }
+            } catch let error as APIError where error.isTransient {
+                // 403 from the edge, 429, 5xx: the service, not the password
+                fail(L.s("login.unavailable"))
             } catch {
                 fail(L.s("login.offline"))
             }

@@ -821,13 +821,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aktuelle Wetterdaten via Open-Meteo"
+            "value": "Aktuelles Wetter von der Wetterstation der Schule, Vorhersage via Open-Meteo"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Current weather data via Open-Meteo"
+            "value": "Current weather from the school's station, forecast via Open-Meteo"
           }
         }
       }
@@ -1205,6 +1205,23 @@
         }
       }
     },
+    "login.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Dienst ist gerade nicht erreichbar – bitte später erneut versuchen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service is temporarily unavailable – please try again later."
+          }
+        }
+      }
+    },
     "login.offline": {
       "extractionState": "manual",
       "localizations": {
@@ -1218,6 +1235,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Login not possible – please check your connection."
+          }
+        }
+      }
+    },
+    "login.passwordChanged": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Passwort der Schule wurde geändert – bitte neu anmelden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The school's password has changed – please log in again."
           }
         }
       }
@@ -2091,19 +2125,19 @@
         }
       }
     },
-    "weatherAttribution": {
+    "weather.sourceSchool": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wetterdaten von Open-Meteo.com"
+            "value": "Live von der Wetterstation auf dem Schuldach"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Weather data by Open-Meteo.com"
+            "value": "Live from the school's rooftop weather station"
           }
         }
       }

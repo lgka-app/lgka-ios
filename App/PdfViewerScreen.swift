@@ -10,10 +10,11 @@ import LGKACore
 struct PdfViewerScreen: View {
     let fileUrl: URL
     let title: String
-    let targetPage: Int? // display page (pageIndex + 2 contract)
+    /// 0-based page index to open on.
+    let targetPage: Int?
     /// The schedule this PDF belongs to (grades discovered from its title); nil for substitution.
-    var schedule: SchoolAPI.Schedule? = nil
-    /// class → display page for the schedule PDF (empty for substitution).
+    var schedule: ScheduleItem? = nil
+    /// class → real 1-based page for the schedule PDF (empty for substitution).
     var classIndex: [String: Int] = [:]
 
     @Environment(Prefs.self) private var prefs
@@ -21,7 +22,7 @@ struct PdfViewerScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var document: PDFDocument?
     @State private var displayTitle = ""
-    @State private var currentSchedule: SchoolAPI.Schedule?
+    @State private var currentSchedule: ScheduleItem?
     @State private var currentIndex: [String: Int] = [:]
     @State private var shareUrl: URL?
     @State private var feedback: String?
@@ -96,10 +97,7 @@ struct PdfViewerScreen: View {
                 currentSchedule = schedule
                 currentIndex = classIndex
                 shareUrl = makeShareUrl(fileUrl, title: title)
-                if let targetPage {
-                    // stored contract: display page = zero-based index + 2
-                    goToPage = max(0, targetPage - 2)
-                }
+                if let targetPage { goToPage = max(0, targetPage) }
                 // pdf_viewer parity: PDFs may rotate; app stays portrait
                 OrientationLock.shared.allowAll()
             }
@@ -157,7 +155,7 @@ struct PdfViewerScreen: View {
         let name = L.className(cls)
         displayTitle = name
         shareUrl = makeShareUrl(fileUrl, title: name)
-        goToPage = max(0, page - 2)
+        goToPage = max(0, page - 1) // API pages are 1-based
         classInput = ""
         classFocused = false
         withAnimation(.snappy) { showClassBar = false }
@@ -177,19 +175,18 @@ struct PdfViewerScreen: View {
     /// Cross-PDF class switching (pdf_viewer_screen _navigateCrossPdf parity):
     /// the PDF whose discovered grades contain the class, whatever it is called.
     private func switchPdf(className: String) {
-        guard let schedule = model.preferredGroup.first(where: { $0.covers(className) }) else {
+        guard let schedule = model.preferredGroup.first(where: { $0.covers(className) }),
+              schedule.available, let pdf = schedule.pdf,
+              let page = schedule.classIndex[className] else {
             flash(L.f("noResults", className.uppercased()), error: true)
             return
         }
         Task {
             do {
-                let (file, index) = try await SchoolAPI.schedulePdf(schedule)
-                guard let page = index[className] else {
-                    flash(L.f("noResults", className.uppercased()), error: true); return
-                }
+                let file = try await model.pdfURL(for: pdf)
                 document = PDFDocument(url: file)
                 currentSchedule = schedule
-                currentIndex = index
+                currentIndex = schedule.classIndex
                 applyClass(className, page: page)
             } catch {
                 flash(L.s("serverConnectionFailed"), error: true)
