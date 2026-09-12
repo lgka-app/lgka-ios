@@ -162,6 +162,17 @@ final class ScreenshotTests: XCTestCase {
         try save("06_plan", in: app)
     }
 
+    /// The timetable must open on the selected class's page (class index), not on page 1.
+    func test09Schedule() throws {
+        let app = launch(seeded: true)
+        waitForHome(app)
+        tap(app, "home.schedule")
+        XCTAssertTrue(app.descendants(matching: .any)["a11y.close"].firstMatch.waitForExistence(timeout: 40)
+                      || app.navigationBars.firstMatch.waitForExistence(timeout: 5), "PDF viewer did not open")
+        sleep(4) // PDFKit layout + class-page jump
+        try save("09_schedule", in: app)
+    }
+
     func test07Settings() throws {
         let app = launch(seeded: true)
         waitForHome(app)

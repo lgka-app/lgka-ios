@@ -205,20 +205,48 @@ struct PdfKitView: UIViewRepresentable {
     let highlight: PDFSelection?
     @Binding var goToPageIndex: Int?
 
-    func makeUIView(context: Context) -> PDFView {
-        let view = PDFView()
+    func makeUIView(context: Context) -> JumpingPDFView {
+        let view = JumpingPDFView()
         view.autoScales = true
         view.document = document
         return view
     }
 
-    func updateUIView(_ view: PDFView, context: Context) {
+    func updateUIView(_ view: JumpingPDFView, context: Context) {
         if view.document !== document { view.document = document }
         view.highlightedSelections = highlight.map { [$0] }
-        if let index = goToPageIndex, document.pageCount > 0,
-           let page = document.page(at: min(max(0, index), document.pageCount - 1)) {
-            view.go(to: page)
+        if let index = goToPageIndex, document.pageCount > 0 {
+            view.jump(toPageIndex: min(max(0, index), document.pageCount - 1))
             Task { @MainActor in goToPageIndex = nil }
+        }
+    }
+}
+
+/// PDFKit drops `go(to:)` while the view has no layout yet (the class-page jump
+/// arrived before the first `layoutSubviews`, so the schedule opened on page 1).
+/// The request is kept until the view has bounds, then applied once — the
+/// pdf_viewer_screen.dart `_tryJumpToPage` retry, without the polling.
+final class JumpingPDFView: PDFView {
+    private var pendingIndex: Int?
+
+    func jump(toPageIndex index: Int) {
+        pendingIndex = index
+        applyPendingJump()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        applyPendingJump()
+    }
+
+    private func applyPendingJump() {
+        guard let index = pendingIndex, bounds.width > 0, bounds.height > 0,
+              let page = document?.page(at: index) else { return }
+        pendingIndex = nil
+        // one more turn of the run loop: autoScales settles its scale factor in this layout pass
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.document?.page(at: index) === page else { return }
+            self.go(to: page)
         }
     }
 }

@@ -368,6 +368,7 @@ struct HomeScreen: View {
                 Haptics.medium()
                 openSchedule(for: cls)
             }
+            .accessibilityIdentifier("home.schedule")
             .contextMenu {
                 Button(L.s("setClassTitle"), systemImage: "pencil") {
                     classInput = cls
