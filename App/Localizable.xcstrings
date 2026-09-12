@@ -1188,57 +1188,6 @@
         }
       }
     },
-    "login.failed": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zugangsdaten sind falsch."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The credentials are incorrect."
-          }
-        }
-      }
-    },
-    "login.unavailable": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Der Dienst ist gerade nicht erreichbar – bitte später erneut versuchen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The service is temporarily unavailable – please try again later."
-          }
-        }
-      }
-    },
-    "login.offline": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anmeldung nicht möglich – bitte Internetverbindung prüfen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Login not possible – please check your connection."
-          }
-        }
-      }
-    },
     "login.passwordChanged": {
       "extractionState": "manual",
       "localizations": {

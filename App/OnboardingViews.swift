@@ -236,11 +236,12 @@ struct ThemeModePicker: View {
 /// locally and never sends them anywhere but api.lgka.app.
 struct AuthScreen: View {
     @Environment(Prefs.self) private var prefs
+    @Environment(\.appAccent) private var accent
     @State private var username = ""
     @State private var password = ""
     @State private var flash: Flash = .none
     @State private var isLoading = false
-    @State private var message: String?
+    @State private var hint: String?
     @FocusState private var focus: Field?
     enum Flash { case none, error, success }
     enum Field { case username, password }
@@ -250,11 +251,12 @@ struct AuthScreen: View {
             !password.trimmingCharacters(in: .whitespaces).isEmpty && !isLoading
     }
 
-    private var buttonTint: Color? {
+    /// auth_screen.dart: red / green flashes, half-opacity accent while a field is empty.
+    private var buttonTint: Color {
         switch flash {
-        case .success: return .green
-        case .error: return .red
-        case .none: return nil
+        case .success: return Color(red: 0.30, green: 0.69, blue: 0.31)
+        case .error: return Color(red: 0.96, green: 0.26, blue: 0.21)
+        case .none: return canLogin || isLoading ? accent : accent.opacity(0.5)
         }
     }
 
@@ -270,111 +272,139 @@ struct AuthScreen: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                TextField(L.s("username"), text: $username)
-                    .accessibilityIdentifier("auth.username")
-                    .textContentType(autoFillEnabled ? .username : nil)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused($focus, equals: .username)
-                    .submitLabel(.next)
-                    .onSubmit { focus = .password }
-                SecureField(L.s("password"), text: $password)
-                    .accessibilityIdentifier("auth.password")
-                    .textContentType(autoFillEnabled ? .password : nil)
-                    .focused($focus, equals: .password)
-                    .submitLabel(.go)
-                    .onSubmit { if canLogin { validate() } }
-            } header: {
-                VStack(spacing: 8) {
-                    Text(L.s("authTitle"))
-                        .font(.title2.bold())
-                        .frame(maxWidth: .infinity)
-                        .accessibilityAddTraits(.isHeader)
-                    Text(L.s("authSubtitle"))
-                        .font(.subheadline)
-                        .multilineTextAlignment(.center)
-                }
-                .textCase(nil)
-                .foregroundStyle(.primary)
-                .padding(.bottom, 24)
-                .padding(.top, 40)
-            } footer: {
-                if let message {
-                    Text(message)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity)
-                        .accessibilityAddTraits(.updatesFrequently)
-                }
-            }
+        // Centred in whatever height the keyboard leaves: the safe area shrinks when the
+        // keyboard shows, the geometry follows, and the form glides up (native avoidance).
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    VStack(spacing: 12) {
+                        Text(L.s("authTitle"))
+                            .font(.title2.bold())
+                            .multilineTextAlignment(.center)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(L.s("authSubtitle"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.bottom, 32)
 
-            Section {
-                Button(action: validate) {
-                    Group {
-                        if isLoading {
-                            ProgressView().tint(.white)
-                        } else if flash == .success {
-                            Image(systemName: "checkmark")
-                        } else {
-                            Text(L.s("login")).fontWeight(.semibold)
+                    VStack(spacing: 0) {
+                        field(L.s("username"), systemImage: "person") {
+                            TextField(L.s("username"), text: $username)
+                                .textContentType(autoFillEnabled ? .username : nil)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .focused($focus, equals: .username)
+                                .submitLabel(.next)
+                                .onSubmit { focus = .password }
+                                .accessibilityIdentifier("auth.username")
+                        }
+                        Divider().padding(.leading, 52)
+                        field(L.s("password"), systemImage: "lock") {
+                            SecureField(L.s("password"), text: $password)
+                                .textContentType(autoFillEnabled ? .password : nil)
+                                .focused($focus, equals: .password)
+                                .submitLabel(.go)
+                                .onSubmit { if canLogin { validate() } }
+                                .accessibilityIdentifier("auth.password")
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .background(Color.appSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    if let hint {
+                        Text(hint)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 12)
+                    }
+
+                    Button(action: validate) {
+                        Group {
+                            if isLoading {
+                                ProgressView().tint(.white)
+                            } else if flash == .success {
+                                Image(systemName: "checkmark")
+                            } else {
+                                Text(L.s("login")).fontWeight(.semibold)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.large)
+                    .tint(buttonTint)
+                    .disabled(!canLogin && flash == .none)
+                    .animation(.easeInOut(duration: 0.3), value: flash)
+                    .animation(.easeInOut(duration: 0.3), value: canLogin)
+                    .accessibilityIdentifier("auth.login")
+                    .padding(.top, 24)
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .tint(buttonTint)
-                .disabled(!canLogin && flash == .none)
-                .animation(.easeInOut(duration: 0.3), value: flash)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-                .accessibilityLabel(L.s("login"))
-                .accessibilityIdentifier("auth.login")
+                .padding(.horizontal, 24)
+                .frame(minHeight: geometry.size.height)
+                .readableWidth(560)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
         }
-        .readableWidth()
+        .themeBg()
+        .animation(.easeOut(duration: 0.25), value: focus)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             // the API rejected the stored login: the school rotated the password
-            if prefs.passwordRotated { message = L.s("login.passwordChanged") }
+            if prefs.passwordRotated { hint = L.s("login.passwordChanged") }
         }
     }
 
+    private func field<Content: View>(_ label: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            content()
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 52)
+    }
+
+    /// auth_screen.dart timing: 300 ms into the colour, 600 ms hold, 300 ms back. No error text.
     private func validate() {
+        guard canLogin, flash == .none else { return }
         Haptics.medium()
         let pair = Credentials.Pair(user: username.trimmingCharacters(in: .whitespaces),
                                     password: password.trimmingCharacters(in: .whitespaces))
         focus = nil
         isLoading = true
-        message = nil
         Task {
-            defer { isLoading = false }
             do {
-                if try await SchoolAPI.verify(pair) {
+                let ok = try await SchoolAPI.verify(pair)
+                isLoading = false
+                if ok {
                     flash = .success
                     Haptics.success()
-                    try? await Task.sleep(for: .milliseconds(400))
-                    if !prefs.signIn(pair) { fail(L.s("login.storeFailed")) }
+                    try? await Task.sleep(for: .milliseconds(900))
+                    if !prefs.signIn(pair) { fail() }
                 } else {
-                    fail(L.s("login.failed"))
+                    fail()
                 }
-            } catch let error as APIError where error.isTransient {
-                // 403 from the edge, 429, 5xx: the service, not the password
-                fail(L.s("login.unavailable"))
             } catch {
-                fail(L.s("login.offline"))
+                // offline, 403 from the edge, 429, 5xx: the same calm red, no text
+                isLoading = false
+                fail()
             }
         }
     }
 
-    private func fail(_ text: String) {
+    private func fail() {
         flash = .error
-        message = text
         Haptics.error()
         Task {
-            try? await Task.sleep(for: .milliseconds(700))
-            withAnimation { flash = .none }
+            try? await Task.sleep(for: .milliseconds(900))
+            flash = .none
         }
     }
 }

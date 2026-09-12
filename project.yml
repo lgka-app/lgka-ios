@@ -74,7 +74,7 @@ targets:
         DEVELOPMENT_TEAM: M8M22924DJ
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: 3.0.0
-        CURRENT_PROJECT_VERSION: 2
+        CURRENT_PROJECT_VERSION: 10
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: LGKA+
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
