@@ -13,16 +13,23 @@ struct NewsListScreen: View {
                 if articles.isEmpty {
                     ContentUnavailableView(L.s("noNewsAvailable"), systemImage: "newspaper")
                 } else {
-                    List(articles) { md in
-                        NavigationLink(value: md) {
-                            NewsCard(md: md)
+                    // news_screen.dart parity: one card per article, not a grouped list
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(articles) { md in
+                                NavigationLink(value: md) {
+                                    NewsCard(md: md)
+                                }
+                                .buttonStyle(.plain)
+                                .tapHaptic()
+                                .accessibilityIdentifier("news.row")
+                            }
                         }
-                        .tapHaptic()
-                        .accessibilityIdentifier("news.row")
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .readableWidth()
                     }
-                    .readableWidth()
                     .background(Color.appBackground)
-                    .listStyle(.insetGrouped)
                 }
             } else if model.newsFailed {
                 ContentUnavailableView {
@@ -48,54 +55,104 @@ struct NewsListScreen: View {
 
 struct NewsCard: View {
     let md: NewsParser.Metadata
+    @Environment(\.appAccent) private var accent
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(md.title).font(.callout.weight(.semibold))
-                .multilineTextAlignment(.leading)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                Text(md.title)
+                    .font(.title3.weight(.bold))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "newspaper.fill")
+                    .font(.body)
+                    .foregroundStyle(accent)
+                    .padding(.top, 3)
+                    .accessibilityHidden(true)
+            }
+            HStack(spacing: 12) {
+                Text(md.createdDate).fontWeight(.medium)
+                Label("\(md.views)", systemImage: "eye")
+                    .labelStyle(.titleAndIcon)
+                    .foregroundStyle(.tertiary)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.top, 8)
             if !md.description.isEmpty {
                 Text(md.description)
                     .font(.subheadline)
+                    .lineSpacing(3)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .multilineTextAlignment(.leading)
+                    .padding(.top, 12)
             }
-            ViewThatFits(in: .horizontal) {
-                metaRow(spacing: 12)
-                VStack(alignment: .leading, spacing: 2) { metaRow(spacing: 12) }
-            }
-            .font(.caption)
-            .foregroundStyle(.tertiary)
             if !md.tags.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(md.tags.prefix(3), id: \.self) { tag in
+                FlowLayout(spacing: 6) {
+                    ForEach(md.tags, id: \.self) { tag in
                         Text(tag)
-                            .font(.caption2.weight(.medium))
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(.tint.opacity(0.12), in: Capsule())
-                            .foregroundStyle(.tint)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(accent.opacity(0.3)))
+                            .foregroundStyle(accent)
                     }
                 }
+                .padding(.top, 12)
             }
-            HStack(spacing: 4) {
-                Text(L.s("mehrErfahren"))
-                Image(systemName: "arrow.right")
+            HStack(spacing: 8) {
+                Label(md.author, systemImage: "person")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                HStack(spacing: 4) {
+                    Text(L.s("mehrErfahren"))
+                    Image(systemName: "arrow.right")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(accent)
+                .accessibilityHidden(true)
             }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.tint)
-            .accessibilityHidden(true)
+            .padding(.top, 16)
         }
-        .padding(.vertical, 4)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .combine)
     }
+}
 
-    private func metaRow(spacing: CGFloat) -> some View {
-        HStack(spacing: spacing) {
-            Label(md.author, systemImage: "person")
-            Label(md.createdDate, systemImage: "calendar")
-            Label("\(md.views) \(L.s("views"))", systemImage: "eye")
+/// Wrapping row (Flutter `Wrap` parity) for tag chips.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(proposal: proposal, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (index, origin) in arrange(proposal: proposal, subviews: subviews).origins.enumerated() {
+            subviews[index].place(at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y), proposal: .unspecified)
         }
-        .lineLimit(1)
+    }
+
+    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, origins: [CGPoint]) {
+        let maxWidth = proposal.width ?? .infinity
+        var origins: [CGPoint] = []
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, width: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth { x = 0; y += rowHeight + spacing; rowHeight = 0 }
+            origins.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+            width = max(width, x - spacing)
+        }
+        return (CGSize(width: width, height: y + rowHeight), origins)
     }
 }
 
