@@ -1,5 +1,4 @@
 import SwiftUI
-import SafariServices
 import UIKit
 
 /// Orientation policy: the app is portrait-only except while a PDF is open
@@ -105,7 +104,7 @@ final class Prefs {
 
 @main
 struct LGKAApp: App {
-    @State private var safari: SafariItem?
+    @State private var web: WebItem?
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var prefs = Prefs()
     @State private var model = HomeModel()
@@ -136,15 +135,26 @@ struct LGKAApp: App {
                 .environment(prefs)
                 .environment(model)
                 .environment(\.appAccent, prefs.accent)
-                // every Link / inline link in the app: tap haptic, then the in-app browser
-                // (SFSafariViewController); non-web URLs go to the system
+                // every Link / inline link in the app: tap haptic, then the app's own web
+                // screen (the one the bug report uses); non-web URLs go to the system
                 .environment(\.openURL, OpenURLAction { url in
                     Haptics.light()
                     guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return .systemAction }
-                    safari = SafariItem(url: url)
+                    web = WebItem(url: url)
                     return .handled
                 })
-                .sheet(item: $safari) { SafariView(url: $0.url).ignoresSafeArea() }
+                .sheet(item: $web) { item in
+                    NavigationStack {
+                        WebScreen(url: item.url.absoluteString, title: item.title)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button { Haptics.light(); web = nil } label: {
+                                        Label(L.s("a11y.close"), systemImage: "xmark")
+                                    }
+                                }
+                            }
+                    }
+                }
                 .tint(prefs.accent)
                 .preferredColorScheme(prefs.colorScheme)
                 .overlay(FireworksOverlay())
@@ -187,20 +197,8 @@ enum DebugSeed {
 }
 #endif
 
-struct SafariItem: Identifiable {
+struct WebItem: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
-}
-
-/// In-app browser for every web link except the Krankmeldung form (which has its own WebView).
-struct SafariView: UIViewControllerRepresentable {
-    let url: URL
-    func makeUIViewController(context: Context) -> SFSafariViewController {
-        let config = SFSafariViewController.Configuration()
-        config.entersReaderIfAvailable = false
-        let controller = SFSafariViewController(url: url, configuration: config)
-        controller.dismissButtonStyle = .close
-        return controller
-    }
-    func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
+    var title: String { url.host?.replacingOccurrences(of: "www.", with: "") ?? "" }
 }

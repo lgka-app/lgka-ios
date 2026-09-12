@@ -65,11 +65,10 @@ struct HomeScreen: View {
                 case .weather: WeatherPageScreen()
                 case .news: NewsListScreen()
                 case .krankmeldungInfo:
-                    KrankmeldungInfoScreen { path.append(HomeRoute.krankmeldungForm) }
-                case .krankmeldungForm:
-                    WebScreen(url: "https://drkrankmeldung.lgka-online.de",
-                              title: L.s("krankmeldung"),
-                              confineToHost: "lgka-online.de")
+                    KrankmeldungInfoScreen {
+                        path.removeLast()
+                        HomeScreen.openKrankmeldungForm()
+                    }
                 case .bugReport: BugReportScreen()
                 }
             }
@@ -513,10 +512,16 @@ struct HomeScreen: View {
 
     private func openKrankmeldung() {
         if prefs.krankmeldungInfoShown {
-            path.append(HomeRoute.krankmeldungForm)
+            HomeScreen.openKrankmeldungForm()
         } else {
             path.append(HomeRoute.krankmeldungInfo)
         }
+    }
+
+    /// The Krankmeldung form is the one page that opens in the user's real browser.
+    static func openKrankmeldungForm() {
+        guard let url = URL(string: "https://drkrankmeldung.lgka-online.de") else { return }
+        Task { @MainActor in await UIApplication.shared.open(url) }
     }
 }
 
