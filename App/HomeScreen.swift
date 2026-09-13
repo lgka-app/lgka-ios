@@ -349,7 +349,8 @@ struct HomeScreen: View {
                 retryButton { await model.sync(only: [.schedules]) }
             }
             .padding(.vertical, 8)
-        } else if model.schedules.isEmpty {
+        } else if preferredGroup.isEmpty {
+            // also when no item names a known Halbjahr: a class card would open nothing
             HStack(spacing: 12) {
                 Image(systemName: "clock").foregroundStyle(.secondary.opacity(0.4))
                     .accessibilityHidden(true)
