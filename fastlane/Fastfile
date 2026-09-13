@@ -69,6 +69,9 @@ platform :ios do
       overwrite_screenshots: true,
       submit_for_review: false,
       automatic_release: false,
+      # precheck cannot inspect in-app purchases with an API key and would abort the upload.
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
       force: true,
     )
   end
