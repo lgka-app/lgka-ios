@@ -7,8 +7,7 @@ import LGKACore
 /// "Don't use Liquid Glass in the content layer").
 struct WeatherPageScreen: View {
     @Environment(HomeModel.self) private var model
-    @Environment(\.appAccent) private var accent
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize = 96
 
     #if DEBUG
@@ -151,7 +150,7 @@ struct WeatherPageScreen: View {
             : AnyShapeStyle(.thinMaterial)
     }
 
-    private func hourlyCard(_ hours: [HourlyForecast]) -> some View {
+    func hourlyCard(_ hours: [HourlyForecast]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             cardHeader("clock", L.s("hourlyForecastLabel"))
             Divider().overlay(.white.opacity(0.2))
@@ -186,7 +185,7 @@ struct WeatherPageScreen: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private func dailyCard(_ w: WeatherData) -> some View {
+    func dailyCard(_ w: WeatherData) -> some View {
         let weekMin = w.daily.map(\.tempMin).min() ?? 0
         let weekMax = w.daily.map(\.tempMax).max() ?? 1
         let span = max(weekMax - weekMin, 1)
@@ -238,7 +237,7 @@ struct WeatherPageScreen: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private func statsGrid(_ w: WeatherData) -> some View {
+    func statsGrid(_ w: WeatherData) -> some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())],
                   spacing: 14) {
             statTile("humidity", L.s("weatherHumidityShort"), "\(w.current.humidity) %")
@@ -251,7 +250,7 @@ struct WeatherPageScreen: View {
 
     /// Source + attribution exactly as the API declares them: the school's
     /// rooftop station for current values when it is healthy, Open-Meteo otherwise.
-    private func attribution(_ w: WeatherData) -> some View {
+    func attribution(_ w: WeatherData) -> some View {
         VStack(spacing: 6) {
             if w.source == .school {
                 Label(L.s("weather.sourceSchool"), systemImage: "building.2")

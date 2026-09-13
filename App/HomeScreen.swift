@@ -5,17 +5,17 @@ import LGKACore
 /// Home hub — mirrors home_screen.dart: weather card, substitution cards,
 /// schedule class card, upcoming events; toolbar: news / sick note / settings.
 struct HomeScreen: View {
-    @Environment(Prefs.self) private var prefs
-    @Environment(HomeModel.self) private var model
-    @Environment(\.appAccent) private var accent
+    @Environment(Prefs.self) var prefs
+    @Environment(HomeModel.self) var model
+    @Environment(\.appAccent) var accent
     @State private var showSettings = false
-    @State private var showClassDialog = false
-    @State private var classInput = ""
-    @State private var pdfDestination: PdfDestination?
+    @State var showClassDialog = false
+    @State var classInput = ""
+    @State var pdfDestination: PdfDestination?
     /// Type-erased so both HomeRoute pushes and value links (news articles) resolve.
-    @State private var path = NavigationPath()
-    @State private var scheduleUnavailable: String?
-    @ScaledMetric(relativeTo: .largeTitle) private var heroSize = 40
+    @State var path = NavigationPath()
+    @State var scheduleUnavailable: String?
+    @ScaledMetric(relativeTo: .largeTitle) var heroSize = 40
 
     enum HomeRoute: Hashable {
         case weather, news, krankmeldungInfo, bugReport
@@ -120,7 +120,7 @@ struct HomeScreen: View {
 
     // ── Weather card ────────────────────────────────────────────────────────
 
-    @ViewBuilder private var weatherSection: some View {
+    @ViewBuilder var weatherSection: some View {
         if let w = model.weather {
             Button {
                 Haptics.medium()
@@ -189,7 +189,7 @@ struct HomeScreen: View {
         }
     }
 
-    private func retryButton(_ action: @escaping @MainActor () async -> Void) -> some View {
+    func retryButton(_ action: @escaping @MainActor () async -> Void) -> some View {
         Button { Haptics.light(); Task { await action() } } label: {
             Image(systemName: "arrow.clockwise").font(.footnote)
                 .frame(minWidth: 44, minHeight: 44)
@@ -197,7 +197,7 @@ struct HomeScreen: View {
         .accessibilityLabel(L.s("a11y.retry"))
     }
 
-    private var skeletonRow: some View {
+    var skeletonRow: some View {
         HStack(spacing: 14) {
             RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.quaternary)
                 .frame(width: 44, height: 44)
@@ -222,7 +222,7 @@ struct HomeScreen: View {
 
     // ── Substitution cards ──────────────────────────────────────────────────
 
-    @ViewBuilder private var substitutionSection: some View {
+    @ViewBuilder var substitutionSection: some View {
         if model.subLoading {
             skeletonRow
             skeletonRow
@@ -335,7 +335,7 @@ struct HomeScreen: View {
 
     // ── Schedule card ───────────────────────────────────────────────────────
 
-    @ViewBuilder private var scheduleSection: some View {
+    @ViewBuilder var scheduleSection: some View {
         if model.scheduleLoading {
             skeletonRow
         } else if model.scheduleError {
@@ -452,7 +452,7 @@ struct HomeScreen: View {
 
     // ── Events ──────────────────────────────────────────────────────────────
 
-    @ViewBuilder private var eventsSection: some View {
+    @ViewBuilder var eventsSection: some View {
         if model.eventsLoading {
             ForEach(0..<4, id: \.self) { _ in skeletonRow }
         } else if model.eventsError && model.events.isEmpty {
