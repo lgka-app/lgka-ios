@@ -130,6 +130,7 @@ struct WebViewRepresentable: UIViewRepresentable {
         config.websiteDataStore = .nonPersistent() // incognito parity
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
+        view.uiDelegate = context.coordinator
         view.customUserAgent = SchoolAPI.userAgent
         view.isOpaque = false
         load(view)
@@ -157,7 +158,7 @@ struct WebViewRepresentable: UIViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var parent: WebViewRepresentable
         var lastReloadToken = 0
 
@@ -200,6 +201,13 @@ struct WebViewRepresentable: UIViewRepresentable {
                                       persistence: .forSession))
             }
             return (.performDefaultHandling, nil)
+        }
+
+        // target="_blank" links and window.open have no window to open in: without this they do nothing
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                     for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if navigationAction.targetFrame == nil { webView.load(navigationAction.request) }
+            return nil
         }
 
         // webview_screen parity: external links leave the in-app webview
