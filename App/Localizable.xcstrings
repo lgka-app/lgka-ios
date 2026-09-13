@@ -1154,23 +1154,6 @@
         }
       }
     },
-    "loadingSchedule": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lade Stundenplan..."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading timetable..."
-          }
-        }
-      }
-    },
     "login": {
       "extractionState": "manual",
       "localizations": {

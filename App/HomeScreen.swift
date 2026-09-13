@@ -12,7 +12,6 @@ struct HomeScreen: View {
     @State private var showClassDialog = false
     @State private var classInput = ""
     @State private var pdfDestination: PdfDestination?
-    @State private var scheduleLoadingOverlay = false
     /// Type-erased so both HomeRoute pushes and value links (news articles) resolve.
     @State private var path = NavigationPath()
     @State private var scheduleUnavailable: String?
@@ -114,14 +113,6 @@ struct HomeScreen: View {
                     Haptics.medium()
                     let cls = classInput.trimmingCharacters(in: .whitespaces).lowercased()
                     if !cls.isEmpty { prefs.selectedScheduleClass = cls }
-                }
-            }
-            .overlay {
-                if scheduleLoadingOverlay {
-                    ProgressView(L.s("loadingSchedule"))
-                        .padding(24)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .accessibilityAddTraits(.updatesFrequently)
                 }
             }
         }
@@ -432,9 +423,8 @@ struct HomeScreen: View {
             return
         }
 
-        scheduleLoadingOverlay = true
+        // opens straight away like the substitution cards: the PDF is already on disk
         Task {
-            defer { scheduleLoadingOverlay = false }
             do {
                 let file = try await model.pdfURL(for: pdf)
                 pdfDestination = PdfDestination(
