@@ -3,9 +3,11 @@
 #   bundle exec fastlane ios release    # archive, upload to TestFlight, push the store listing
 #   bundle exec fastlane ios metadata   # store texts and screenshots only
 #
-# Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 (App Store Connect API key).
+# Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 (App Store Connect API key); release
+# also needs IOS_DIST_CERT_P12_BASE64 and IOS_DIST_CERT_PASSWORD.
 # Submitting for review stays a manual step in App Store Connect.
 
+require "base64"
 require "fileutils"
 require "yaml"
 
@@ -13,6 +15,8 @@ default_platform(:ios)
 
 APP_ID   = "com.lgka"
 TEAM_ID  = "M8M22924DJ"
+# App Store profile and Apple Distribution certificate, both expire 2026-12-17.
+PROFILE  = "LGKA+ Distribution"
 ROOT     = File.expand_path("..", __dir__)
 KEY_PATH = File.join(ROOT, "build", "AuthKey.p8")
 THEME    = ENV.fetch("SCREENSHOT_THEME", "dark")
@@ -30,15 +34,14 @@ platform :ios do
     )
   end
 
-  desc "Archive with cloud signing, upload to TestFlight, update the store listing"
+  desc "Archive with the distribution certificate, upload to TestFlight, update the store listing"
   lane :release do
     version = marketing_version
     # Continues after the Flutter app's builds (last one: 300).
     build = latest_testflight_build_number(app_identifier: APP_ID, initial_build_number: 0) + 1
     UI.message("Releasing LGKA+ #{version} (#{build})")
 
-    auth = "-allowProvisioningUpdates -authenticationKeyPath #{KEY_PATH} " \
-           "-authenticationKeyID #{ENV['ASC_KEY_ID']} -authenticationKeyIssuerID #{ENV['ASC_ISSUER_ID']}"
+    install_signing
     build_app(
       project: File.join(ROOT, "LGKA.xcodeproj"),
       scheme: "LGKA",
@@ -46,11 +49,9 @@ platform :ios do
       destination: "generic/platform=iOS",
       export_method: "app-store",
       export_team_id: TEAM_ID,
-      export_options: { signingStyle: "automatic", teamID: TEAM_ID },
+      export_options: { signingStyle: "manual", teamID: TEAM_ID, provisioningProfiles: { APP_ID => PROFILE } },
       output_directory: File.join(ROOT, "build", "release"),
-      xcargs: "#{auth} MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build}",
-      # gym adds the API key flags to the export itself; passing them twice makes xcodebuild abort.
-      export_xcargs: "-allowProvisioningUpdates",
+      xcargs: "MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build}",
     )
     upload_to_testflight(app_identifier: APP_ID, skip_waiting_for_build_processing: true)
     metadata(version: version)
@@ -71,6 +72,31 @@ platform :ios do
       force: true,
     )
   end
+end
+
+# Manual signing: automatic signing on a fresh runner creates a new development
+# certificate per run, and the API key may not use cloud-managed distribution signing.
+def install_signing
+  setup_ci(force: true) # temporary keychain, removed with the runner
+  p12 = File.join(ROOT, "build", "distribution.p12")
+  File.binwrite(p12, Base64.decode64(ENV.fetch("IOS_DIST_CERT_P12_BASE64")))
+  import_certificate(
+    certificate_path: p12,
+    certificate_password: ENV.fetch("IOS_DIST_CERT_PASSWORD"),
+    keychain_name: ENV.fetch("MATCH_KEYCHAIN_NAME"),
+    keychain_password: ENV.fetch("MATCH_KEYCHAIN_PASSWORD"),
+  )
+  FileUtils.rm_f(p12)
+  get_provisioning_profile(app_identifier: APP_ID, readonly: true, output_path: File.join(ROOT, "build"))
+  update_code_signing_settings(
+    path: File.join(ROOT, "LGKA.xcodeproj"),
+    targets: ["LGKA"],
+    build_configurations: ["Release"],
+    use_automatic_signing: false,
+    team_id: TEAM_ID,
+    code_sign_identity: "Apple Distribution",
+    profile_name: PROFILE,
+  )
 end
 
 # Tag v3.1.0 → "3.1.0"; otherwise the MARKETING_VERSION in project.yml.
