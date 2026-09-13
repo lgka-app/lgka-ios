@@ -85,57 +85,6 @@
         }
       }
     },
-    "a11y.matchPosition": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Treffer %1$lld von %2$lld"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match %1$lld of %2$lld"
-          }
-        }
-      }
-    },
-    "a11y.nextMatch": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nächster Treffer"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next match"
-          }
-        }
-      }
-    },
-    "a11y.openInBrowser": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Im Browser öffnen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open in browser"
-          }
-        }
-      }
-    },
     "a11y.openPhoto": {
       "localizations": {
         "de": {
@@ -148,40 +97,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opens the photo full screen"
-          }
-        }
-      }
-    },
-    "a11y.precipitation": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Prozent Regenwahrscheinlichkeit"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld percent chance of rain"
-          }
-        }
-      }
-    },
-    "a11y.previousMatch": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vorheriger Treffer"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Previous match"
           }
         }
       }
@@ -199,23 +114,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reload"
-          }
-        }
-      }
-    },
-    "a11y.search": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Im PDF suchen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search in PDF"
           }
         }
       }
@@ -1188,23 +1086,6 @@
         }
       }
     },
-    "login.storeFailed": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zugangsdaten konnten nicht gespeichert werden."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The credentials could not be stored."
-          }
-        }
-      }
-    },
     "logout": {
       "extractionState": "manual",
       "localizations": {
@@ -1235,23 +1116,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Really log out? You will need to enter the credentials again."
-          }
-        }
-      }
-    },
-    "mehrErfahren": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mehr erfahren"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Learn more"
           }
         }
       }
@@ -1303,23 +1167,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No info yet"
-          }
-        }
-      }
-    },
-    "noMatches": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keine Treffer"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No matches"
           }
         }
       }
@@ -1528,23 +1375,6 @@
         }
       }
     },
-    "searchInPdf": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Im PDF suchen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search in PDF"
-          }
-        }
-      }
-    },
     "secondSemester": {
       "extractionState": "manual",
       "localizations": {
@@ -1677,23 +1507,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "MORE"
-          }
-        }
-      }
-    },
-    "sharePdf": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF teilen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Share PDF"
           }
         }
       }
@@ -1853,23 +1666,6 @@
         }
       }
     },
-    "titleWithSemester": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ – %2$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ – %2$@"
-          }
-        }
-      }
-    },
     "today": {
       "extractionState": "manual",
       "localizations": {
@@ -1883,23 +1679,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Today"
-          }
-        }
-      }
-    },
-    "tomorrow": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Morgen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tomorrow"
           }
         }
       }
