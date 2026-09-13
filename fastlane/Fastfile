@@ -22,6 +22,8 @@ KEY_PATH = File.join(ROOT, "build", "AuthKey.p8")
 THEME    = ENV.fetch("SCREENSHOT_THEME", "dark")
 # Screenshot folders in app_store_assets → App Store Connect locales of the app.
 LOCALES  = { "de" => "de-DE" }.freeze
+# The only screenshots that go to the store, in this order.
+STORE_SHOTS = %w[01_welcome.png 02_home.png 03_weather.png 04_news.png].freeze
 
 platform :ios do
   before_all do
@@ -118,8 +120,9 @@ def stage_screenshots
   LOCALES.each do |folder, locale|
     FileUtils.mkdir_p(File.join(out, locale))
     %w[phone tablet].each do |form|
-      Dir.glob(File.join(ROOT, "app_store_assets", "screenshots", folder, "ios", form, THEME, "*.png")).sort.each do |png|
-        FileUtils.cp(png, File.join(out, locale, "#{form}_#{File.basename(png)}"))
+      STORE_SHOTS.each do |name|
+        png = File.join(ROOT, "app_store_assets", "screenshots", folder, "ios", form, THEME, name)
+        FileUtils.cp(png, File.join(out, locale, "#{form}_#{name}"))
       end
     end
   end
