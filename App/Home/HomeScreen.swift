@@ -68,7 +68,8 @@ struct HomeScreen: View {
                 case .news: NewsListScreen()
                 case .krankmeldungInfo:
                     KrankmeldungInfoScreen {
-                        path.removeLast()
+                        // a second tap during the pop must not pop an empty path
+                        if !path.isEmpty { path.removeLast() }
                         HomeScreen.openKrankmeldungForm()
                     }
                 case .bugReport: BugReportScreen()
