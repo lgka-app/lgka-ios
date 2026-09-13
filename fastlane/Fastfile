@@ -49,7 +49,8 @@ platform :ios do
       export_options: { signingStyle: "automatic", teamID: TEAM_ID },
       output_directory: File.join(ROOT, "build", "release"),
       xcargs: "#{auth} MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build}",
-      export_xcargs: auth,
+      # gym adds the API key flags to the export itself; passing them twice makes xcodebuild abort.
+      export_xcargs: "-allowProvisioningUpdates",
     )
     upload_to_testflight(app_identifier: APP_ID, skip_waiting_for_build_processing: true)
     metadata(version: version)
