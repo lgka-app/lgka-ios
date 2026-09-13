@@ -8,12 +8,24 @@ final class OrientationLock {
     static let shared = OrientationLock()
     var mask: UIInterfaceOrientationMask = .portrait
 
-    func allowAll() { mask = .all }
+    func allowAll() {
+        mask = .all
+        updateSupportedOrientations()
+    }
 
     func restorePortrait() {
         mask = .portrait
+        updateSupportedOrientations()
         for scene in UIApplication.shared.connectedScenes {
             (scene as? UIWindowScene)?.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+        }
+    }
+
+    /// UIKit caches the supported orientations; without this a changed mask only
+    /// applies after the next device rotation.
+    private func updateSupportedOrientations() {
+        for scene in UIApplication.shared.connectedScenes {
+            (scene as? UIWindowScene)?.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
         }
     }
 }
