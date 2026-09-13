@@ -24,6 +24,9 @@ final class HomeModel {
     private var bootstrapped = false
     private var bootstrapFinished = false
     private var lastForegroundRefresh = Date.distantPast
+    /// Bumped by `clear()`: a sync still in flight at sign-out must not write
+    /// its answer back into the wiped store or sign the next user out.
+    private var generation = 0
 
     init(client: APIClient = SchoolAPI.client, store: SyncStore = SchoolAPI.store) {
         self.client = client
@@ -86,9 +89,11 @@ final class HomeModel {
     func sync(only: [Resource]? = nil) async {
         if isSyncing { return }
         isSyncing = true
-        defer { isSyncing = false }
+        let started = generation
+        defer { if generation == started { isSyncing = false } }
         do {
             let response = try await client.sync(hashes: state.hashes, only: only, embedPdf: true)
+            guard generation == started else { return }
             var next = state
             let outcome = store.apply(response, to: &next)
             state = next
@@ -101,15 +106,20 @@ final class HomeModel {
         } catch APIError.unauthorized {
             // A 401 on a data route is confirmed with one /v1/auth/check before
             // anyone is signed out; the on-disk snapshot is kept either way.
-            switch await client.verifyStoredCredentials() {
+            let verdict = await client.verifyStoredCredentials()
+            guard generation == started else { return }
+            switch verdict {
             case .rotated:
                 Self.log.error("sync: credentials rejected, confirmed by /v1/auth/check")
                 unauthorized = true
+                // the next sign-in shows this snapshot again and syncs straight away
+                bootstrapped = false
             case .valid, .undetermined:
                 Self.log.error("sync: 401 not confirmed by /v1/auth/check, treating as transient")
                 syncFailed = true
             }
         } catch {
+            guard generation == started else { return }
             Self.log.error("sync: \(error)")
             syncFailed = true
         }
@@ -119,10 +129,16 @@ final class HomeModel {
     /// rotated school password keeps the data (public school content — the
     /// user gets it back right after re-login).
     func clear() {
+        generation += 1
+        isSyncing = false
+        // the home screen of the next sign-in bootstraps (and syncs) again
+        bootstrapped = false
+        bootstrapFinished = false
         store.removeAll()
         state = SyncState()
         unavailable = []
         syncFailed = false
+        unauthorized = false
     }
 
     // ── Files ───────────────────────────────────────────────────────────────
