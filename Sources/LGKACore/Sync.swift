@@ -164,10 +164,6 @@ public final class SyncStore: @unchecked Sendable {
         try encoder.encode(snapshot).write(to: url(resource), options: .atomic)
     }
 
-    public func remove(_ resource: Resource) {
-        try? FileManager.default.removeItem(at: url(resource))
-    }
-
     public func removeAll() {
         try? FileManager.default.removeItem(at: directory)
         createDirectories()

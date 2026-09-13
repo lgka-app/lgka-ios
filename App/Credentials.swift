@@ -13,10 +13,6 @@ enum Credentials {
     struct Pair: Sendable, Equatable {
         let user: String
         let password: String
-
-        var authorizationHeader: String {
-            "Basic " + Data("\(user):\(password)".utf8).base64EncodedString()
-        }
     }
 
     private static var query: [String: Any] {

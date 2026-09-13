@@ -114,7 +114,6 @@ struct LGKAApp: App {
     @State private var model = HomeModel()
     @Environment(\.scenePhase) private var scenePhase
 
-
     var body: some Scene {
         WindowGroup {
             RootView()

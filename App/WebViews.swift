@@ -6,11 +6,9 @@ import WebKit
 struct WebScreen: View {
     let url: String
     let title: String
-    /// Links leaving this host open in the system browser (webview parity).
-    var confineToHost: String? = nil
 
     var body: some View {
-        WebContainer(url: url, confineToHost: confineToHost)
+        WebContainer(url: url)
             .themeBg()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -78,14 +76,13 @@ struct BugReportScreen: View {
 
 struct WebContainer: View {
     let url: String
-    var confineToHost: String? = nil
     @State private var isLoading = true
     @State private var failed = false
     @State private var reloadToken = 0
 
     var body: some View {
         ZStack {
-            WebViewRepresentable(url: url, confineToHost: confineToHost,
+            WebViewRepresentable(url: url,
                                  isLoading: $isLoading,
                                  failed: $failed, reloadToken: reloadToken)
             if failed {
@@ -118,7 +115,6 @@ struct WebContainer: View {
 
 struct WebViewRepresentable: UIViewRepresentable {
     let url: String
-    var confineToHost: String? = nil
     @Binding var isLoading: Bool
     @Binding var failed: Bool
     let reloadToken: Int
@@ -148,13 +144,6 @@ struct WebViewRepresentable: UIViewRepresentable {
     private func load(_ view: WKWebView) {
         guard let target = URL(string: url) else { return }
         view.load(URLRequest(url: target, timeoutInterval: 20))
-    }
-
-    /// Host suffix match: "lgka-online.de" confines to that domain and its
-    /// subdomains, never to unrelated hosts that merely contain the string.
-    static func isConfined(_ host: String?, to confined: String) -> Bool {
-        guard let host else { return false }
-        return host == confined || host.hasSuffix("." + confined)
     }
 
     @MainActor
@@ -208,19 +197,6 @@ struct WebViewRepresentable: UIViewRepresentable {
                      for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
             if navigationAction.targetFrame == nil { webView.load(navigationAction.request) }
             return nil
-        }
-
-        // webview_screen parity: external links leave the in-app webview
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction)
-            async -> WKNavigationActionPolicy {
-            if let confined = parent.confineToHost,
-               navigationAction.navigationType == .linkActivated,
-               let target = navigationAction.request.url,
-               !WebViewRepresentable.isConfined(target.host, to: confined) {
-                await UIApplication.shared.open(target)
-                return .cancel
-            }
-            return .allow
         }
     }
 }

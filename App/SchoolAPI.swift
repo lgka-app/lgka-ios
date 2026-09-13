@@ -70,11 +70,6 @@ enum LocalDate {
         return calendar.date(from: DateComponents(year: y, month: m, day: d))
     }
 
-    static func isoString(_ date: Date) -> String {
-        let c = calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
-    }
-
     static func isToday(_ iso: String) -> Bool {
         guard let date = parse(iso) else { return false }
         return calendar.isDateInToday(date)

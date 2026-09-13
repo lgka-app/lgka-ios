@@ -173,14 +173,13 @@ struct NewsDetailScreen: View {
     }
 
     /// A download or standalone link row (news_detail_screen parity): downloads show a
-    /// file-type glyph and size, websites their favicon and domain.
+    /// file-type glyph and size, websites a link glyph and their domain.
     private struct ActionLink: Identifiable {
         let id: String
         let title: String
         let subtitle: String?
         let url: URL
-        let symbol: String        // leading glyph (or fallback behind the favicon)
-        let favicon: URL?         // websites only
+        let symbol: String        // leading glyph
         let trailing: String      // "arrow.down.circle" / "arrow.up.right.square"
 
         /// Flutter `_getFileTypeIcon` mapping onto SF Symbols.
@@ -201,7 +200,7 @@ struct NewsDetailScreen: View {
         static func download(_ dl: NewsDownload) -> ActionLink? {
             guard let url = URL(string: dl.url) else { return nil }
             return ActionLink(id: "d:" + dl.url, title: dl.title, subtitle: dl.size, url: url,
-                              symbol: symbol(forFileType: dl.fileType), favicon: nil, trailing: "arrow.down.circle")
+                              symbol: symbol(forFileType: dl.fileType), trailing: "arrow.down.circle")
         }
 
         static func website(_ link: NewsLink) -> ActionLink? {
@@ -209,7 +208,7 @@ struct NewsDetailScreen: View {
             let host = url.host ?? link.url
             // no favicon service: that would send the reader's IP to a third party
             return ActionLink(id: "l:" + link.url, title: link.text, subtitle: host.replacingOccurrences(of: "www.", with: ""),
-                              url: url, symbol: "link", favicon: nil, trailing: "arrow.up.right.square")
+                              url: url, symbol: "link", trailing: "arrow.up.right.square")
         }
     }
 
@@ -219,15 +218,7 @@ struct NewsDetailScreen: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(accent.opacity(0.12))
-                    if let favicon = button.favicon {
-                        AsyncImage(url: favicon) { image in
-                            image.resizable().scaledToFit().padding(9)
-                        } placeholder: {
-                            Image(systemName: button.symbol).foregroundStyle(accent)
-                        }
-                    } else {
-                        Image(systemName: button.symbol).foregroundStyle(accent)
-                    }
+                    Image(systemName: button.symbol).foregroundStyle(accent)
                 }
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 2) {
