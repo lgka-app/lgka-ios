@@ -1,0 +1,110 @@
+# LGKA+ iOS release lanes, run by .github/workflows/release.yml.
+#
+#   bundle exec fastlane ios release    # archive, upload to TestFlight, push the store listing
+#   bundle exec fastlane ios metadata   # store texts and screenshots only
+#
+# Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 (App Store Connect API key).
+# Submitting for review stays a manual step in App Store Connect.
+
+require "fileutils"
+require "yaml"
+
+default_platform(:ios)
+
+APP_ID   = "com.lgka"
+TEAM_ID  = "M8M22924DJ"
+ROOT     = File.expand_path("..", __dir__)
+KEY_PATH = File.join(ROOT, "build", "AuthKey.p8")
+THEME    = ENV.fetch("SCREENSHOT_THEME", "dark")
+# Screenshot folders in app_store_assets → App Store Connect locales of the app.
+LOCALES  = { "de" => "de-DE" }.freeze
+
+platform :ios do
+  before_all do
+    FileUtils.mkdir_p(File.dirname(KEY_PATH))
+    File.write(KEY_PATH, ENV.fetch("ASC_KEY_P8"))
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: KEY_PATH,
+    )
+  end
+
+  desc "Archive with cloud signing, upload to TestFlight, update the store listing"
+  lane :release do
+    version = marketing_version
+    # Continues after the Flutter app's builds (last one: 300).
+    build = latest_testflight_build_number(app_identifier: APP_ID, initial_build_number: 0) + 1
+    UI.message("Releasing LGKA+ #{version} (#{build})")
+
+    auth = "-allowProvisioningUpdates -authenticationKeyPath #{KEY_PATH} " \
+           "-authenticationKeyID #{ENV['ASC_KEY_ID']} -authenticationKeyIssuerID #{ENV['ASC_ISSUER_ID']}"
+    build_app(
+      project: File.join(ROOT, "LGKA.xcodeproj"),
+      scheme: "LGKA",
+      configuration: "Release",
+      destination: "generic/platform=iOS",
+      export_method: "app-store",
+      export_team_id: TEAM_ID,
+      export_options: { signingStyle: "automatic", teamID: TEAM_ID },
+      output_directory: File.join(ROOT, "build", "release"),
+      xcargs: "#{auth} MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build}",
+      export_xcargs: auth,
+    )
+    upload_to_testflight(app_identifier: APP_ID, skip_waiting_for_build_processing: true)
+    metadata(version: version)
+  end
+
+  desc "Upload store texts, screenshots and review contact (no build)"
+  lane :metadata do |options|
+    deliver(
+      app_identifier: APP_ID,
+      app_version: options[:version] || marketing_version,
+      metadata_path: File.join(__dir__, "metadata"),
+      screenshots_path: stage_screenshots,
+      app_review_information: review_information,
+      skip_binary_upload: true,
+      overwrite_screenshots: true,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+    )
+  end
+end
+
+# Tag v3.1.0 → "3.1.0"; otherwise the MARKETING_VERSION in project.yml.
+def marketing_version
+  tag = ENV["RELEASE_VERSION"].to_s.sub(/\Av/, "")
+  return tag unless tag.empty?
+
+  YAML.load_file(File.join(ROOT, "project.yml")).dig("targets", "LGKA", "settings", "base", "MARKETING_VERSION").to_s
+end
+
+# deliver reads <locale>/*.png and picks the display slot from the pixel size;
+# the prefix keeps phone and tablet shots in the suite's order.
+def stage_screenshots
+  out = File.join(ROOT, "build", "deliver_screenshots")
+  FileUtils.rm_rf(out)
+  LOCALES.each do |folder, locale|
+    FileUtils.mkdir_p(File.join(out, locale))
+    %w[phone tablet].each do |form|
+      Dir.glob(File.join(ROOT, "app_store_assets", "screenshots", folder, "ios", form, THEME, "*.png")).sort.each do |png|
+        FileUtils.cp(png, File.join(out, locale, "#{form}_#{File.basename(png)}"))
+      end
+    end
+  end
+  out
+end
+
+# The repo is public: review contact and demo login come from secrets.
+def review_information
+  {
+    first_name: "Luka",
+    last_name: "Löhr",
+    email_address: "support@lgka.app",
+    phone_number: ENV.fetch("ASC_REVIEW_PHONE"),
+    demo_user: ENV.fetch("ASC_REVIEW_DEMO_USER"),
+    demo_password: ENV.fetch("ASC_REVIEW_DEMO_PASSWORD"),
+    notes: "Die Zugangsdaten sind die allgemeinen Schülerzugangsdaten des Lessing-Gymnasiums Karlsruhe.",
+  }
+end

@@ -1,0 +1,59 @@
+name: Release
+
+# Tag v3.1.0 → tests, archive, TestFlight upload, store texts + screenshots.
+# "metadata" pushes only the store listing. Submitting for review stays manual.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "release = build + TestFlight + store listing; metadata = store listing only"
+        type: choice
+        options: [release, metadata]
+        default: release
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: fastlane ios ${{ inputs.lane || 'release' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      ASC_REVIEW_PHONE: ${{ secrets.ASC_REVIEW_PHONE }}
+      ASC_REVIEW_DEMO_USER: ${{ secrets.ASC_REVIEW_DEMO_USER }}
+      ASC_REVIEW_DEMO_PASSWORD: ${{ secrets.ASC_REVIEW_DEMO_PASSWORD }}
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_HIDE_CHANGELOG: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "RELEASE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Test LGKACore
+        if: inputs.lane != 'metadata'
+        run: swift test
+      - name: Generate project
+        if: inputs.lane != 'metadata'
+        run: brew install xcodegen && xcodegen generate
+      - name: fastlane
+        run: bundle exec fastlane ios ${{ inputs.lane || 'release' }}
+      - name: Keep the build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gym-logs
+          path: ~/Library/Logs/gym
+          if-no-files-found: ignore
