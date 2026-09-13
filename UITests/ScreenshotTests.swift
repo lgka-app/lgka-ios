@@ -11,7 +11,7 @@ import XCTest
 ///   LGKA_CLASS           schedule class to preselect (default 7b)
 ///
 /// One app session per run: the app is launched once through the DEBUG seed
-/// (see `DebugSeed` in App/LGKAApp.swift — reset, theme, accent, class; never a
+/// (see `DebugSeed` in App/Shared/Prefs.swift — reset, theme, accent, class; never a
 /// login), the welcome screen is captured, onboarding is walked through, the real
 /// credentials are typed into the login form and every further capture is taken
 /// on that same session — no relaunch per screenshot, no coordinates, no mouse.
