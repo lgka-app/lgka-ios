@@ -74,8 +74,12 @@ extension HomeScreen {
             Haptics.medium()
             Task {
                 // the mirrored PDF arrived with the sync; a missing file is fetched once
-                guard let file = try? await model.pdfURL(for: plan.pdf) else { return }
-                pdfDestination = PdfDestination(fileUrl: DebugPdf.padded(file), title: weekday, targetPage: nil)
+                do {
+                    let file = try await model.pdfURL(for: plan.pdf)
+                    pdfDestination = PdfDestination(fileUrl: DebugPdf.padded(file), title: weekday, targetPage: nil)
+                } catch {
+                    scheduleUnavailable = L.s("serverConnectionFailed")
+                }
             }
         } label: {
             HStack(spacing: 14) {
