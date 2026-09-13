@@ -35,10 +35,6 @@ Run the tests with `swift test`.
 
 To sign in you need the school's substitution plan login.
 
-## Releases
-
-Push a tag like `v3.0.1` and GitHub Actions builds the app, uploads it to TestFlight and updates the App Store listing. Submitting for review is still done by hand.
-
 ## Feedback
 
 Found a bug? [Open an issue](https://github.com/lgka-app/lgka-ios/issues) or write to [support@lgka.app](mailto:support@lgka.app).
