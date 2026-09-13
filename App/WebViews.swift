@@ -173,6 +173,8 @@ struct WebViewRepresentable: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!,
                      withError error: any Error) {
+            // a link tapped before the page finished cancels the old load; the new one reports itself
+            if (error as NSError).code == NSURLErrorCancelled { return }
             parent.isLoading = false
             parent.failed = true
         }
