@@ -64,7 +64,8 @@ platform :ios do
     deliver(
       app_identifier: APP_ID,
       app_version: options[:version] || marketing_version,
-      metadata_path: File.join(__dir__, "metadata"),
+      # absolute: fastlane evaluates the Fastfile with __dir__ == ".", and deliver runs from the repo root
+      metadata_path: File.join(ROOT, "fastlane", "metadata"),
       screenshots_path: stage_screenshots,
       app_review_information: review_information,
       skip_binary_upload: true,
