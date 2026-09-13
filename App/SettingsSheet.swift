@@ -118,9 +118,9 @@ struct FireworksOverlay: View {
 }
 
 struct FireworksEmitter: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        let emitter = CAEmitterLayer()
+    func makeUIView(context: Context) -> EmitterView {
+        let view = EmitterView()
+        let emitter = view.emitter
         emitter.emitterShape = .point
         emitter.renderMode = .additive
         let colors: [UIColor] = [.systemYellow, .systemOrange, .systemPink,
@@ -149,17 +149,22 @@ struct FireworksEmitter: UIViewRepresentable {
             return cell
         }
         view.layer.addSublayer(emitter)
-        context.coordinator.emitter = emitter
         return view
     }
 
-    func updateUIView(_ view: UIView, context: Context) {
-        context.coordinator.emitter?.emitterPosition =
-            CGPoint(x: view.bounds.midX, y: view.bounds.height * 0.3)
+    func updateUIView(_ view: EmitterView, context: Context) {}
+
+    /// Places the emitter on every layout pass: `updateUIView` runs before the view
+    /// has bounds (and not on rotation), which left the bursts in the top-left corner.
+    final class EmitterView: UIView {
+        let emitter = CAEmitterLayer()
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            emitter.emitterPosition = CGPoint(x: bounds.midX, y: bounds.height * 0.3)
+            CATransaction.commit()
+        }
     }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    @MainActor
-    final class Coordinator { var emitter: CAEmitterLayer? }
 }
