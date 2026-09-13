@@ -100,4 +100,18 @@ struct SyncStoreTests {
         store.removeAll()
         #expect(SyncStore(directory: store.directory).loadState().hashes.isEmpty)
     }
+
+    /// The cache stays out of the device backup after a sign-out recreated its directory.
+    @Test func removeAllKeepsTheBackupExclusion() throws {
+        let store = try Fixtures.tempStore()
+        func excluded() throws -> Bool? {
+            var dir = store.directory
+            dir.removeAllCachedResourceValues()
+            return try dir.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup
+        }
+        #expect(try excluded() == true)
+        store.removeAll()
+        #expect(FileManager.default.fileExists(atPath: store.filesDirectory.path))
+        #expect(try excluded() == true)
+    }
 }

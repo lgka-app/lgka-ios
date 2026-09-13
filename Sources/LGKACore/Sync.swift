@@ -119,6 +119,12 @@ public final class SyncStore: @unchecked Sendable {
     public init(directory: URL = SyncStore.defaultDirectory()) {
         self.directory = directory
         self.filesDirectory = directory.appendingPathComponent("files", isDirectory: true)
+        createDirectories()
+    }
+
+    /// The exclusion lives on the directory itself, so it has to be set again
+    /// whenever the directory is recreated.
+    private func createDirectories() {
         try? FileManager.default.createDirectory(at: filesDirectory, withIntermediateDirectories: true)
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
@@ -164,7 +170,7 @@ public final class SyncStore: @unchecked Sendable {
 
     public func removeAll() {
         try? FileManager.default.removeItem(at: directory)
-        try? FileManager.default.createDirectory(at: filesDirectory, withIntermediateDirectories: true)
+        createDirectories()
     }
 
     public func loadState() -> SyncState {
