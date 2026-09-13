@@ -21,6 +21,8 @@ struct PdfViewerScreen: View {
     @Environment(HomeModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var document: PDFDocument?
+    /// The file on screen: differs from `fileUrl` after a cross-PDF class switch.
+    @State private var currentFile: URL?
     @State private var displayTitle = ""
     @State private var currentSchedule: ScheduleItem?
     @State private var currentIndex: [String: Int] = [:]
@@ -79,7 +81,7 @@ struct PdfViewerScreen: View {
                 if showClassBar { classBar }
             }
             .sheet(isPresented: $showShare) {
-                ActivityView(items: [shareUrl ?? fileUrl])
+                ActivityView(items: [shareUrl ?? currentFile ?? fileUrl])
                     .adaptiveSheetSizing()
             }
             .safeAreaInset(edge: .bottom) {
@@ -94,6 +96,7 @@ struct PdfViewerScreen: View {
             }
             .onAppear {
                 document = PDFDocument(url: fileUrl)
+                currentFile = fileUrl
                 displayTitle = title
                 currentSchedule = schedule
                 currentIndex = classIndex
@@ -155,7 +158,7 @@ struct PdfViewerScreen: View {
         prefs.selectedScheduleClass = cls
         let name = L.className(cls)
         displayTitle = name
-        shareUrl = makeShareUrl(fileUrl, title: name)
+        shareUrl = makeShareUrl(currentFile ?? fileUrl, title: name)
         goToPage = max(0, page - 1) // API pages are 1-based
         classInput = ""
         classFocused = false
@@ -186,6 +189,7 @@ struct PdfViewerScreen: View {
             do {
                 let file = try await model.pdfURL(for: pdf)
                 document = PDFDocument(url: file)
+                currentFile = file
                 currentSchedule = schedule
                 currentIndex = schedule.classIndex
                 applyClass(className, page: page)
