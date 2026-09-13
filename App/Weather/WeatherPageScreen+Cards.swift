@@ -116,7 +116,7 @@ extension WeatherPageScreen {
             statTile("wind", L.s("weatherWindShort"), "\(Int(w.current.windSpeed.rounded())) km/h")
             statTile("gauge.with.needle", L.s("pressure"), "\(w.current.pressure) hPa")
             statTile("sun.max.fill", L.s("uvIndex"),
-                     "\(String(format: "%.1f", w.current.uvi)) · \(uviLabel(w.current.uvi))")
+                     "\(w.current.uvi.formatted(.number.precision(.fractionLength(1)))) ·\(uviLabel(w.current.uvi))")
         }
     }
 
