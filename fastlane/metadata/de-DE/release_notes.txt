@@ -7,4 +7,4 @@ Links öffnen sich direkt in der App
 Deine Zugangsdaten werden verschlüsselt auf dem Gerät gespeichert
 
 Mehr Infos:
-github.com/luka-loehr/LGKA/releases/tag/v3.0.0
+github.com/lgka-app/lgka-ios/releases/tag/v3.0.0
