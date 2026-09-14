@@ -572,24 +572,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This doesn't look like a Kurswahlprotokoll. Try a sharp photo of the whole sheet."
-          }
-        }
-      }
-    },
-    "custom.error.photo": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Das Foto konnte nicht geöffnet werden."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The photo could not be opened."
+            "value": "This doesn't look like a course selection record. Try a sharp photo of the whole sheet."
           }
         }
       }
@@ -623,7 +606,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan your Kurswahlprotokoll"
+            "value": "Scan your course selection record"
           }
         }
       }
@@ -708,7 +691,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This Kurswahlprotokoll belongs to another year group."
+            "value": "This course selection record belongs to another year group."
           }
         }
       }
@@ -725,7 +708,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@: hours don't match the Kurswahlprotokoll"
+            "value": "%@: hours don't match the course selection record"
           }
         }
       }
@@ -776,7 +759,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The total on the Kurswahlprotokoll wasn't readable – please check that all subjects are there"
+            "value": "The total on the course selection record wasn't readable – please check that all subjects are there"
           }
         }
       }
@@ -793,7 +776,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld weekly hours, the Kurswahlprotokoll says %2$lld"
+            "value": "%1$lld weekly hours, the course selection record says %2$lld"
           }
         }
       }
@@ -912,7 +895,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@: %2$@ not stated on the Kurswahlprotokoll, all at the same time"
+            "value": "%1$@: %2$@ not stated on the course selection record, all at the same time"
           }
         }
       }
@@ -980,7 +963,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reading your Kurswahlprotokoll …"
+            "value": "Reading your course selection record …"
           }
         }
       }
@@ -1082,7 +1065,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld hours a week, matches your Kurswahlprotokoll"
+            "value": "%lld hours a week, matches your course selection record"
           }
         }
       }
@@ -1099,7 +1082,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld hours a week, your Kurswahlprotokoll says %2$lld"
+            "value": "%1$lld hours a week, your course selection record says %2$lld"
           }
         }
       }
@@ -1257,6 +1240,23 @@
         }
       }
     },
+    "custom.setup.a11y.result": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beispiel eines persönlichen Stundenplans als PDF"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Example of a personal timetable as a PDF"
+          }
+        }
+      }
+    },
     "custom.setup.a11y.sample": {
       "extractionState": "manual",
       "localizations": {
@@ -1269,7 +1269,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Example Kurswahlprotokoll with subjects, hours per semester and totals row"
+            "value": "Example course selection record with subjects, hours per semester and totals row"
           }
         }
       }
@@ -1365,13 +1365,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dein Kurswahlprotokoll aus der Kurswahl. Gelesen werden die Fächer, die Stunden je Halbjahr und die Summenzeile."
+            "value": "Dein Kurswahlprotokoll aus der Kurswahl."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your Kurswahlprotokoll from choosing your courses. The app reads the subjects, the hours per semester and the totals row."
+            "value": "Your course selection record from choosing your courses."
           }
         }
       }
@@ -1399,30 +1399,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "So klappt das Foto"
+            "value": "So machst du das Foto"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Getting the photo right"
-          }
-        }
-      }
-    },
-    "custom.setup.pick": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Foto auswählen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose photo"
+            "value": "How to take the photo"
           }
         }
       }
@@ -1433,30 +1416,47 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Foto wird nur auf diesem iPhone gelesen und nicht gespeichert. Gespeichert werden nur deine Kurse."
+            "value": "Alles bleibt auf deinem Gerät: Fotos, erkannte Daten und das PDF verlassen es nie. Die Erkennung übernimmt KI direkt auf dem Gerät."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The photo is read only on this iPhone and never stored. Only your courses are saved."
+            "value": "Everything stays on your device: the photos, the recognised data and the PDF never leave it. On-device AI does the recognition."
           }
         }
       }
     },
-    "custom.setup.sampleHint": {
+    "custom.setup.resultBody": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beispiel ansehen"
+            "value": "Dein persönlicher Stundenplan als PDF – nur mit deinen Kursen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "View example"
+            "value": "Your personal timetable as a PDF – only your courses."
+          }
+        }
+      }
+    },
+    "custom.setup.resultTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das bekommst du"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you get"
           }
         }
       }
@@ -1473,92 +1473,24 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan Kurswahlprotokoll"
+            "value": "Scan course selection record"
           }
         }
       }
     },
-    "custom.setup.step1": {
+    "custom.setup.tip.auto": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Handy über das Blatt halten – die Kamera fotografiert von selbst."
+            "value": "Die Kamera fotografiert von selbst und macht bei Bedarf Licht an"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hold your phone over the sheet – the camera takes the photos by itself."
-          }
-        }
-      }
-    },
-    "custom.setup.step2": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erkannte Kurse prüfen und bei Bedarf korrigieren."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Check the courses found and correct them if needed."
-          }
-        }
-      }
-    },
-    "custom.setup.step3": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fertig: dein Plan als PDF zum Ansehen und Teilen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Done: your timetable as a PDF to view and share."
-          }
-        }
-      }
-    },
-    "custom.setup.stepsTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "So geht's"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "How it works"
-          }
-        }
-      }
-    },
-    "custom.setup.subtitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scanne dein Kurswahlprotokoll – LGKA+ macht daraus deinen persönlichen J11/J12-Plan."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan your Kurswahlprotokoll – LGKA+ turns it into your personal J11/J12 timetable."
+            "value": "The camera takes the photos by itself and turns on the light if needed"
           }
         }
       }
@@ -1580,40 +1512,6 @@
         }
       }
     },
-    "custom.setup.tip.light": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Helles Licht – bei Bedarf geht das Licht von selbst an"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Good light – the flash turns on by itself if needed"
-          }
-        }
-      }
-    },
-    "custom.setup.tip.still": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ruhig halten – drei Fotos entstehen automatisch"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hold still – three photos are taken automatically"
-          }
-        }
-      }
-    },
     "custom.setup.tip.whole": {
       "extractionState": "manual",
       "localizations": {
@@ -1627,23 +1525,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Get the whole sheet in the frame"
-          }
-        }
-      }
-    },
-    "custom.setup.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dein Stundenplan, nur deine Kurse"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your timetable, only your courses"
           }
         }
       }
@@ -2628,7 +2509,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Place your Kurswahlprotokoll in the frame"
+            "value": "Place your course selection record in the frame"
           }
         }
       }
@@ -2679,7 +2560,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow LGKA+ to use the camera to photograph your Kurswahlprotokoll. The photo is only read on this iPhone."
+            "value": "Allow LGKA+ to use the camera to photograph your course selection record. The photo is only read on this iPhone."
           }
         }
       }
@@ -2922,6 +2803,40 @@
         }
       }
     },
+    "settings.language": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprache"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
+    "settings.language.system": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Systemsprache"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System language"
+          }
+        }
+      }
+    },
     "settingsSectionAppearance": {
       "extractionState": "manual",
       "localizations": {
@@ -2952,6 +2867,465 @@
           "stringUnit": {
             "state": "translated",
             "value": "MORE"
+          }
+        }
+      }
+    },
+    "subject.Ast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Astronomie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Astronomy"
+          }
+        }
+      }
+    },
+    "subject.BK": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildende Kunst"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Art"
+          }
+        }
+      }
+    },
+    "subject.Bio": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biologie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biology"
+          }
+        }
+      }
+    },
+    "subject.Ch": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chemie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chemistry"
+          }
+        }
+      }
+    },
+    "subject.D": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deutsch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "German"
+          }
+        }
+      }
+    },
+    "subject.E": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Englisch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English"
+          }
+        }
+      }
+    },
+    "subject.Eth": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ethik"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ethics"
+          }
+        }
+      }
+    },
+    "subject.F": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Französisch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "French"
+          }
+        }
+      }
+    },
+    "subject.G": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschichte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History"
+          }
+        }
+      }
+    },
+    "subject.Geo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geographie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geography"
+          }
+        }
+      }
+    },
+    "subject.Gk": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemeinschaftskunde"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Social Studies"
+          }
+        }
+      }
+    },
+    "subject.I": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Italienisch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Italian"
+          }
+        }
+      }
+    },
+    "subject.Inf": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informatik"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Computer Science"
+          }
+        }
+      }
+    },
+    "subject.L": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latein"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latin"
+          }
+        }
+      }
+    },
+    "subject.LTh": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Literatur und Theater"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Literature and Theatre"
+          }
+        }
+      }
+    },
+    "subject.M": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mathematik"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maths"
+          }
+        }
+      }
+    },
+    "subject.Mu": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Music"
+          }
+        }
+      }
+    },
+    "subject.NwT": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NwT"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Science and Technology"
+          }
+        }
+      }
+    },
+    "subject.Ph": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Physik"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Physics"
+          }
+        }
+      }
+    },
+    "subject.Phil": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Philosophie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Philosophy"
+          }
+        }
+      }
+    },
+    "subject.Psy": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psychologie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psychology"
+          }
+        }
+      }
+    },
+    "subject.Rel": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Religion"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Religious Education"
+          }
+        }
+      }
+    },
+    "subject.Rel.er": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ev. Religion"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protestant RE"
+          }
+        }
+      }
+    },
+    "subject.Rel.kr": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kath. Religion"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Catholic RE"
+          }
+        }
+      }
+    },
+    "subject.Sp": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spanisch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spanish"
+          }
+        }
+      }
+    },
+    "subject.Sport": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sport"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PE"
+          }
+        }
+      }
+    },
+    "subject.WBS": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wirtschaft"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Economics"
           }
         }
       }
@@ -3281,6 +3655,57 @@
         }
       }
     },
+    "weather.sourceCurrentOpenMeteo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Werte von Open-Meteo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current conditions from Open-Meteo"
+          }
+        }
+      }
+    },
+    "weather.sourceForecast": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorhersage von Open-Meteo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forecast from Open-Meteo"
+          }
+        }
+      }
+    },
+    "weather.sourceInfo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenquelle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data source"
+          }
+        }
+      }
+    },
     "weather.sourceSchool": {
       "extractionState": "manual",
       "localizations": {
@@ -3294,6 +3719,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Live from the school's rooftop weather station"
+          }
+        }
+      }
+    },
+    "weather.sourceTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Woher die Wetterdaten kommen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where the weather data comes from"
           }
         }
       }
@@ -3338,13 +3780,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wetter Karlsruhe"
+            "value": "Wetter"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Weather Karlsruhe"
+            "value": "Weather"
           }
         }
       }

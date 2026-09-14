@@ -38,6 +38,8 @@ struct LGKAApp: App {
                 .environment(prefs)
                 .environment(model)
                 .environment(\.appAccent, prefs.accent)
+                // dates and numbers follow the language picked in Settings
+                .environment(\.locale, AppLanguage.shared.locale)
                 // every Link / inline link in the app: tap haptic, then the app's own web
                 // screen (the one the bug report uses); non-web URLs go to the system
                 .environment(\.openURL, OpenURLAction { url in

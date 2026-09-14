@@ -116,7 +116,7 @@ extension WeatherPageScreen {
             statTile("wind", L.s("weatherWindShort"), "\(Int(w.current.windSpeed.rounded())) km/h")
             statTile("gauge.with.needle", L.s("pressure"), "\(w.current.pressure) hPa")
             statTile("sun.max.fill", L.s("uvIndex"),
-                     "\(w.current.uvi.formatted(.number.precision(.fractionLength(1)))) · \(uviLabel(w.current.uvi))")
+                     "\(w.current.uvi.formatted(.number.precision(.fractionLength(1)).locale(AppLanguage.shared.locale))) · \(uviLabel(w.current.uvi))")
         }
     }
 
@@ -181,6 +181,6 @@ extension WeatherPageScreen {
     private func dayLabel(_ iso: String) -> String {
         if LocalDate.isToday(iso) { return L.s("today") }
         guard let date = LocalDate.parse(iso) else { return iso }
-        return date.formatted(.dateTime.weekday(.abbreviated))
+        return date.formatted(.dateTime.weekday(.abbreviated).locale(AppLanguage.shared.locale))
     }
 }

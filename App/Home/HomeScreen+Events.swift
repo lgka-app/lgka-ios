@@ -51,7 +51,7 @@ extension HomeScreen {
     private func dateTile(_ iso: String) -> some View {
         let date = LocalDate.parse(iso)
         let day = date.map { Calendar.current.component(.day, from: $0) } ?? 0
-        let month = date?.formatted(.dateTime.month(.abbreviated)) ?? ""
+        let month = date?.formatted(.dateTime.month(.abbreviated).locale(AppLanguage.shared.locale)) ?? ""
         return VStack(spacing: 0) {
             Text("\(day)").font(.title3.weight(.bold)).foregroundStyle(accent)
             Text(month).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
@@ -63,7 +63,7 @@ extension HomeScreen {
 
     private func eventSubtitle(_ event: SchoolEvent) -> String {
         guard let date = LocalDate.parse(event.date) else { return event.time ?? "" }
-        let base = date.formatted(.dateTime.weekday(.abbreviated).day().month(.wide))
+        let base = date.formatted(.dateTime.weekday(.abbreviated).day().month(.wide).locale(AppLanguage.shared.locale))
         if let time = event.time { return "\(base) · \(time)" }
         return base
     }

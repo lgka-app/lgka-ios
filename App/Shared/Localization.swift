@@ -5,12 +5,13 @@ import LGKACore
 /// German is the source language; English is the second localization.
 /// Keys are stable identifiers, not the German text.
 enum L {
+    /// In the app language (Settings), which re-renders every view reading it when it changes.
     static func s(_ key: String) -> String {
-        String(localized: String.LocalizationValue(key), bundle: .main)
+        String(localized: String.LocalizationValue(key), bundle: AppLanguage.shared.bundle)
     }
 
     static func f(_ key: String, _ args: any CVarArg...) -> String {
-        String(format: s(key), locale: .current, arguments: args)
+        String(format: s(key), locale: AppLanguage.shared.locale, arguments: args)
     }
 
     /// Localized weekday for a German Untis weekday name ("Montag").

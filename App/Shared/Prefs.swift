@@ -78,6 +78,7 @@ final class Prefs {
         selectedScheduleClass = ""
         accentColor = "blue"
         themeMode = "system"
+        AppLanguage.shared.set(nil)
         passwordRotated = false
     }
 }

@@ -43,6 +43,9 @@ struct WeatherPageScreen: View {
         #endif
     }
 
+    /// The info button's panel naming where the weather comes from.
+    @State private var showSource = false
+
     private var skyIsDay: Bool? {
         #if DEBUG
         preview?.isDay
@@ -74,9 +77,31 @@ struct WeatherPageScreen: View {
                 ProgressView()
             }
         }
+        .overlay(alignment: .top) {
+            if showSource, let w = model.weather {
+                sourcePanel(w)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
         .navigationTitle(L.s("weatherPageTitle"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            if model.weather != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Haptics.light()
+                        withAnimation(.spring(duration: 0.35, bounce: 0.2)) { showSource.toggle() }
+                    } label: {
+                        Image(systemName: showSource ? "info.circle.fill" : "info.circle")
+                    }
+                    .accessibilityLabel(L.s("weather.sourceInfo"))
+                    .accessibilityIdentifier("weather.sourceInfo")
+                }
+            }
+        }
         #if DEBUG
         .confirmationDialog(L.s("a11y.skyPreview"), isPresented: $showPreviewMenu, titleVisibility: .visible) {
             Button(L.s("live")) { Haptics.light(); preview = nil }
@@ -86,6 +111,39 @@ struct WeatherPageScreen: View {
         }
         #endif
         .refreshable { Haptics.medium(); await model.sync(only: [.weather]) }
+    }
+
+    /// Where the numbers come from: the school's rooftop station (when it is healthy) or Open-Meteo for
+    /// the current values, Open-Meteo for the forecast.
+    private func sourcePanel(_ w: WeatherData) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L.s("weather.sourceTitle"))
+                .font(.subheadline.weight(.semibold))
+            Label(w.source == .school ? L.s("weather.sourceSchool") : L.s("weather.sourceCurrentOpenMeteo"),
+                  systemImage: w.source == .school ? "building.2" : "cloud.sun")
+            Label(L.s("weather.sourceForecast"), systemImage: "calendar")
+            if let url = URL(string: "https://open-meteo.com/") {
+                Button {
+                    Haptics.light()
+                    Task { @MainActor in await UIApplication.shared.open(url) }
+                } label: {
+                    Label("open-meteo.com", systemImage: "arrow.up.right.square")
+                        .underline()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .environment(\.colorScheme, .dark)
+        .readableWidth()
+        .onTapGesture {
+            Haptics.light()
+            withAnimation(.spring(duration: 0.35, bounce: 0.2)) { showSource = false }
+        }
     }
 
     private func content(_ w: WeatherData) -> some View {

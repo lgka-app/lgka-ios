@@ -5,9 +5,16 @@ import UIKit
 /// thread once and kept for the session.
 @MainActor
 enum TutorialImages {
-    static let sample = "kurswahl_sample"
-    static let good = "kurswahl_good"
-    static let bad = "kurswahl_bad"
+    static var sample: String { localized("kurswahl_sample") }
+    static var good: String { localized("kurswahl_good") }
+    static var bad: String { localized("kurswahl_bad") }
+    /// The personal timetable PDF made from the sample sheet.
+    static var result: String { localized("plan_result") }
+
+    /// Every image exists once in German and once in English: "kurswahl_sample_de" / "_en", by app language.
+    static func localized(_ base: String) -> String {
+        base + (AppLanguage.shared.effective == "de" ? "_de" : "_en")
+    }
 
     private static var cache: [String: UIImage] = [:]
 
@@ -53,57 +60,5 @@ struct TutorialImage: View {
                 let loaded = await TutorialImages.load(name)
                 withAnimation(.easeOut(duration: 0.25)) { image = loaded }
             }
-    }
-}
-
-/// Full-screen, pinch-to-zoom viewer for the sample sheet.
-struct TutorialImageViewer: View {
-    let name: String
-    let label: String
-    @Environment(\.dismiss) private var dismiss
-    @State private var image: UIImage?
-    @State private var scale: CGFloat = 1
-    @State private var baseScale: CGFloat = 1
-
-    var body: some View {
-        NavigationStack {
-            GeometryReader { geo in
-                ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                    Group {
-                        if let image {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                        } else {
-                            ProgressView()
-                        }
-                    }
-                    .frame(width: geo.size.width * scale, height: geo.size.height * scale)
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .gesture(
-                    MagnifyGesture()
-                        .onChanged { scale = min(4, max(1, baseScale * $0.magnification)) }
-                        .onEnded { _ in baseScale = scale }
-                )
-                .onTapGesture(count: 2) {
-                    Haptics.light()
-                    withAnimation(.snappy) { scale = scale > 1 ? 1 : 2.5 }
-                    baseScale = scale
-                }
-            }
-            .background(Color.appBackground)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(label)
-            .accessibilityAddTraits(.isImage)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { Haptics.light(); dismiss() } label: {
-                        Label(L.s("a11y.close"), systemImage: "xmark")
-                    }
-                }
-            }
-            .task { image = await TutorialImages.load(name) }
-        }
     }
 }

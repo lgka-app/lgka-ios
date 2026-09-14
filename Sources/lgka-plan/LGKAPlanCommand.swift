@@ -51,9 +51,11 @@ struct LGKAPlanCommand {
             try write(result, to: out)
             report(result)
         case "render":
-            guard rest.count == 2 else { throw Usage() }
-            let plan = try JSONDecoder().decode(CustomPlan.self, from: Data(contentsOf: URL(fileURLWithPath: rest[0])))
-            try CustomPlanPDF.render(plan).write(to: URL(fileURLWithPath: rest[1]))
+            let files = rest.filter { $0 != "--english" }
+            guard files.count == 2 else { throw Usage() }
+            let plan = try JSONDecoder().decode(CustomPlan.self, from: Data(contentsOf: URL(fileURLWithPath: files[0])))
+            let labels = rest.contains("--english") ? Self.english : .german
+            try CustomPlanPDF.render(plan, labels: labels).write(to: URL(fileURLWithPath: files[1]))
             print("wrote \(rest[1])")
         case "stufenplan":
             guard let path = rest.first else { throw Usage() }
@@ -81,6 +83,35 @@ struct LGKAPlanCommand {
               lgka-plan stufenplan plan.pdf | kurswahl photo.jpg | words plan.pdf | ocr photo.jpg
             """
         }
+    }
+
+    /// The PDF's words in English (the app uses its string catalog instead).
+    static let english = CustomPlanPDF.Labels(
+        title: "Personal timetable",
+        schoolYear: { "School year \($0)" },
+        stand: { "As of \($0)" },
+        room: { "Room \($0)" },
+        days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        halbjahr: { $0.hasPrefix("1") ? "1st semester" : $0.hasPrefix("2") ? "2nd semester" : $0 },
+        footer: { "Bell times from school year 2025/26 (school rules, 2025). Long breaks: \($0)" },
+        courseTitle: { course in
+            let name = englishSubject(course)
+            if course.codes.count > 1 { return "\(name) (\(course.codes.joined(separator: " / ")))" }
+            let code = course.codes.first ?? course.id
+            guard course.level == .leistungsfach else { return "\(name) (\(code))" }
+            return CourseCode(code)?.number != nil ? "\(name) (adv., \(code))" : "\(name) (adv.)"
+        },
+        sharedSlotsNote: { "\(englishSubject($0)): \($0.codes.joined(separator: " / ")) not stated on the course selection record, all at the same time" })
+
+    static func englishSubject(_ course: CustomPlan.Course) -> String {
+        let stem = course.codes.first.flatMap(CourseCode.init)?.stem
+        if course.subjectKey == "Rel" { return stem == "er" ? "Protestant RE" : stem == "kr" ? "Catholic RE" : "Religious Education" }
+        let names = ["D": "German", "E": "English", "F": "French", "Sp": "Spanish", "L": "Latin", "I": "Italian", "BK": "Art",
+                     "Mu": "Music", "G": "History", "Gk": "Social Studies", "Geo": "Geography", "WBS": "Economics", "Eth": "Ethics",
+                     "Phil": "Philosophy", "M": "Maths", "Bio": "Biology", "Ph": "Physics", "Ch": "Chemistry",
+                     "NwT": "Science and Technology", "Inf": "Computer Science", "Sport": "PE", "Psy": "Psychology",
+                     "Ast": "Astronomy", "LTh": "Literature and Theatre"]
+        return names[course.subjectKey] ?? course.subject
     }
 
     private static func values(_ args: [String], _ flag: String) -> [String] {

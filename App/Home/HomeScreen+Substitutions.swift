@@ -67,7 +67,8 @@ extension HomeScreen {
         let title = canOpen ? weekday : L.s("noInfoYet")
         let subtitle: String? = {
             guard canOpen, let plan else { return nil }
-            return "\(plan.meta.date) · " + String(localized: "substitutions.count \(plan.plan.entries.count)")
+            return "\(plan.meta.date) · " + String(localized: "substitutions.count \(plan.plan.entries.count)",
+                                                           bundle: AppLanguage.shared.bundle, locale: AppLanguage.shared.locale)
         }()
         Button {
             guard let plan, canOpen else { return }

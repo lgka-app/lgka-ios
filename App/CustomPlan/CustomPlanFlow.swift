@@ -247,7 +247,7 @@ struct CustomPlanReviewScreen: View {
     private func courseRow(_ choice: Binding<CustomPlan.Choice>, plan: CustomPlan) -> some View {
         let value = choice.wrappedValue
         let course = plan.courses.first { $0.subjectKey == value.subject }
-        let name = SchoolReference.subject(value.subject)?.name ?? value.subject
+        let name = CustomPlanLabels.subject(key: value.subject)
         let lf = CustomPlanBuilder.candidates(subject: value.subject, level: .leistungsfach,
                                               konfession: draft.kurswahl?.konfession, plan: draft.loaded.stufenplan)
         let basis = CustomPlanBuilder.candidates(subject: value.subject, level: .basisfach,
@@ -316,7 +316,7 @@ struct CustomPlanReviewScreen: View {
         }
         return Menu {
             ForEach(available, id: \.key) { subject in
-                Menu(subject.name) {
+                Menu(CustomPlanLabels.subject(key: subject.key)) {
                     ForEach(CustomPlanBuilder.candidates(subject: subject.key, level: nil, konfession: konfession, plan: plan), id: \.self) { code in
                         Button(code) {
                             Haptics.medium()
@@ -338,7 +338,7 @@ struct CustomPlanReviewScreen: View {
     }
 
     private func issueText(_ issue: CustomPlan.Issue, plan: CustomPlan) -> String {
-        let name = issue.subject.map { SchoolReference.subject($0)?.name ?? $0 } ?? ""
+        let name = issue.subject.map { CustomPlanLabels.subject(key: $0, code: issue.codes.first) } ?? ""
         switch issue.kind {
         case .unreadable: return L.f("custom.issue.unreadable", name)
         case .notInPlan: return L.f("custom.issue.notInPlan", name)

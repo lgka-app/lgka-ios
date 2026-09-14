@@ -34,13 +34,17 @@ struct KurswahlCameraScreen: View {
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                 VStack(spacing: 12) {
+                    HStack {
+                        closeButton
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
                     instructionPill
                     if hint == .holdParallel {
                         SpiritLevel(gravity: camera.level, accent: accent)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
                     }
                     Spacer()
-                    controls
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 20)
@@ -54,6 +58,8 @@ struct KurswahlCameraScreen: View {
         .statusBarHidden()
         .task {
             camera.onAutoCapture = { Task { await shoot() } }
+            // at the moment the sensor takes each photo (with the shutter sound), not when it is processed
+            camera.onPhotoTaken = { photoTaken($0) }
             await camera.start()
         }
         .onDisappear { camera.stop() }
@@ -161,60 +167,24 @@ struct KurswahlCameraScreen: View {
 
     // MARK: Controls
 
-    private var controls: some View {
-        HStack {
-            Button {
-                Haptics.light()
-                onCancel()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-            }
-            .glassEffect(.regular.interactive(), in: .circle)
-            .accessibilityLabel(L.s("scan.close"))
-
-            Spacer()
-
-            captureStatus
-
-            Spacer()
-
-            // keeps the status centred against the close button
-            Color.clear.frame(width: 56, height: 56)
+    private var closeButton: some View {
+        Button {
+            Haptics.light()
+            onCancel()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
         }
-        .padding(.horizontal, 28)
-    }
-
-    /// Not a button: the ring fills while the framing holds, then the photos are taken by themselves.
-    private var captureStatus: some View {
-        let bursting = camera.isCapturing
-        let progress = bursting ? Double(photosTaken) / Double(Self.burstCount) : camera.state.progress
-        return ZStack {
-            Circle().stroke(.white.opacity(0.25), lineWidth: 4)
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.12), value: progress)
-            Image(systemName: bursting ? "camera.shutter.button.fill" : "camera.fill")
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(hint == .ready || bursting ? accent : .white.opacity(0.85))
-                .contentTransition(.symbolEffect(.replace))
-                .symbolEffect(.bounce, value: photosTaken)
-        }
-        .frame(width: 84, height: 84)
-        .glassEffect(in: .circle)
-        .accessibilityHidden(true)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel(L.s("scan.close"))
     }
 
     private func shoot() async {
         guard !camera.isCapturing, camera.authorization == .allowed else { return }
         photosTaken = 0
-        let images = await camera.capture(count: Self.burstCount) { index in
-            photoTaken(index)
-        }
+        let images = await camera.capture(count: Self.burstCount)
         if !images.isEmpty {
             camera.stop()
             onCapture(images)

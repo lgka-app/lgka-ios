@@ -119,7 +119,7 @@ public enum CustomPlanPDF {
                 if p > 1 {
                     let heavy = SchoolReference.blockStarts.contains(p)
                     ctx.setLineWidth(heavy ? 1.0 : 0.4)
-                    ctx.setStrokeColor(heavy ? black : CGColor(gray: 0.6, alpha: 1))
+                    ctx.setStrokeColor(black)
                     line(x0 + (heavy ? 0 : labelWidth), yy, x0 + W - 60, yy)
                 }
             }

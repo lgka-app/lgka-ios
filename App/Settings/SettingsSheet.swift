@@ -12,6 +12,16 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmLogout = false
 
+    /// System / Deutsch / English; applies at once, and the personal plan's PDF is rebuilt in the new
+    /// language from the stored plan.
+    private var languageBinding: Binding<String> {
+        Binding(get: { AppLanguage.shared.code ?? "system" }, set: { value in
+            Haptics.light()
+            AppLanguage.shared.set(value == "system" ? nil : value)
+            if let saved = CustomPlanStore.shared.saved { _ = try? CustomPlanSource.pdfFile(for: saved.plan) }
+        })
+    }
+
     private let appVersion =
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
 
@@ -25,6 +35,12 @@ struct SettingsSheet: View {
                     LabeledContent(L.s("accentColor")) {
                         AccentPalettePicker().frame(maxWidth: 220)
                     }
+                    Picker(L.s("settings.language"), selection: languageBinding) {
+                        Text(L.s("settings.language.system")).tag("system")
+                        Text(verbatim: "Deutsch").tag("de")
+                        Text(verbatim: "English").tag("en")
+                    }
+                    .accessibilityIdentifier("settings.language")
                 }
 
                 Section {

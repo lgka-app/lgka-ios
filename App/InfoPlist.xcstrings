@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "NSCameraUsageDescription" : {
+      "comment" : "Camera permission text for scanning the Kurswahlprotokoll",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kamera fotografiert dein Kurswahlprotokoll für deinen eigenen Stundenplan. Das Foto wird nur auf diesem iPhone gelesen und nicht gespeichert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The camera photographs your course selection record for your own timetable. The photo is only read on this iPhone and never stored."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

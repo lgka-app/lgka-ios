@@ -5,6 +5,19 @@ import LGKAPlanKit
 /// The custom plan's words in the app language: course titles, Halbjahr names and the PDF's labels.
 /// Subject names and the school's own data stay as the school prints them.
 enum CustomPlanLabels {
+    /// A subject in the app language ("Mathematik" / "Maths"); religion by the course's stem (kR / eR).
+    static func subject(key: String, code: String? = nil) -> String {
+        if key == "Rel", let stem = code.flatMap(CourseCode.init)?.stem, stem == "kr" || stem == "er" {
+            return L.s("subject.Rel.\(stem)")
+        }
+        let value = L.s("subject.\(key)")
+        return value == "subject.\(key)" ? (SchoolReference.subject(key)?.name ?? key) : value
+    }
+
+    static func subject(_ course: CustomPlan.Course) -> String {
+        subject(key: course.subjectKey, code: course.codes.first)
+    }
+
     /// "1. Halbjahr" (school data) → "1. Halbjahr" / "1st semester".
     static func halbjahr(_ value: String) -> String {
         if value.hasPrefix("1") { return L.s("firstSemester") }
@@ -14,14 +27,14 @@ enum CustomPlanLabels {
 
     /// "Mathematik (LF, M3)", "Gemeinschaftskunde (LF)", "Sport (s1 / s2 / s3)" with the level in the app language.
     static func title(_ course: CustomPlan.Course) -> String {
-        if course.codes.count > 1 { return "\(course.subject) (\(course.codes.joined(separator: " / ")))" }
+        if course.codes.count > 1 { return "\(subject(course)) (\(course.codes.joined(separator: " / ")))" }
         let code = course.codes.first ?? course.id
         switch course.level {
         case .leistungsfach:
             let level = L.s("custom.level.short.LF")
-            return CourseCode(code)?.number != nil ? "\(course.subject) (\(level), \(code))" : "\(course.subject) (\(level))"
+            return CourseCode(code)?.number != nil ? "\(subject(course)) (\(level), \(code))" : "\(subject(course)) (\(level))"
         case .basisfach:
-            return "\(course.subject) (\(code))"
+            return "\(subject(course)) (\(code))"
         }
     }
 
@@ -39,7 +52,7 @@ enum CustomPlanLabels {
             footer: { String(format: footer, $0) },
             courseTitle: { title($0) },
             sharedSlotsNote: { course in
-                String(format: note, course.subject, course.codes.joined(separator: " / "))
+                String(format: note, subject(course), course.codes.joined(separator: " / "))
             })
     }
 }

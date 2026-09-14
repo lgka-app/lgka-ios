@@ -29,6 +29,8 @@ final class KurswahlCamera {
 
     /// Fires when the "ready" state held long enough.
     @ObservationIgnored var onAutoCapture: (() -> Void)?
+    /// Fires as each photo of a burst is exposed (0-based index), for the flash and haptic.
+    @ObservationIgnored var onPhotoTaken: ((Int) -> Void)?
     @ObservationIgnored let pipeline = CameraPipeline()
     @ObservationIgnored private var guidance = ScanGuidance()
     @ObservationIgnored private var torch = TorchPolicy()
@@ -59,8 +61,8 @@ final class KurswahlCamera {
 
     /// Takes a few photos in a row and straightens each with the last stable detection. The scanner
     /// merges them cell by cell, so a digit blurred or glared in one photo is read from another.
-    /// `onPhoto` runs right after each photo was taken (0-based index), for the shutter effect.
-    func capture(count: Int = 3, onPhoto: (Int) -> Void = { _ in }) async -> [CGImage] {
+    /// `onPhotoTaken` runs as each photo is exposed (0-based index), in step with the shutter sound.
+    func capture(count: Int = 3) async -> [CGImage] {
         guard !isCapturing else { return [] }
         isCapturing = true
         defer {
@@ -71,10 +73,11 @@ final class KurswahlCamera {
         var images: [CGImage] = []
         for index in 0..<count {
             let data: Data? = await withCheckedContinuation { continuation in
-                pipeline.capture { continuation.resume(returning: $0) }
+                pipeline.capture(willCapture: { [weak self] in
+                    Task { @MainActor in self?.onPhotoTaken?(index) }
+                }, completion: { continuation.resume(returning: $0) })
             }
             guard let data else { continue }
-            onPhoto(index)
             let image = await Task.detached(priority: .userInitiated) { () -> CGImage? in
                 // 4032 px keeps three photos in memory; the table crops are enlarged again for reading
                 guard let image = KurswahlScanner.image(from: data, maxPixels: 4032) else { return nil }
@@ -228,14 +231,15 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
         }
     }
 
-    func capture(_ completion: @escaping @Sendable (Data?) -> Void) {
+    /// `willCapture` fires when the sensor exposes the photo (the shutter sound), `completion` once it is processed.
+    func capture(willCapture: @escaping @Sendable () -> Void, completion: @escaping @Sendable (Data?) -> Void) {
         sessionQueue.async { [self] in
             guard session.isRunning else { completion(nil); return }
             let settings = AVCapturePhotoSettings()
             settings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
             settings.photoQualityPrioritization = .quality
             let id = settings.uniqueID
-            let delegate = PhotoDelegate { [weak self] data in
+            let delegate = PhotoDelegate(willCapture: willCapture) { [weak self] data in
                 completion(data)
                 guard let self else { return }
                 sessionQueue.async { self.photoDelegates[id] = nil }
@@ -314,10 +318,16 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
 }
 
 private final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sendable {
+    private let willCapture: @Sendable () -> Void
     private let completion: @Sendable (Data?) -> Void
 
-    init(completion: @escaping @Sendable (Data?) -> Void) {
+    init(willCapture: @escaping @Sendable () -> Void, completion: @escaping @Sendable (Data?) -> Void) {
+        self.willCapture = willCapture
         self.completion = completion
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        willCapture()
     }
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: (any Error)?) {
