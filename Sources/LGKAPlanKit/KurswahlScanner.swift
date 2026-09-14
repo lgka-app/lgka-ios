@@ -61,7 +61,12 @@ public enum KurswahlScanner {
             let full = try await recognize(image, region: CGRect(x: 0, y: 0, width: 1, height: 1))
             var boxes = full
             if let table = tableRegion(full) {
-                boxes += try await recognize(image, region: table)
+                // the table in two overlapping halves, each enlarged more than the whole table could be:
+                // the bracketed course numbers are only ~2 mm tall on the sheet
+                let upper = CGRect(x: table.minX, y: table.minY, width: table.width, height: table.height * 0.56)
+                let lower = CGRect(x: table.minX, y: table.minY + table.height * 0.44, width: table.width, height: table.height * 0.56)
+                boxes += try await recognize(image, region: upper)
+                boxes += try await recognize(image, region: lower)
             }
             let aspect = Double(image.height) / Double(max(1, image.width))
             shots.append(Shot(boxes: boxes, aspect: aspect))

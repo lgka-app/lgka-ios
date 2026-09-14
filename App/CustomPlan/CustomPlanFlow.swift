@@ -5,74 +5,45 @@ import LGKAPlanKit
 
 // MARK: - Host
 
-/// Pushed from Home: the saved plan, or the way to create one. Rebuilds a saved plan quietly
-/// when the school publishes a newer Stufenplan or the next Halbjahr.
+/// Pushed from Home: scanning a Kurswahlprotokoll (setup, then review) or correcting the saved
+/// courses. Saving hands the plan back to Home, which opens its PDF.
 struct CustomPlanHost: View {
+    enum Mode { case scan, edit }
+
+    let mode: Mode
+    let onSaved: (SavedCustomPlan) -> Void
     @Environment(HomeModel.self) private var model
-    @State private var store = CustomPlanStore.shared
-    @State private var editing: CustomPlanDraft?
-    @State private var rescanning = false
-    /// Review of a first scan. Pushed from here, not from the setup screen: saving swaps the setup
-    /// screen for the plan, and a destination owned by the removed screen would never pop.
     @State private var reviewing: CustomPlanDraft?
 
     var body: some View {
-        Group {
-            if let saved = store.saved {
-                CustomPlanScreen(saved: saved,
-                                 onEditCourses: { Task { await edit(saved) } },
-                                 onRescan: { rescanning = true },
-                                 onDelete: { store.delete() })
-            } else {
-                CustomPlanSetupScreen(onDraft: { reviewing = $0 })
-            }
-        }
-        .navigationDestination(item: $reviewing) { draft in
-            CustomPlanReviewScreen(draft: draft) { value in
-                store.save(value)
-                reviewing = nil
-            }
-        }
-        .task { await refreshIfPlanChanged() }
-        .sheet(item: $editing) { draft in
-            NavigationStack {
-                CustomPlanReviewScreen(draft: draft) { value in
-                    store.save(value)
-                    editing = nil
+        switch mode {
+        case .scan:
+            CustomPlanSetupScreen(onDraft: { reviewing = $0 })
+                .navigationDestination(item: $reviewing) { draft in
+                    CustomPlanReviewScreen(draft: draft) { save($0) }
                 }
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(L.s("cancel")) { Haptics.light(); editing = nil }
-                    }
+        case .edit:
+            Group {
+                if let reviewing {
+                    CustomPlanReviewScreen(draft: reviewing) { save($0) }
+                } else {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-        }
-        .fullScreenCover(isPresented: $rescanning) {
-            NavigationStack {
-                CustomPlanSetupScreen(onDone: { rescanning = false })
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button(L.s("cancel")) { Haptics.light(); rescanning = false }
-                        }
-                    }
-            }
+            .task { await loadSaved() }
         }
     }
 
-    private func edit(_ saved: SavedCustomPlan) async {
-        guard let plans = try? await CustomPlanSource.plans(model: model),
-              let loaded = CustomPlanSource.pick(plans, stufe: saved.plan.stufe, kurswahl: saved.kurswahl) else { return }
-        editing = CustomPlanDraft(saved: saved, loaded: loaded)
+    private func save(_ value: SavedCustomPlan) {
+        CustomPlanStore.shared.save(value)
+        onSaved(value)
     }
 
-    private func refreshIfPlanChanged() async {
-        guard let saved = store.saved,
+    private func loadSaved() async {
+        guard reviewing == nil, let saved = CustomPlanStore.shared.saved,
               let plans = try? await CustomPlanSource.plans(model: model),
-              let loaded = CustomPlanSource.pick(plans, stufe: nil, kurswahl: saved.kurswahl)
-                ?? CustomPlanSource.pick(plans, stufe: saved.plan.stufe, kurswahl: nil),
-              loaded.item.pdf?.sha256 != saved.plan.planSha256 else { return }
-        let draft = CustomPlanDraft(saved: saved, loaded: loaded)
-        store.save(.init(plan: draft.plan, kurswahl: saved.kurswahl, planTitle: loaded.item.title))
+              let loaded = CustomPlanSource.pick(plans, stufe: saved.plan.stufe, kurswahl: saved.kurswahl) else { return }
+        reviewing = CustomPlanDraft(saved: saved, loaded: loaded)
     }
 }
 
@@ -87,6 +58,26 @@ enum CustomPlanSource {
     }
 
     enum Failure: Error { case noPlanPublished }
+
+    /// The saved plan against the current Stufenplan: rebuilt (and saved) when the school published a
+    /// newer one or the next Halbjahr started, unchanged otherwise or when offline.
+    static func refreshed(_ saved: SavedCustomPlan, model: HomeModel) async -> SavedCustomPlan {
+        guard let plans = try? await plans(model: model),
+              let loaded = pick(plans, stufe: nil, kurswahl: saved.kurswahl) ?? pick(plans, stufe: saved.plan.stufe, kurswahl: nil),
+              loaded.item.pdf?.sha256 != saved.plan.planSha256 else { return saved }
+        let updated = CustomPlanDraft(saved: saved, loaded: loaded).saved
+        CustomPlanStore.shared.save(updated)
+        return updated
+    }
+
+    /// The plan rendered as its Untis-style PDF in Caches, named for sharing.
+    static func pdfFile(for plan: CustomPlan) throws -> URL {
+        let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let owner = plan.name.isEmpty ? plan.stufe : plan.name
+        let url = caches.appendingPathComponent("Stundenplan \(owner) \(plan.halbjahr).pdf")
+        try CustomPlanPDF.render(plan).write(to: url, options: .atomic)
+        return url
+    }
 
     static func plans(model: HomeModel) async throws -> [Loaded] {
         let items = model.preferredGroup.filter { item in
@@ -214,9 +205,9 @@ struct CustomPlanSetupScreen: View {
         .safeAreaInset(edge: .bottom) { actions }
         .overlay { if let reading { readingOverlay(reading) } }
         .fullScreenCover(isPresented: $showCamera) {
-            KurswahlLiveScanScreen(schuljahr: scanTarget.schuljahr, halbjahr: scanTarget.halbjahr, onFinish: { result in
+            KurswahlCameraScreen(onCapture: { images in
                 showCamera = false
-                finish { result }
+                read(images)
             }, onCancel: { showCamera = false })
         }
         .onChange(of: photoItem) { _, item in
@@ -241,13 +232,6 @@ struct CustomPlanSetupScreen: View {
         .alert(failure ?? "", isPresented: .init(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("OK", role: .cancel) { Haptics.light() }
         }
-    }
-
-    /// Schuljahr and Halbjahr of the published J11/J12 plans, so a live scan counts the right Halbjahr column.
-    private var scanTarget: (schuljahr: String?, halbjahr: String) {
-        let item = model.preferredGroup.first { $0.grades.contains { $0 >= 11 } }
-        let year = item?.title.firstMatch(of: #/(\d{4})\/(\d{4})/#).map { "\($0.1)-\($0.2)" }
-        return (year, item?.halbjahr ?? "1. Halbjahr")
     }
 
     private var hero: some View {
@@ -365,7 +349,7 @@ struct CustomPlanSetupScreen: View {
         finish { try await KurswahlScanner.read(images) }
     }
 
-    /// A live scan arrives already read; a picked photo is read here. Then the Stufenplan and the review.
+    /// Reads the photos, loads the Stufenplan meanwhile, then shows the review.
     private func finish(_ scanned: @escaping @Sendable () async throws -> KurswahlScanner.Result) {
         Task {
             defer { withAnimation { reading = nil } }

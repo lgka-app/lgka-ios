@@ -66,9 +66,40 @@ extension HomeScreen {
                         title: saved == nil ? L.s("custom.home.create") : L.s("custom.home.title"),
                         subtitle: saved.map { L.f("custom.home.subtitle", $0.plan.stufe, $0.plan.checks.totalHours) }
                             ?? L.s("custom.home.createSubtitle")) {
-            path.append(HomeRoute.customPlan)
+            if let saved { openCustomPlan(saved) } else { path.append(HomeRoute.customPlan) }
         }
         .accessibilityIdentifier("home.customPlan")
+        .contextMenu {
+            if saved != nil {
+                Button(L.s("plan.editCourses"), systemImage: "checklist") {
+                    Haptics.light()
+                    path.append(HomeRoute.customPlanEdit)
+                }
+                Button(L.s("plan.rescan"), systemImage: "doc.viewfinder") {
+                    Haptics.light()
+                    path.append(HomeRoute.customPlan)
+                }
+                Button(L.s("plan.delete"), systemImage: "trash", role: .destructive) {
+                    Haptics.medium()
+                    CustomPlanStore.shared.delete()
+                }
+            }
+        }
+    }
+
+    /// The saved plan as its Untis-style PDF, rebuilt first when the school published a newer Stufenplan.
+    func openCustomPlan(_ saved: SavedCustomPlan) {
+        Task {
+            let current = await CustomPlanSource.refreshed(saved, model: model)
+            guard let file = try? CustomPlanSource.pdfFile(for: current.plan) else { return }
+            pdfDestination = PdfDestination(fileUrl: file, title: L.s("custom.home.title"), targetPage: nil)
+        }
+    }
+
+    /// After scanning or editing: back to Home, then straight into the PDF.
+    func finishCustomPlan(_ saved: SavedCustomPlan) {
+        if !path.isEmpty { path.removeLast() }
+        openCustomPlan(saved)
     }
 
     private func homeCard(icon: String, title: String, subtitle: String,
