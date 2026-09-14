@@ -7,6 +7,9 @@ import Foundation
 
 public enum Resource: String, CaseIterable, Sendable, Codable {
     case substitutions, schedules, news, events, weather
+    /// The school's public staff list (Untis code → name, subjects, role). Opt-in on `/v1/sync`:
+    /// the API only includes it when the query names it, which this client always does.
+    case kollegium
 }
 
 // MARK: - Mirrored PDFs

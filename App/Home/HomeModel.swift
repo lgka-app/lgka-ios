@@ -12,7 +12,10 @@ final class HomeModel {
     private let client: APIClient
     private let store: SyncStore
 
-    private(set) var state = SyncState()
+    private(set) var state = SyncState() {
+        // teacher names everywhere (custom plan, PDF) follow the synced staff list
+        didSet { TeacherDirectory.shared.update(state.kollegium?.data.staff ?? []) }
+    }
     private(set) var isSyncing = false
     /// The last sync could not reach the API (offline, 5xx, decoding).
     private(set) var syncFailed = false

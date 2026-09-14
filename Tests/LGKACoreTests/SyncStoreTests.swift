@@ -10,7 +10,8 @@ struct SyncStoreTests {
         #expect(state.hashes.isEmpty)
 
         let outcome = store.apply(try Fixtures.sync("sync_full"), to: &state)
-        #expect(outcome.updated == Set(Resource.allCases))
+        // the fixture predates the opt-in staff list
+        #expect(outcome.updated == Set(Resource.allCases).subtracting([.kollegium]))
         #expect(outcome.fresh.isEmpty && outcome.unavailable.isEmpty)
         #expect(state.hashes.count == 5)
 
@@ -59,7 +60,7 @@ struct SyncStoreTests {
         store.apply(try Fixtures.sync("sync_full"), to: &state)
         let before = state.hashes
         let outcome = store.apply(try Fixtures.sync("sync_unavailable"), to: &state)
-        #expect(outcome.unavailable == Set(Resource.allCases))
+        #expect(outcome.unavailable == Set(Resource.allCases).subtracting([.kollegium]))
         #expect(outcome.updated.isEmpty)
         #expect(state.hashes == before)
         #expect(state.substitutions != nil)

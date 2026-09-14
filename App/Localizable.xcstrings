@@ -1076,13 +1076,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tippe auf einen Kurs, um einen anderen Parallelkurs zu wählen. Zum Entfernen nach links wischen."
+            "value": "Tippe auf einen Kurs, um einen anderen Parallelkurs zu wählen oder ihn zu entfernen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tap a course to pick another parallel course. Swipe left to remove it."
+            "value": "Tap a course to pick a different parallel course or remove it."
           }
         }
       }
@@ -1093,30 +1093,47 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nice, %@! Das Scannen hat funktioniert."
+            "value": "Hey %@, dein Scan hat geklappt!"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nice, %@! Scanning worked."
+            "value": "Hey %@, your scan worked!"
           }
         }
       }
     },
-    "custom.review.greetingBody": {
+    "custom.review.greetingBodyClean": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüf hier noch einmal, ob alles passt. Gelb ist geschätzt, Rot fehlt oder passt nicht."
+            "value": "Die KI hat dein Kurswahlprotokoll gelesen und alle Kurse gefunden. Schau trotzdem kurz drüber, ob Kurse, Lehrkräfte und Stunden stimmen – tipp auf einen Kurs, um einen anderen Parallelkurs zu wählen oder ihn zu entfernen. Falls sich seit dem Kurswahlprotokoll etwas geändert hat, zählt die Kursliste von deiner Lehrkraft. Anpassen kannst du das auch später noch: Halt dafür einfach die Stundenplan-Karte auf dem Startbildschirm gedrückt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check once more that everything is right. Yellow is estimated, red is missing or doesn't fit."
+            "value": "The AI read your course selection record and found all your courses. Still take a quick look that courses, teachers and hours are right – tap a course to pick a different parallel course or remove it. If anything has changed since your course selection record, the course list from your teacher is what counts. You can adjust it later too: just press and hold the timetable card on the home screen."
+          }
+        }
+      }
+    },
+    "custom.review.greetingBodyMarked": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die KI hat dein Kurswahlprotokoll gelesen und daraus deine Kurse zusammengestellt. An ein paar Stellen war sie sich aber nicht ganz sicher: Bei gelben Kursen konnte sie die Stunden nicht klar lesen und hat sie geschätzt, rote fehlen oder passen nicht zum aktuellen Stundenplan. Tipp einfach auf einen Kurs, um den richtigen Parallelkurs zu wählen oder ihn zu entfernen. Falls sich seit dem Kurswahlprotokoll etwas geändert hat, zählt die Kursliste von deiner Lehrkraft – pass deine Kurse daran an. Das geht auch später noch: Halt dafür einfach die Stundenplan-Karte auf dem Startbildschirm gedrückt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The AI read your course selection record and put your courses together from it. It wasn't completely sure in a few places, though: for yellow courses it couldn't read the hours clearly and estimated them, red ones are missing or don't fit the current timetable. Just tap a course to pick the right parallel course or remove it. If anything has changed since your course selection record, the course list from your teacher is what counts – adjust your courses to match. You can do that later too: just press and hold the timetable card on the home screen."
           }
         }
       }
@@ -1127,13 +1144,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nice! Das Scannen hat funktioniert."
+            "value": "Hey, dein Scan hat geklappt!"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nice! Scanning worked."
+            "value": "Hey, your scan worked!"
           }
         }
       }
@@ -1161,13 +1178,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld Wochenstunden, passt zu deinem Kurswahlprotokoll"
+            "value": "%lld Wochenstunden"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld hours a week, matches your course selection record"
+            "value": "%lld hours a week"
           }
         }
       }
@@ -1257,19 +1274,19 @@
         }
       }
     },
-    "custom.review.note": {
+    "custom.review.overview": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "So steht es in deinem Kurswahlprotokoll. Deine endgültigen Kurse können davon abweichen – passe sie jetzt an oder später mit langem Druck auf die Karte auf dem Startbildschirm. Die Erkennung übernimmt KI, prüf sie also kurz."
+            "value": "Überblick"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is what your course selection record says. Your final courses may differ – adjust them now or later by long-pressing the card on the home screen. AI does the recognition, so give it a quick check."
+            "value": "Overview"
           }
         }
       }
@@ -1304,6 +1321,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Timetable"
+          }
+        }
+      }
+    },
+    "custom.review.remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ entfernen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@"
           }
         }
       }

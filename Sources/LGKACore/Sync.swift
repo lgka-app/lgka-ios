@@ -41,6 +41,7 @@ public struct SyncResponse: Codable, Sendable {
         public var news: SyncEntry<NewsData>?
         public var events: SyncEntry<EventsData>?
         public var weather: SyncEntry<WeatherData>?
+        public var kollegium: SyncEntry<KollegiumData>?
     }
 }
 
@@ -69,6 +70,7 @@ public struct SyncState: Sendable {
     public var news: Snapshot<NewsData>?
     public var events: Snapshot<EventsData>?
     public var weather: Snapshot<WeatherData>?
+    public var kollegium: Snapshot<KollegiumData>?
 
     public init() {}
 
@@ -80,6 +82,7 @@ public struct SyncState: Sendable {
         if let h = news?.hash { out[.news] = h }
         if let h = events?.hash { out[.events] = h }
         if let h = weather?.hash { out[.weather] = h }
+        if let h = kollegium?.hash { out[.kollegium] = h }
         return out
     }
 }
@@ -176,6 +179,7 @@ public final class SyncStore: @unchecked Sendable {
         s.news = load(.news, as: NewsData.self)
         s.events = load(.events, as: EventsData.self)
         s.weather = load(.weather, as: WeatherData.self)
+        s.kollegium = load(.kollegium, as: KollegiumData.self)
         return s
     }
 
@@ -211,6 +215,7 @@ public final class SyncStore: @unchecked Sendable {
         if let e = r.news { merge(.news, e, into: &state.news, outcome: &outcome, now: now) { $0 } }
         if let e = r.events { merge(.events, e, into: &state.events, outcome: &outcome, now: now) { $0 } }
         if let e = r.weather { merge(.weather, e, into: &state.weather, outcome: &outcome, now: now) { $0 } }
+        if let e = r.kollegium { merge(.kollegium, e, into: &state.kollegium, outcome: &outcome, now: now) { $0 } }
         return outcome
     }
 

@@ -17,9 +17,6 @@ struct CustomPlanSetupScreen: View {
     @State private var readingDone: Date?
     @State private var failure: String?
     @State private var draft: CustomPlanDraft?
-    /// The example result shown large (tap to open, tap to close; no zoom or panning).
-    @State private var resultExpanded = false
-    @Namespace private var resultSpace
 
     var body: some View {
         ScrollView {
@@ -41,7 +38,6 @@ struct CustomPlanSetupScreen: View {
         .navigationTitle(L.s("custom.title"))
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) { actions }
-        .overlay { if resultExpanded { expandedResult } }
         .overlay { if readingStart != nil { readingOverlay } }
         .fullScreenCover(isPresented: $showCamera) {
             KurswahlCameraScreen(onCapture: { images in
@@ -183,54 +179,11 @@ struct CustomPlanSetupScreen: View {
             TutorialImage(name: TutorialImages.result, aspect: 297 / 210, symbol: "tablecells")
                 .clipShape(.rect(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(.black.opacity(0.08), lineWidth: 0.5))
-                .matchedGeometryEffect(id: "result", in: resultSpace, isSource: !resultExpanded)
-                .opacity(resultExpanded ? 0 : 1)
                 .shadow(color: .black.opacity(0.14), radius: 12, y: 6)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    Haptics.light()
-                    withAnimation(.spring(duration: 0.4, bounce: 0.15)) { resultExpanded = true }
-                }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(L.s("custom.setup.a11y.result"))
-                .accessibilityAddTraits([.isImage, .isButton])
+                .accessibilityAddTraits(.isImage)
         }
-    }
-
-    /// The example result enlarged over a dark background; any tap closes it.
-    private var expandedResult: some View {
-        ZStack {
-            Color.black.opacity(0.88)
-                .ignoresSafeArea()
-                .transition(.opacity)
-            TutorialImage(name: TutorialImages.result, aspect: 297 / 210, symbol: "tablecells")
-                .clipShape(.rect(cornerRadius: 10, style: .continuous))
-                .matchedGeometryEffect(id: "result", in: resultSpace, isSource: resultExpanded)
-                .padding(.horizontal, 12)
-                .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
-                .readableWidth()
-            VStack {
-                HStack {
-                    Image(systemName: "xmark")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .glassEffect(.regular, in: .circle)
-                        .accessibilityLabel(L.s("a11y.close"))
-                        .accessibilityAddTraits(.isButton)
-                    Spacer()
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            Haptics.light()
-            withAnimation(.spring(duration: 0.35, bounce: 0.1)) { resultExpanded = false }
-        }
-        .accessibilityAction(.escape) { resultExpanded = false }
     }
 
     private func sectionHeader(_ title: String, body: String?) -> some View {

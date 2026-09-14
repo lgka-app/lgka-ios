@@ -91,41 +91,14 @@ public enum SchoolReference {
         return subject(key)?.name ?? key
     }
 
-    // MARK: Kollegium (school website, list 2024/25 plus the 2026/27 newcomers)
+    // MARK: Kollegium
 
-    /// Untis teacher code → "Vorname Nachname". Codes not listed stay as they are.
-    public static let teachers: [String: String] = [
-        "Sez": "Ulrike Seitz", "Kle": "Carsten Klering", "Nm": "Ursula Neumann", "Ro": "Dr. Daniel Roth",
-        "Shn": "Michael Schneider", "Bch": "Thorid Bachmor", "Baz": "Frank Balzer", "Btl": "Kristina Bartl",
-        "Bas": "Sarha Basler", "Bau": "Annemarie Bauer", "Bm": "Katja Baumer", "Bet": "Christiane Bernet",
-        "Bie": "Patricia Bieringer", "Blm": "Judith Blum", "Bre": "Dr. Birgit Breiding", "Brr": "Simone Breier",
-        "Brn": "Richard Brenner", "Brd": "Patricia Bruder", "Blb": "Dr. Andrea Brucher-Lembach",
-        "Bur": "Johannes Burger", "Del": "Julien Debailleul", "Dit": "Georg Dittes", "Dom": "Evamaria Domin",
-        "Fei": "Julia Feißt", "Ger": "Annika Gerwien", "Gei": "Selina Geist", "Glz": "Juliane Glinz",
-        "Hei": "Matthias Heinz", "Hed": "Dr. Marcus Held", "Hel": "Marius Helfrich", "Hir": "Patricia Hirt",
-        "Hoe": "Katja Hoeffer", "Hof": "Katja Hoeffer", "Hld": "Barbara Hold", "Hu": "Andrea Hummel",
-        "Hum": "Andrea Hummel", "Jak": "Antje Jakobi", "Kau": "Corinna Kauth", "Kob": "Andrea Koob",
-        "Kp": "Michael Kopp", "Ku": "Marco Kubacki", "Kub": "Marco Kubacki", "Len": "Dr. Franziska Lenz",
-        "Lev": "Astrid Leven", "Lm": "Katja Lohmann", "Loi": "Gabriele Loida-Sengpiel", "Man": "Jenny Manaia",
-        "Mai": "Simone Maier", "Meh": "Sophie Mehne", "Mit": "Christine Mittnacht", "Now": "Laura Nowicki",
-        "Oes": "Isabel Oestreich", "Pie": "Mareike Pietzsch", "Rhe": "Hye-Rin Rhee-Dantscher",
-        "Sa": "Silke Sander", "Sdt": "Anna-Benita Scheidt", "Scd": "Heidi Schmid", "Shs": "Michael Schnaus",
-        "Shö": "Christian Schröder", "Smi": "Anja Smikale", "Stb": "Peter Staub", "Ste": "Simon Stein",
-        "Stm": "Maysun Stemler", "Stz": "Helen Strotz", "Stü": "Frank Stürmer", "Ung": "Kai-Arwed Unger",
-        "Vog": "Katrin Vogel", "Vot": "Sabine Vogt", "Web": "Nathalie Weber", "Wes": "Sarah Wenzel",
-        "Zep": "Ralph Zepfel", "Zil": "Katrin Zilly", "Blu": "Pia Blau", "Brkr": "Laura Brenker",
-        "OrJ": "Anna Ormann-Jeserski", "Sir": "Helen Schirdewahn", "Sloy": "Luca Slotty",
-        "HH-Es": "Helmholtz-Gymnasium", "HH-es": "Helmholtz-Gymnasium", "HH-BK": "Helmholtz-Gymnasium",
-        "HH-f": "Helmholtz-Gymnasium",
-    ]
+    /// "Dr. Daniel Roth" from the synced staff list (api.lgka.app/v1/kollegium); nil for a code it
+    /// doesn't know yet, which is then shown as it is printed in the timetable.
+    public static func teacherName(_ code: String) -> String? { TeacherDirectory.shared.name(code) }
 
-    public static func teacherName(_ code: String) -> String? { teachers[code] }
-
-    /// "Dr. Birgit Breiding" → "Breiding", for cells naming several teachers.
-    public static func lastName(_ code: String) -> String {
-        guard let name = teachers[code] else { return code }
-        return name.split(separator: " ").last.map(String.init) ?? name
-    }
+    /// "Roth", for cells naming several teachers; the code for one the staff list doesn't know.
+    public static func lastName(_ code: String) -> String { TeacherDirectory.shared.lastName(code) }
 }
 
 /// An Untis course code split into its parts: "M3" → stem "m", number 3, leistungsfach.

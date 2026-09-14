@@ -103,7 +103,15 @@ enum CustomPlanSource {
         let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         let owner = plan.name.isEmpty ? plan.stufe : plan.name
         let url = caches.appendingPathComponent("Stundenplan \(owner) \(plan.halbjahr).pdf")
-        try CustomPlanPDF.render(plan, labels: CustomPlanLabels.pdf).write(to: url, options: .atomic)
+        // a saved plan keeps the names from when it was built: take the current staff list
+        var current = plan
+        for c in current.courses.indices {
+            for t in current.courses[c].teachers.indices {
+                let code = current.courses[c].teachers[t].code
+                current.courses[c].teachers[t].name = SchoolReference.teacherName(code) ?? current.courses[c].teachers[t].name
+            }
+        }
+        try CustomPlanPDF.render(current, labels: CustomPlanLabels.pdf).write(to: url, options: .atomic)
         return url
     }
 
@@ -196,47 +204,92 @@ struct CustomPlanDraft: Identifiable, Hashable {
 // MARK: - Review
 
 /// The courses found, checked against the Stufenplan; every course can be corrected by hand.
+///
+/// Editing is a work state: picking, adding or removing a course only changes `draft.choices`, and
+/// the rows read the Stufenplan directly. The plan itself is built once when the screen opens (for
+/// the colours and hints of what the scan found) and once more on "Weiter", never per change.
 struct CustomPlanReviewScreen: View {
     @State var draft: CustomPlanDraft
     let onSave: (SavedCustomPlan) -> Void
-    @Environment(\.appAccent) private var accent
+    /// The plan as the scan (or the saved plan) left it.
+    private let initial: CustomPlan
+
+    init(draft: CustomPlanDraft, onSave: @escaping (SavedCustomPlan) -> Void) {
+        _draft = State(initialValue: draft)
+        self.onSave = onSave
+        initial = draft.plan
+    }
+
+    /// What one row shows, from the choice alone: a hand-picked course from the Stufenplan, any other
+    /// from the initial plan.
+    private struct RowInfo {
+        var title: String
+        var teachers: String?
+        var hours: Int?
+        var expectedHours: Int?
+        var status: RowStatus
+    }
+
+    private func info(_ choice: CustomPlan.Choice) -> RowInfo {
+        let name = CustomPlanLabels.subject(key: choice.subject)
+        if let code = choice.code {
+            let slots = draft.loaded.stufenplan.slots(for: code)
+            var codes: [String] = []
+            for teacher in slots.compactMap(\.teacher) where !codes.contains(teacher) { codes.append(teacher) }
+            let teachers = codes.count == 1
+                ? (SchoolReference.teacherName(codes[0]) ?? codes[0])
+                : codes.map { SchoolReference.lastName($0) }.joined(separator: " / ")
+            let level = choice.level == .leistungsfach ? "\(L.s("custom.level.short.LF")), " : ""
+            let subject = CustomPlanLabels.subject(key: choice.subject, code: code)
+            return RowInfo(title: "\(subject) (\(level)\(code))", teachers: codes.isEmpty ? nil : teachers,
+                           hours: slots.reduce(0) { $0 + $1.hours }, expectedHours: nil, status: .fine)
+        }
+        guard let course = initial.courses.first(where: { $0.subjectKey == choice.subject }) else {
+            return RowInfo(title: name, teachers: nil, hours: nil, expectedHours: nil, status: .problem)
+        }
+        return RowInfo(title: CustomPlanLabels.title(course), teachers: course.teacherLabel, hours: course.hours,
+                       expectedHours: course.expectedHours, status: rowStatus(choice.subject, course: course, plan: initial))
+    }
 
     var body: some View {
-        let plan = draft.plan
+        let rows = Dictionary(draft.choices.map { ($0.id, info($0)) }, uniquingKeysWith: { first, _ in first })
+        let total = draft.choices.reduce(0) { $0 + (rows[$1.id]?.hours ?? 0) }
+        let marked = rows.values.contains { $0.status != .fine }
+        let subjects = Set(draft.choices.map(\.subject))
+        // hints about subjects still in the list; the total is shown by the hours row instead
+        let issues = initial.checks.issues.filter { issue in
+            issue.kind != .totalMismatch && (issue.subject.map(subjects.contains) ?? true)
+        }
         List {
+            // plain text on the page like the tutorial, not a card
             Section {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(greeting)
-                        .font(.headline)
-                    Text(L.s("custom.review.greetingBody"))
+                        .font(.title3.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
+                    Text(L.s(marked ? "custom.review.greetingBodyMarked" : "custom.review.greetingBodyClean"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 4)
                 .accessibilityElement(children: .combine)
-                Label {
-                    Text(L.s("custom.review.note"))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } icon: {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(accent)
-                        .accessibilityHidden(true)
-                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
             }
 
             Section {
                 TextField(L.s("custom.review.namePlaceholder"), text: $draft.name)
                     .textContentType(.name)
                     .submitLabel(.done)
-                LabeledContent(L.s("custom.review.plan"), value: "\(plan.stufe) · \(CustomPlanLabels.halbjahr(plan.halbjahr))")
-                hoursRow(plan)
+                LabeledContent(L.s("custom.review.plan"), value: "\(initial.stufe) · \(CustomPlanLabels.halbjahr(initial.halbjahr))")
+                hoursRow(total: total, expected: initial.checks.expectedTotal)
+            } header: {
+                Text(L.s("custom.review.overview"))
             }
 
-            if !plan.checks.issues.isEmpty {
+            if !issues.isEmpty {
                 Section(L.s("custom.review.issues")) {
-                    ForEach(Array(plan.checks.issues.enumerated()), id: \.offset) { _, issue in
-                        Label(issueText(issue, plan: plan), systemImage: "exclamationmark.triangle.fill")
+                    ForEach(Array(issues.enumerated()), id: \.offset) { _, issue in
+                        Label(issueText(issue, plan: initial), systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline)
                             .symbolRenderingMode(.multicolor)
                     }
@@ -244,8 +297,8 @@ struct CustomPlanReviewScreen: View {
             }
 
             Section {
-                ForEach($draft.choices) { $choice in
-                    courseRow($choice, plan: plan)
+                ForEach(draft.choices) { choice in
+                    courseRow(choice, info: rows[choice.id] ?? info(choice))
                 }
                 .onDelete { offsets in
                     Haptics.medium()
@@ -265,6 +318,7 @@ struct CustomPlanReviewScreen: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button(L.s("custom.review.next")) {
                     Haptics.success()
+                    // the edits become the plan only here
                     onSave(draft.saved)
                 }
                 .fontWeight(.semibold)
@@ -273,7 +327,7 @@ struct CustomPlanReviewScreen: View {
         }
     }
 
-    /// "Nice, Luka! …" with the first name from the sheet (or the edited name field).
+    /// "Hey Luka, …" with the first name from the sheet (or the edited name field).
     private var greeting: String {
         let first = draft.name.split(separator: " ").first.map(String.init) ?? ""
         return first.isEmpty ? L.s("custom.review.greetingNoName") : L.f("custom.review.greeting", first)
@@ -305,19 +359,17 @@ struct CustomPlanReviewScreen: View {
         }
     }
 
-    private func hoursRow(_ plan: CustomPlan) -> some View {
-        let matches = plan.checks.expectedTotal.map { $0 == plan.checks.totalHours } ?? true
+    private func hoursRow(total: Int, expected: Int?) -> some View {
+        let matches = expected.map { $0 == total } ?? true
         return HStack {
             Image(systemName: matches ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(matches ? .green : .orange)
                 .accessibilityHidden(true)
             // everyone's total differs: compare with the sheet, never show it as a goal
-            if let expected = plan.checks.expectedTotal, expected != plan.checks.totalHours {
-                Text(L.f("custom.review.hoursMismatch", plan.checks.totalHours, expected))
-            } else if plan.checks.expectedTotal != nil {
-                Text(L.f("custom.review.hoursMatch", plan.checks.totalHours))
+            if let expected, expected != total {
+                Text(L.f("custom.review.hoursMismatch", total, expected))
             } else {
-                Text(L.f("custom.review.hours", plan.checks.totalHours))
+                Text(L.f("custom.review.hoursMatch", total))
             }
             Spacer()
         }
@@ -325,38 +377,44 @@ struct CustomPlanReviewScreen: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func courseRow(_ choice: Binding<CustomPlan.Choice>, plan: CustomPlan) -> some View {
-        let value = choice.wrappedValue
-        let course = plan.courses.first { $0.subjectKey == value.subject }
-        let name = CustomPlanLabels.subject(key: value.subject)
-        let status = rowStatus(value.subject, course: course, plan: plan)
-        let lf = CustomPlanBuilder.candidates(subject: value.subject, level: .leistungsfach,
-                                              konfession: draft.kurswahl?.konfession, plan: draft.loaded.stufenplan)
-        let basis = CustomPlanBuilder.candidates(subject: value.subject, level: .basisfach,
-                                                 konfession: draft.kurswahl?.konfession, plan: draft.loaded.stufenplan)
+    private func courseRow(_ choice: CustomPlan.Choice, info: RowInfo) -> some View {
+        let konfession = draft.kurswahl?.konfession
+        let stufenplan = draft.loaded.stufenplan
+        let name = CustomPlanLabels.subject(key: choice.subject)
         return Menu {
+            // built when the menu opens, not for every row on every change
+            let lf = CustomPlanBuilder.candidates(subject: choice.subject, level: .leistungsfach, konfession: konfession, plan: stufenplan)
+            let basis = CustomPlanBuilder.candidates(subject: choice.subject, level: .basisfach, konfession: konfession, plan: stufenplan)
             if lf != basis {
                 Section(L.s("custom.review.leistungsfach")) { codeButtons(lf, level: .leistungsfach, choice: choice) }
                 Section(L.s("custom.review.basisfach")) { codeButtons(basis, level: .basisfach, choice: choice) }
             } else {
-                codeButtons(lf, level: value.level, choice: choice)
+                codeButtons(lf, level: choice.level, choice: choice)
+            }
+            Section {
+                Button(role: .destructive) {
+                    Haptics.medium()
+                    draft.choices.removeAll { $0.id == choice.id }
+                } label: {
+                    Label(L.f("custom.review.remove", name), systemImage: "trash")
+                }
             }
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(course.map(CustomPlanLabels.title) ?? name)
+                    Text(info.title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(titleColor(status))
-                    if let course {
-                        Text("\(course.teacherLabel) · \(L.f("custom.review.hours", course.hours))")
+                        .foregroundStyle(titleColor(info.status))
+                    if let hours = info.hours {
+                        Text([info.teachers, L.f("custom.review.hours", hours)].compactMap { $0 }.joined(separator: " · "))
                             .font(.caption)
-                            .foregroundStyle(course.expectedHours == course.hours ? Color.secondary : Color.red)
+                            .foregroundStyle(info.expectedHours.map { $0 == hours } ?? true ? Color.secondary : Color.red)
                     } else {
                         Text(L.s("custom.review.pickCourse"))
                             .font(.caption.weight(.medium))
                             .foregroundStyle(.red)
                     }
-                    if status == .estimated {
+                    if info.status == .estimated {
                         Label(L.s("custom.review.estimated"), systemImage: "exclamationmark.circle.fill")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(Color(red: 0.62, green: 0.48, blue: 0))
@@ -374,20 +432,23 @@ struct CustomPlanReviewScreen: View {
     }
 
     @ViewBuilder
-    private func codeButtons(_ codes: [String], level: CustomPlan.Level, choice: Binding<CustomPlan.Choice>) -> some View {
+    private func codeButtons(_ codes: [String], level: CustomPlan.Level, choice: CustomPlan.Choice) -> some View {
+        let current = choice.code ?? initial.courses.first { $0.subjectKey == choice.subject && $0.codes.count == 1 }?.codes.first
         ForEach(codes, id: \.self) { code in
             Button {
                 Haptics.medium()
-                choice.wrappedValue.code = code
-                choice.wrappedValue.level = level
+                guard let index = draft.choices.firstIndex(where: { $0.id == choice.id }) else { return }
+                draft.choices[index].code = code
+                draft.choices[index].level = level
                 // a hand-picked course sets its own hours, so only the total is compared with the sheet
-                choice.wrappedValue.hours = draft.loaded.stufenplan.slots(for: code).reduce(0) { $0 + $1.hours }
+                draft.choices[index].hours = draft.loaded.stufenplan.slots(for: code).reduce(0) { $0 + $1.hours }
             } label: {
                 let teacher = draft.loaded.stufenplan.slots(for: code).compactMap(\.teacher).first
-                if choice.wrappedValue.code == code || (choice.wrappedValue.code == nil && draft.plan.courses.contains { $0.codes == [code] }) {
-                    Label("\(code) · \(teacher.map { SchoolReference.lastName($0) } ?? "")", systemImage: "checkmark")
+                let text = "\(code) · \(teacher.map { SchoolReference.lastName($0) } ?? "")"
+                if code == current {
+                    Label(text, systemImage: "checkmark")
                 } else {
-                    Text("\(code) · \(teacher.map { SchoolReference.lastName($0) } ?? "")")
+                    Text(text)
                 }
             }
         }
