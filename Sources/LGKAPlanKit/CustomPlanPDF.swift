@@ -7,7 +7,50 @@ import LGKACore
 /// name, Mo–Fr × 11 periods with times, heavy lines between the double-period blocks, and per
 /// lesson the course in bold, the teacher and the room in italics.
 public enum CustomPlanPDF {
-    public static func render(_ plan: CustomPlan) -> Data {
+    /// Every word the page prints that is not the school's own data, so the app can localize it.
+    public struct Labels: Sendable {
+        public var title: String
+        public var schoolYear: @Sendable (String) -> String
+        public var stand: @Sendable (String) -> String
+        public var room: @Sendable (String) -> String
+        /// Montag … Freitag.
+        public var days: [String]
+        /// "1. Halbjahr" as the school names it → as shown.
+        public var halbjahr: @Sendable (String) -> String
+        /// The footer with the breaks ("9:20–9:35 · …").
+        public var footer: @Sendable (String) -> String
+        public var courseTitle: @Sendable (CustomPlan.Course) -> String
+        /// Remark for a course that stands for several parallel courses in the same slots.
+        public var sharedSlotsNote: @Sendable (CustomPlan.Course) -> String
+
+        public init(title: String, schoolYear: @escaping @Sendable (String) -> String, stand: @escaping @Sendable (String) -> String,
+                    room: @escaping @Sendable (String) -> String, days: [String], halbjahr: @escaping @Sendable (String) -> String,
+                    footer: @escaping @Sendable (String) -> String, courseTitle: @escaping @Sendable (CustomPlan.Course) -> String,
+                    sharedSlotsNote: @escaping @Sendable (CustomPlan.Course) -> String) {
+            self.title = title
+            self.schoolYear = schoolYear
+            self.stand = stand
+            self.room = room
+            self.days = days
+            self.halbjahr = halbjahr
+            self.footer = footer
+            self.courseTitle = courseTitle
+            self.sharedSlotsNote = sharedSlotsNote
+        }
+
+        public static let german = Labels(
+            title: "Persönlicher Stundenplan",
+            schoolYear: { "Schuljahr \($0)" },
+            stand: { "Stand \($0)" },
+            room: { "Raum \($0)" },
+            days: CustomPlan.dayNames,
+            halbjahr: { $0 },
+            footer: { "\(SchoolReference.laeuteordnungSource). Große Pausen: \($0)" },
+            courseTitle: { $0.title },
+            sharedSlotsNote: { "\(SchoolReference.subject($0.subjectKey)?.name ?? $0.subject): \($0.codes.joined(separator: " / ")) im Kurswahlprotokoll nicht vermerkt, alle zur selben Zeit" })
+    }
+
+    public static func render(_ plan: CustomPlan, labels: Labels = .german) -> Data {
         let data = NSMutableData()
         let width: CGFloat = 841.89, height: CGFloat = 595.28
         var box = CGRect(x: 0, y: 0, width: width, height: height)
@@ -16,7 +59,7 @@ public enum CustomPlanPDF {
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
               let ctx = CGContext(consumer: consumer, mediaBox: &box, info) else { return Data() }
         ctx.beginPDFPage(nil)
-        Page(ctx: ctx, width: width, height: height).draw(plan)
+        Page(ctx: ctx, width: width, height: height, labels: labels).draw(plan)
         ctx.endPDFPage()
         ctx.closePDF()
         return data as Data
@@ -26,6 +69,7 @@ public enum CustomPlanPDF {
         let ctx: CGContext
         let width: CGFloat
         let height: CGFloat
+        let labels: Labels
 
         enum Align { case left, centre, right }
 
@@ -37,13 +81,13 @@ public enum CustomPlanPDF {
 
             // header
             text("Lessing-Gymnasium Karlsruhe", bold(11), 30, H - 32)
-            if let schuljahr = plan.schuljahr { text("Schuljahr \(schuljahr)", regular(10), 240, H - 32) }
+            if let schuljahr = plan.schuljahr { text(labels.schoolYear(schuljahr), regular(10), 240, H - 32) }
             text("D-76135, Sophienstr. 147", regular(10), 30, H - 45)
-            text(plan.name.isEmpty ? "Persönlicher Stundenplan" : plan.name, bold(11), W - 30, H - 32, .right)
-            let meta = [plan.stufe, plan.halbjahr, plan.stand.map { "Stand \($0)" }].compactMap { $0 }
+            text(plan.name.isEmpty ? labels.title : plan.name, bold(11), W - 30, H - 32, .right)
+            let meta = [plan.stufe, labels.halbjahr(plan.halbjahr), plan.stand.map { labels.stand($0) }].compactMap { $0 }
             text(meta.joined(separator: " · "), regular(9), W - 30, H - 45, .right)
             text(plan.stufe, bold(18), 30, H - 72)
-            text("Persönlicher Stundenplan", regular(14), 70, H - 72)
+            text(labels.title, regular(14), 70, H - 72)
 
             // grid
             let periods = plan.periods.count
@@ -61,7 +105,7 @@ public enum CustomPlanPDF {
             ctx.stroke(CGRect(x: x0, y: bottom, width: W - 60, height: headHeight + rowHeight * CGFloat(periods)))
             line(gx, y0, gx, bottom)
             line(x0, gy, x0 + W - 60, gy)
-            for (i, day) in CustomPlan.dayNames.enumerated() {
+            for (i, day) in labels.days.prefix(5).enumerated() {
                 let xx = gx + CGFloat(i) * columnWidth
                 if i > 0 { line(xx, y0, xx, bottom) }
                 text(day, bold(13), xx + columnWidth / 2, gy + 8, .centre)
@@ -91,16 +135,17 @@ public enum CustomPlanPDF {
                 ctx.fill(CGRect(x: xx + 1, y: bot + 1, width: columnWidth - 2, height: top - bot - 2))
                 let cy = (top + bot) / 2
                 let fit = columnWidth - 8
-                text(course.title, bold(9.2), xx + columnWidth / 2, cy + 6, .centre, maxWidth: fit)
+                text(labels.courseTitle(course), bold(9.2), xx + columnWidth / 2, cy + 6, .centre, maxWidth: fit)
                 text(course.teacherLabel, regular(8.5), xx + columnWidth / 2, cy - 4, .centre, maxWidth: fit)
                 if !lesson.rooms.isEmpty {
-                    text("Raum \(lesson.roomLabel)", italic(8.5), xx + columnWidth / 2, cy - 14, .centre, maxWidth: fit)
+                    text(labels.room(lesson.roomLabel), italic(8.5), xx + columnWidth / 2, cy - 14, .centre, maxWidth: fit)
                 }
             }
 
             let pauses = plan.breaks.map { "\($0.start)–\($0.end)" }.joined(separator: " · ")
-            var foot = "\(SchoolReference.laeuteordnungSource). Große Pausen: \(pauses)"
-            if !plan.notes.isEmpty { foot += " · " + plan.notes.joined(separator: " · ") }
+            var foot = labels.footer(pauses)
+            let notes = plan.courses.filter { $0.codes.count > 1 }.map(labels.sharedSlotsNote)
+            if !notes.isEmpty { foot += " · " + notes.joined(separator: " · ") }
             text(foot, regular(7), 30, 18, maxWidth: W - 60)
         }
 

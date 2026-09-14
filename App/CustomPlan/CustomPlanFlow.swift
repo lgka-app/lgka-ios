@@ -75,7 +75,7 @@ enum CustomPlanSource {
         let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         let owner = plan.name.isEmpty ? plan.stufe : plan.name
         let url = caches.appendingPathComponent("Stundenplan \(owner) \(plan.halbjahr).pdf")
-        try CustomPlanPDF.render(plan).write(to: url, options: .atomic)
+        try CustomPlanPDF.render(plan, labels: CustomPlanLabels.pdf).write(to: url, options: .atomic)
         return url
     }
 
@@ -180,7 +180,7 @@ struct CustomPlanReviewScreen: View {
                 TextField(L.s("custom.review.namePlaceholder"), text: $draft.name)
                     .textContentType(.name)
                     .submitLabel(.done)
-                LabeledContent(L.s("custom.review.plan"), value: "\(plan.stufe) · \(plan.halbjahr)")
+                LabeledContent(L.s("custom.review.plan"), value: "\(plan.stufe) · \(CustomPlanLabels.halbjahr(plan.halbjahr))")
                 hoursRow(plan)
             }
 
@@ -262,7 +262,7 @@ struct CustomPlanReviewScreen: View {
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(course?.title ?? name)
+                    Text(course.map(CustomPlanLabels.title) ?? name)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                     if let course {

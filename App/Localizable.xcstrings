@@ -832,6 +832,125 @@
         }
       }
     },
+    "custom.level.short.LF": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LF"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "adv."
+          }
+        }
+      }
+    },
+    "custom.pdf.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läuteordnung ab SJ 2025/26 (Schulordnung, Stand 2025). Große Pausen: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bell times from school year 2025/26 (school rules, 2025). Long breaks: %@"
+          }
+        }
+      }
+    },
+    "custom.pdf.room": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raum %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room %@"
+          }
+        }
+      }
+    },
+    "custom.pdf.schoolYear": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schuljahr %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "School year %@"
+          }
+        }
+      }
+    },
+    "custom.pdf.sharedSlots": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$@ im Kurswahlprotokoll nicht vermerkt, alle zur selben Zeit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@: %2$@ not stated on the Kurswahlprotokoll, all at the same time"
+          }
+        }
+      }
+    },
+    "custom.pdf.stand": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stand %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As of %@"
+          }
+        }
+      }
+    },
+    "custom.pdf.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Persönlicher Stundenplan"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal timetable"
+          }
+        }
+      }
+    },
     "custom.reading.subtitle": {
       "extractionState": "manual",
       "localizations": {
