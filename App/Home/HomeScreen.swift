@@ -17,7 +17,7 @@ struct HomeScreen: View {
     @ScaledMetric(relativeTo: .largeTitle) var heroSize = 40
 
     enum HomeRoute: Hashable {
-        case weather, news, krankmeldungInfo, bugReport
+        case weather, news, krankmeldungInfo, bugReport, customPlan
         /// Any web page in the app's own web screen (privacy, legal notice) — pushed like the bug report.
         case web(url: String, title: String)
     }
@@ -73,6 +73,7 @@ struct HomeScreen: View {
                         HomeScreen.openKrankmeldungForm()
                     }
                 case .bugReport: BugReportScreen()
+                case .customPlan: CustomPlanHost()
                 case .web(let url, let title): WebScreen(url: url, title: title)
                 }
             }

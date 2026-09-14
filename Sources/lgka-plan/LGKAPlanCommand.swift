@@ -1,0 +1,109 @@
+import Foundation
+import CoreGraphics
+import LGKACore
+import LGKAPlanKit
+
+/// Command line for the custom J11 / J12 timetable, the same code the app runs:
+///
+///   lgka-plan build --plan J11.pdf [--plan J12.pdf] --kurswahl photo.jpg [--halbjahr "1. Halbjahr"] --out plan.json
+///   lgka-plan render plan.json plan.pdf
+///   lgka-plan stufenplan J11.pdf        (parsed Stufenplan as JSON)
+///   lgka-plan kurswahl photo.jpg        (parsed Kurswahlprotokoll as JSON)
+///   lgka-plan words J11.pdf | ocr photo.jpg   (raw positioned text, for fixtures)
+@main
+struct LGKAPlanCommand {
+    static func main() async {
+        do {
+            try await run(Array(CommandLine.arguments.dropFirst()))
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error)\n".utf8))
+            exit(1)
+        }
+    }
+
+    static func run(_ args: [String]) async throws {
+        guard let command = args.first else { throw Usage() }
+        let rest = Array(args.dropFirst())
+        switch command {
+        case "build":
+            let plans = values(rest, "--plan")
+            guard !plans.isEmpty, let photo = values(rest, "--kurswahl").first, let out = values(rest, "--out").first else { throw Usage() }
+            let halbjahr = values(rest, "--halbjahr").first ?? "1. Halbjahr"
+            let stufenplaene = try plans.map { try PdfText.stufenplan(at: URL(fileURLWithPath: $0)) }
+            let scan = try await KurswahlScanner.read(try image(photo))
+            // the Stufenplan of the sheet's Jahrgang when several are given
+            let plan = stufenplaene.first { p in
+                p.schuljahr.flatMap { scan.kurswahl.grade(inSchuljahr: $0) } == p.grade
+            } ?? stufenplaene[0]
+            var result = CustomPlanBuilder.build(kurswahl: scan.kurswahl, plan: plan, halbjahr: halbjahr)
+            if let name = values(rest, "--name").first { result.name = name }
+            try write(result, to: out)
+            report(result)
+        case "render":
+            guard rest.count == 2 else { throw Usage() }
+            let plan = try JSONDecoder().decode(CustomPlan.self, from: Data(contentsOf: URL(fileURLWithPath: rest[0])))
+            try CustomPlanPDF.render(plan).write(to: URL(fileURLWithPath: rest[1]))
+            print("wrote \(rest[1])")
+        case "stufenplan":
+            guard let path = rest.first else { throw Usage() }
+            try printJSON(PdfText.stufenplan(at: URL(fileURLWithPath: path)))
+        case "kurswahl":
+            guard let path = rest.first else { throw Usage() }
+            try printJSON(try await KurswahlScanner.read(try image(path)).kurswahl)
+        case "words":
+            guard let path = rest.first, let document = PDFDocumentLoader.page(path) else { throw Usage() }
+            try printJSON(PdfText.words(in: document))
+        case "ocr":
+            guard let path = rest.first else { throw Usage() }
+            try printJSON(try await KurswahlScanner.read(try image(path)).boxes)
+        default:
+            throw Usage()
+        }
+    }
+
+    struct Usage: Error, CustomStringConvertible {
+        var description: String {
+            """
+            usage:
+              lgka-plan build --plan J11.pdf [--plan J12.pdf] --kurswahl photo.jpg [--halbjahr "1. Halbjahr"] [--name "Vorname Nachname"] --out plan.json
+              lgka-plan render plan.json plan.pdf
+              lgka-plan stufenplan plan.pdf | kurswahl photo.jpg | words plan.pdf | ocr photo.jpg
+            """
+        }
+    }
+
+    private static func values(_ args: [String], _ flag: String) -> [String] {
+        args.indices.compactMap { i in args[i] == flag && i + 1 < args.count ? args[i + 1] : nil }
+    }
+
+    private static func image(_ path: String) throws -> CGImage {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        guard let image = KurswahlScanner.image(from: data) else { throw CocoaError(.fileReadCorruptFile) }
+        return image
+    }
+
+    private static func encoder() -> JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+        return encoder
+    }
+
+    private static func printJSON(_ value: some Encodable) throws {
+        print(String(decoding: try encoder().encode(value), as: UTF8.self))
+    }
+
+    private static func write(_ plan: CustomPlan, to path: String) throws {
+        try encoder().encode(plan).write(to: URL(fileURLWithPath: path))
+    }
+
+    private static func report(_ plan: CustomPlan) {
+        var lines = ["\(plan.name.isEmpty ? "(ohne Namen)" : plan.name) · \(plan.stufe) · \(plan.halbjahr)"]
+        for course in plan.courses {
+            let expected = course.expectedHours.map { $0 == course.hours ? "" : " (Kurswahl: \($0))" } ?? ""
+            lines.append("  \(course.title.padding(toLength: 34, withPad: " ", startingAt: 0)) \(course.hours) Std.\(expected)  \(course.teacherLabel)")
+        }
+        lines.append("Summe \(plan.checks.totalHours) Std." + (plan.checks.expectedTotal.map { " (Kurswahl: \($0))" } ?? ""))
+        lines.append(plan.checks.ok ? "Prüfung: alles passt" : "Prüfung:\n" + plan.checks.issues.map { "  ! \($0.message)" }.joined(separator: "\n"))
+        FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+    }
+}

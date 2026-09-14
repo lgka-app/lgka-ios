@@ -53,7 +53,22 @@ extension HomeScreen {
                     showClassDialog = true
                 }
             }
+            // J11 / J12: a personal plan from the crowded Stufenplan
+            if (ScheduleGrades.gradeOf(cls) ?? 0) >= 11 || CustomPlanStore.shared.saved != nil {
+                customPlanCard
+            }
         }
+    }
+
+    private var customPlanCard: some View {
+        let saved = CustomPlanStore.shared.saved
+        return homeCard(icon: saved == nil ? "doc.viewfinder" : "calendar.day.timeline.left",
+                        title: saved == nil ? L.s("custom.home.create") : L.s("custom.home.title"),
+                        subtitle: saved.map { L.f("custom.home.subtitle", $0.plan.stufe, $0.plan.checks.totalHours) }
+                            ?? L.s("custom.home.createSubtitle")) {
+            path.append(HomeRoute.customPlan)
+        }
+        .accessibilityIdentifier("home.customPlan")
     }
 
     private func homeCard(icon: String, title: String, subtitle: String,

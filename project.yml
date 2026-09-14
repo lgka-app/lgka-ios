@@ -61,6 +61,8 @@ targets:
     dependencies:
       - package: LGKACore
         product: LGKACore
+      - package: LGKACore
+        product: LGKAPlanKit
       - package: Vortex
         product: Vortex
     entitlements:
@@ -81,6 +83,7 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_NSCameraUsageDescription: "Die Kamera fotografiert dein Kurswahlprotokoll für deinen eigenen Stundenplan. Das Foto wird nur auf diesem iPhone gelesen und nicht gespeichert."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO

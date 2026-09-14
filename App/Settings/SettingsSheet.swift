@@ -80,6 +80,7 @@ struct SettingsSheet: View {
                     Haptics.medium()
                     dismiss()
                     model.clear() // explicit sign-out: snapshot, login and every preference go
+                    CustomPlanStore.shared.delete()
                     prefs.reset() // back to the welcome screen
                 }
                 Button(L.s("cancel"), role: .cancel) { Haptics.light() }

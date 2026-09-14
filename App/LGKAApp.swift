@@ -70,6 +70,18 @@ struct RootView: View {
     @Environment(Prefs.self) private var prefs
 
     var body: some View {
+        #if DEBUG
+        if CustomPlanDebug.isActive {
+            CustomPlanDebug.root
+        } else {
+            gate
+        }
+        #else
+        gate
+        #endif
+    }
+
+    @ViewBuilder private var gate: some View {
         if !prefs.onboardingCompleted {
             OnboardingFlow()
         } else if !prefs.isSignedIn {
