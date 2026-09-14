@@ -281,11 +281,13 @@ struct CustomPlanReviewScreen: View {
         return .fine
     }
 
-    private func rowTint(_ status: RowStatus) -> Color {
+    /// The row's title carries the status; the row itself stays plain.
+    private func titleColor(_ status: RowStatus) -> Color {
         switch status {
-        case .fine: Color(uiColor: .secondarySystemGroupedBackground)
-        case .estimated: Color.yellow.opacity(0.22)
-        case .problem: Color.red.opacity(0.16)
+        case .fine: .primary
+        // system yellow is unreadable on white, so a deeper yellow in light mode
+        case .estimated: Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? .systemYellow : UIColor(red: 0.8, green: 0.6, blue: 0, alpha: 1) })
+        case .problem: .red
         }
     }
 
@@ -330,7 +332,7 @@ struct CustomPlanReviewScreen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(course.map(CustomPlanLabels.title) ?? name)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(titleColor(status))
                     if let course {
                         Text("\(course.teacherLabel) · \(L.f("custom.review.hours", course.hours))")
                             .font(.caption)
@@ -355,7 +357,6 @@ struct CustomPlanReviewScreen: View {
             .contentShape(Rectangle())
         }
         .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
-        .listRowBackground(rowTint(status))
     }
 
     @ViewBuilder
