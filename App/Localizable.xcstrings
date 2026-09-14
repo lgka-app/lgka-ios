@@ -1053,6 +1053,23 @@
         }
       }
     },
+    "custom.review.estimated": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschätzt – bitte prüfen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated – please check"
+          }
+        }
+      }
+    },
     "custom.review.footer": {
       "extractionState": "manual",
       "localizations": {
@@ -1066,6 +1083,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tap a course to pick another parallel course. Swipe left to remove it."
+          }
+        }
+      }
+    },
+    "custom.review.greeting": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nice, %@! Das Scannen hat funktioniert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nice, %@! Scanning worked."
+          }
+        }
+      }
+    },
+    "custom.review.greetingBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüf hier noch einmal, ob alles passt. Gelb ist geschätzt, Rot fehlt oder passt nicht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check once more that everything is right. Yellow is estimated, red is missing or doesn't fit."
+          }
+        }
+      }
+    },
+    "custom.review.greetingNoName": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nice! Das Scannen hat funktioniert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nice! Scanning worked."
           }
         }
       }
@@ -1172,6 +1240,40 @@
         }
       }
     },
+    "custom.review.next": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        }
+      }
+    },
+    "custom.review.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So steht es in deinem Kurswahlprotokoll. Deine endgültigen Kurse können davon abweichen – passe sie jetzt an oder später mit langem Druck auf die Karte auf dem Startbildschirm. Die Erkennung übernimmt KI, prüf sie also kurz."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is what your course selection record says. Your final courses may differ – adjust them now or later by long-pressing the card on the home screen. AI does the recognition, so give it a quick check."
+          }
+        }
+      }
+    },
     "custom.review.pickCourse": {
       "extractionState": "manual",
       "localizations": {
@@ -1202,23 +1304,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Timetable"
-          }
-        }
-      }
-    },
-    "custom.review.save": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Speichern"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save"
           }
         }
       }

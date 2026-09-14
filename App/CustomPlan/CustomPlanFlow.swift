@@ -191,6 +191,27 @@ struct CustomPlanReviewScreen: View {
         let plan = draft.plan
         List {
             Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(greeting)
+                        .font(.headline)
+                    Text(L.s("custom.review.greetingBody"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+                .accessibilityElement(children: .combine)
+                Label {
+                    Text(L.s("custom.review.note"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } icon: {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(accent)
+                        .accessibilityHidden(true)
+                }
+            }
+
+            Section {
                 TextField(L.s("custom.review.namePlaceholder"), text: $draft.name)
                     .textContentType(.name)
                     .submitLabel(.done)
@@ -228,13 +249,43 @@ struct CustomPlanReviewScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(L.s("custom.review.save")) {
+                Button(L.s("custom.review.next")) {
                     Haptics.success()
                     onSave(draft.saved)
                 }
                 .fontWeight(.semibold)
                 .accessibilityIdentifier("customPlan.save")
             }
+        }
+    }
+
+    /// "Nice, Luka! …" with the first name from the sheet (or the edited name field).
+    private var greeting: String {
+        let first = draft.name.split(separator: " ").first.map(String.init) ?? ""
+        return first.isEmpty ? L.s("custom.review.greetingNoName") : L.f("custom.review.greeting", first)
+    }
+
+    private enum RowStatus { case fine, estimated, problem }
+
+    /// Red: the course could not be matched, is missing or clashes; yellow: its hours were not readable
+    /// on the sheet and were filled in from the rest of it.
+    private func rowStatus(_ subject: String, course: CustomPlan.Course?, plan: CustomPlan) -> RowStatus {
+        guard let course else { return .problem }
+        let issues = plan.checks.issues
+        let problems: Set<CustomPlan.Issue.Kind> = [.notInPlan, .ambiguous, .unreadable, .hoursMismatch]
+        if issues.contains(where: { $0.subject == subject && problems.contains($0.kind) }) { return .problem }
+        if issues.contains(where: { $0.kind == .conflict && !Set($0.codes).isDisjoint(with: course.codes + [course.id]) }) {
+            return .problem
+        }
+        if issues.contains(where: { $0.kind == .inferred && $0.subject == subject }) { return .estimated }
+        return .fine
+    }
+
+    private func rowTint(_ status: RowStatus) -> Color {
+        switch status {
+        case .fine: Color(uiColor: .secondarySystemGroupedBackground)
+        case .estimated: Color.yellow.opacity(0.22)
+        case .problem: Color.red.opacity(0.16)
         }
     }
 
@@ -262,6 +313,7 @@ struct CustomPlanReviewScreen: View {
         let value = choice.wrappedValue
         let course = plan.courses.first { $0.subjectKey == value.subject }
         let name = CustomPlanLabels.subject(key: value.subject)
+        let status = rowStatus(value.subject, course: course, plan: plan)
         let lf = CustomPlanBuilder.candidates(subject: value.subject, level: .leistungsfach,
                                               konfession: draft.kurswahl?.konfession, plan: draft.loaded.stufenplan)
         let basis = CustomPlanBuilder.candidates(subject: value.subject, level: .basisfach,
@@ -282,11 +334,16 @@ struct CustomPlanReviewScreen: View {
                     if let course {
                         Text("\(course.teacherLabel) · \(L.f("custom.review.hours", course.hours))")
                             .font(.caption)
-                            .foregroundStyle(course.expectedHours == course.hours ? Color.secondary : Color.orange)
+                            .foregroundStyle(course.expectedHours == course.hours ? Color.secondary : Color.red)
                     } else {
                         Text(L.s("custom.review.pickCourse"))
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.red)
+                    }
+                    if status == .estimated {
+                        Label(L.s("custom.review.estimated"), systemImage: "exclamationmark.circle.fill")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.62, green: 0.48, blue: 0))
                     }
                 }
                 Spacer()
@@ -298,6 +355,7 @@ struct CustomPlanReviewScreen: View {
             .contentShape(Rectangle())
         }
         .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
+        .listRowBackground(rowTint(status))
     }
 
     @ViewBuilder
