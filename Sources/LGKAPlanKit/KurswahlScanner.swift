@@ -10,10 +10,12 @@ import LGKACore
 /// only the table between them, cropped and enlarged, which reads the small bracketed parallel
 /// course numbers ("5(3)") far more reliably than the first pass.
 public enum KurswahlScanner {
-    public struct Result: Sendable {
+    public struct Result: Codable, Sendable {
         public var kurswahl: Kurswahl
         /// Every recognised box of both passes, 0…1 of the whole image.
         public var boxes: [TextBox]
+        /// Image height ÷ width.
+        public var aspect: Double
     }
 
     /// Decodes a photo with its EXIF orientation applied, at most `maxPixels` on the long side.
@@ -33,7 +35,8 @@ public enum KurswahlScanner {
         if let table = tableRegion(full) {
             boxes += try await recognize(image, region: table)
         }
-        return Result(kurswahl: try KurswahlParser.parse(boxes), boxes: boxes)
+        let aspect = Double(image.height) / Double(max(1, image.width))
+        return Result(kurswahl: try KurswahlParser.parse(boxes, aspect: aspect), boxes: boxes, aspect: aspect)
     }
 
     /// Recognised text of a region (0…1, origin top-left), mapped back to whole-image coordinates.

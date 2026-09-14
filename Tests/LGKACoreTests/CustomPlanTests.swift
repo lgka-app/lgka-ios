@@ -133,6 +133,51 @@ struct CustomPlanTests {
         #expect(CustomPlanBuilder.candidates(subject: "Rel", level: .basisfach, konfession: .evangelisch, plan: stufenplan) == ["eR1", "eR2"])
     }
 
+    @Test func missingSubjectIsRecoveredFromThePlan() throws {
+        var boxes = try JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr"))
+        boxes.removeAll { $0.text == "D" || $0.text.lowercased().hasPrefix("summen") }
+        let kurswahl = try KurswahlParser.parse(boxes)
+        // no "Summen" label: the numbers under the table still give the sums
+        #expect(kurswahl.sums.first == 34)
+        // Deutsch is the first row: found in the gap under the table header, named by the only course that fits
+        let plan = CustomPlanBuilder.build(kurswahl: kurswahl, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(plan.checks.issues.map(\.message) == [])
+        #expect(plan.courses.contains { $0.id == "D3" })
+        #expect(plan.checks.totalHours == 34)
+    }
+
+    @Test func unreadableSumIsReported() throws {
+        var boxes = try JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr"))
+        boxes.removeAll { $0.text.lowercased().hasPrefix("summen") || ($0.y > 0.87 && $0.text.wholeMatch(of: #/\d{2}/#) != nil) }
+        let plan = CustomPlanBuilder.build(kurswahl: try KurswahlParser.parse(boxes), plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(plan.checks.issues.contains { $0.kind == .sumUnreadable })
+        #expect(plan.checks.totalHours == 34)
+    }
+
+    @Test func tiltedPhotoStillFindsColumnsAndSums() throws {
+        // about 2.3° clockwise: the right edge sits 4 % of the height lower than the left
+        let boxes = try JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr")).map { box -> TextBox in
+            var tilted = box
+            tilted.y += (box.midX - 0.5) * 0.04
+            return tilted
+        }
+        let kurswahl = try KurswahlParser.parse(boxes)
+        #expect(kurswahl.sums.first == 34)
+        let plan = CustomPlanBuilder.build(kurswahl: kurswahl, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(plan.checks.issues.map(\.message) == [])
+        #expect(plan.checks.totalHours == 34)
+    }
+
+    /// A second real sheet (iPhone photo): "D", "E" and "Summen" were not recognised at all.
+    @Test func sheetWithUnrecognisedSubjectsAndSumLabel() throws {
+        let kurswahl = try KurswahlParser.parse(JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr_b")))
+        #expect(kurswahl.sums.first == 34)
+        let plan = CustomPlanBuilder.build(kurswahl: kurswahl, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(plan.checks.issues.map(\.message) == [])
+        #expect(Set(plan.courses.map(\.id)) == ["d3", "E4", "GK", "mus2", "g4", "kR1", "M3", "bio2", "ph", "inf1", "s1/s2/s3"])
+        #expect(plan.checks.totalHours == 34)
+    }
+
     @Test func handPickedCodeWins() throws {
         let plan = CustomPlanBuilder.build(name: "", choices: [.init(subject: "M", level: .leistungsfach, hours: 5, parallel: 3, code: "M1")],
                                            konfession: nil, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr", expectedTotal: nil)

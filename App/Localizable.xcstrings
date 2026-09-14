@@ -747,6 +747,23 @@
         }
       }
     },
+    "custom.issue.sumUnreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Summe im Kurswahlprotokoll war nicht lesbar – bitte prüfe, ob alle Fächer da sind"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The total on the Kurswahlprotokoll wasn't readable – please check that all subjects are there"
+          }
+        }
+      }
+    },
     "custom.issue.total": {
       "extractionState": "manual",
       "localizations": {
@@ -760,6 +777,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$lld weekly hours, the Kurswahlprotokoll says %2$lld"
+          }
+        }
+      }
+    },
+    "custom.issue.unknownRow": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Fach mit %@ Wochenstunden wurde nicht erkannt – bitte über „Fach hinzufügen“ ergänzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A subject with %@ weekly hours wasn't recognised – add it with “Add subject”"
           }
         }
       }

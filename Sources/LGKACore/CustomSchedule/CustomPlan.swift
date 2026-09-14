@@ -105,6 +105,10 @@ public struct CustomPlan: Codable, Hashable, Sendable {
     public struct Issue: Codable, Hashable, Sendable {
         public enum Kind: String, Codable, Hashable, Sendable {
             case unreadable, notInPlan, ambiguous, hoursMismatch, totalMismatch, conflict, gradeMismatch
+            /// A row with hours whose subject was not recognised; `codes` holds the hours.
+            case unknownRow
+            /// The sheet's "Summen" row was not readable, so a missing subject would go unnoticed.
+            case sumUnreadable
         }
         public var kind: Kind
         public var subject: String?
@@ -134,6 +138,11 @@ public enum CustomPlanBuilder {
                 continue
             }
             guard let hours = cell.hours else { continue }
+            guard SchoolReference.subject(row.subject) != nil else {
+                issues.append(.init(kind: .unknownRow, subject: nil, codes: ["\(hours)"],
+                                    message: "Ein Fach mit \(hours) Wochenstunden wurde im Kurswahlprotokoll nicht erkannt"))
+                continue
+            }
             let level: CustomPlan.Level = switch row.fachart {
             case "L": .leistungsfach
             case "B", "m": .basisfach
@@ -153,6 +162,11 @@ public enum CustomPlanBuilder {
         if let schuljahr = plan.schuljahr, let sheetGrade = kurswahl.grade(inSchuljahr: schuljahr), sheetGrade != grade {
             issues.append(.init(kind: .gradeMismatch, subject: nil, codes: [],
                                 message: "Das Kurswahlprotokoll gehört zu J\(sheetGrade), der Stundenplan ist \(plan.stufe)"))
+        }
+        resolveUnknownRows(kurswahl, half: half, plan: plan, choices: &choices, issues: &issues)
+        if half >= kurswahl.sums.count || kurswahl.sums[half] == nil {
+            issues.append(.init(kind: .sumUnreadable, subject: nil, codes: [],
+                                message: "Die Summe im Kurswahlprotokoll war nicht lesbar, bitte prüfen, ob alle Fächer da sind"))
         }
         choices.sort { order($0.subject) < order($1.subject) }
         return build(name: kurswahl.name ?? "", choices: choices, konfession: kurswahl.konfession, plan: plan,
@@ -245,6 +259,62 @@ public enum CustomPlanBuilder {
                           courses: courses, lessons: sortedLessons, choices: choices,
                           checks: .init(totalHours: total, expectedTotal: expectedTotal, issues: issues),
                           notes: notes, generatedAt: formatter.string(from: now), planSha256: planSha256)
+    }
+
+    /// Rows whose subject was not recognised, identified by what the Stufenplan allows: a subject
+    /// not chosen yet (a language above the first other subject, as the sheet orders them) with a
+    /// course of exactly that parallel number and hours that clashes with nothing chosen. Taken
+    /// only when a single subject fits; otherwise the row stays an issue for the user.
+    private static func resolveUnknownRows(_ kurswahl: Kurswahl, half: Int, plan: Stufenplan,
+                                           choices: inout [CustomPlan.Choice], issues: inout [CustomPlan.Issue]) {
+        issues.removeAll { $0.kind == .unknownRow }
+        let languages: Set<String> = ["D", "E", "F", "L", "I", "Sp"]
+        let firstOther = kurswahl.rows.firstIndex { row in
+            SchoolReference.subject(row.subject) != nil && !languages.contains(row.subject)
+        } ?? kurswahl.rows.count
+        for (index, row) in kurswahl.rows.enumerated() where SchoolReference.subject(row.subject) == nil {
+            guard half < row.halves.count, let hours = row.halves[half].hours else { continue }
+            let parallel = row.halves[half].parallel
+            let occupied = cells(of: choices, konfession: kurswahl.konfession, plan: plan)
+            let taken = Set(choices.map(\.subject))
+            let matches = SchoolReference.subjects.map(\.key).filter { key in
+                !taken.contains(key) && (index < firstOther) == languages.contains(key)
+            }
+            .compactMap { key -> CustomPlan.Choice? in
+                let choice = CustomPlan.Choice(subject: key, level: level(fachart: row.fachart, hours: hours),
+                                               hours: hours, parallel: parallel)
+                guard case .courses(let codes) = resolve(choice, konfession: kurswahl.konfession, plan: plan),
+                      parallel == nil || codes.allSatisfy({ CourseCode($0)?.number == parallel }) else { return nil }
+                let courseCells = cells(of: [choice], konfession: kurswahl.konfession, plan: plan)
+                return courseCells.count == hours && courseCells.isDisjoint(with: occupied) ? choice : nil
+            }
+            if matches.count == 1 {
+                choices.append(matches[0])
+            } else {
+                issues.append(.init(kind: .unknownRow, subject: nil, codes: ["\(hours)"],
+                                    message: "Ein Fach mit \(hours) Wochenstunden wurde im Kurswahlprotokoll nicht erkannt"))
+            }
+        }
+    }
+
+    /// "day-period" of every lesson the choices resolve to.
+    private static func cells(of choices: [CustomPlan.Choice], konfession: Kurswahl.Konfession?, plan: Stufenplan) -> Set<String> {
+        var result = Set<String>()
+        for choice in choices {
+            guard case .courses(let codes) = resolve(choice, konfession: konfession, plan: plan) else { continue }
+            for slot in codes.flatMap({ plan.slots(for: $0) }) {
+                for p in slot.start...slot.end { result.insert("\(slot.day)-\(p)") }
+            }
+        }
+        return result
+    }
+
+    static func level(fachart: String?, hours: Int) -> CustomPlan.Level {
+        switch fachart {
+        case "L": .leistungsfach
+        case "B", "m": .basisfach
+        default: hours >= 5 ? .leistungsfach : .basisfach
+        }
     }
 
     /// Every course of the plan a subject could be at a level ("M", LF → M1, M2, M3).

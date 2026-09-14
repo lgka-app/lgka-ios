@@ -1,6 +1,7 @@
 #if DEBUG
 import SwiftUI
 import LGKACore
+import LGKAPlanKit
 
 /// Debug builds only: open a custom-plan screen straight away for simulator screenshots, without
 /// a school login, from JSON written by `lgka-plan`:
@@ -28,6 +29,14 @@ enum CustomPlanDebug {
                 CustomPlanSetupScreen()
             }
         }
+    }
+
+    /// Keeps the last scan (recognised text, parsed sheet) in Caches/last-scan.json to replay it
+    /// on the Mac: `lgka-plan build --plan J11.pdf --scan last-scan.json --out plan.json`.
+    static func keep(_ scan: KurswahlScanner.Result) {
+        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+              let data = try? JSONEncoder().encode(scan) else { return }
+        try? data.write(to: caches.appendingPathComponent("last-scan.json"), options: .atomic)
     }
 
     private static func decode<T: Decodable>(_ path: String?) -> T? {

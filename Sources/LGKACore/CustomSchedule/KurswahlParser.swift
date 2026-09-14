@@ -18,17 +18,21 @@ public struct Kurswahl: Codable, Hashable, Sendable {
     }
 
     public struct Row: Codable, Hashable, Sendable {
-        /// Subject key as printed in the "Fächer" column: "D", "Gk", "Sport".
+        /// Subject key as printed in the "Fächer" column: "D", "Gk", "Sport"; "?" for a row whose
+        /// subject could not be read.
         public var subject: String
         /// "L", "B", "m", "L/B" (before the choice is made); nil when unreadable.
         public var fachart: String?
         /// One entry per Halbjahr (1. Hj … 4. Hj).
         public var halves: [Cell]
+        /// What was read in the subject column of a "?" row, if anything.
+        public var label: String?
 
-        public init(subject: String, fachart: String?, halves: [Cell]) {
+        public init(subject: String, fachart: String?, halves: [Cell], label: String? = nil) {
             self.subject = subject
             self.fachart = fachart
             self.halves = halves
+            self.label = label
         }
     }
 
@@ -70,7 +74,7 @@ public struct Kurswahl: Codable, Hashable, Sendable {
     /// The Jahrgang the sheet belongs to in a school year: Abitur 2028 in 2026-2027 → 11.
     public func grade(inSchuljahr schuljahr: String) -> Int? {
         guard let abiturjahr, let start = Int(schuljahr.prefix(4)) else { return nil }
-        let grade = 13 - (abiturjahr - start - 1) - 1
+        let grade = 13 - (abiturjahr - start)
         return (11...12).contains(grade) ? grade : nil
     }
 }
@@ -79,9 +83,10 @@ public struct Kurswahl: Codable, Hashable, Sendable {
 /// Takes the boxes of several recognition passes at once; for every cell the most plausible
 /// reading wins.
 ///
-/// Anchors: the subject abbreviations form the left column and give the rows; the "Summen"
-/// row gives the x of the four Halbjahr columns (its first four numbers). A tilt of the photo
-/// is taken out with the slope of that row.
+/// Anchors: the subject abbreviations form the left column and give the rows, with the regular
+/// row pitch filling in rows whose subject was not recognised. The "Summen" row gives the x of
+/// the four Halbjahr columns (its first four numbers, on a line that may be tilted); the tilt of
+/// the photo is taken out of every row.
 public enum KurswahlParser {
     public enum Failure: Error, Equatable {
         /// No subject column was found: not a Kurswahlprotokoll, or the photo is unreadable.
@@ -90,66 +95,88 @@ public enum KurswahlParser {
         case noColumns
     }
 
-    public static func parse(_ boxes: [TextBox]) throws -> Kurswahl {
+    /// Column spacing ÷ row pitch of the printed form, in pixels.
+    private static let columnToRowRatio = 2.54
+
+    /// - Parameter aspect: image height ÷ width, to relate row and column distances.
+    public static func parse(_ boxes: [TextBox], aspect: Double = 4.0 / 3.0) throws -> Kurswahl {
         let words = boxes.flatMap { $0.words() }.map { normalised($0) }
         let lines = boxes.map { normalised($0) }
 
         // subject column: the x where most subject abbreviations line up
-        let keys = SchoolReference.subjects.map(\.key)
-        let subjectBoxes = words.filter { w in keys.contains(where: { $0.caseInsensitiveCompare(w.text) == .orderedSame }) }
+        let subjectBoxes = words.filter { subjectKey($0.text) != nil }
         guard let columnX = densestX(subjectBoxes.map(\.midX), window: 0.03) else { throw Failure.noSubjects }
-        var rowsFound: [TextBox] = []
+        var found: [(key: String, box: TextBox)] = []
         for b in subjectBoxes.filter({ abs($0.midX - columnX) < 0.04 }).sorted(by: { $0.midY < $1.midY }) {
+            guard let key = subjectKey(b.text) else { continue }
             // the same subject from a second pass is one row
-            if let last = rowsFound.last, abs(last.midY - b.midY) < 0.006 {
-                if (b.confidence ?? 0) > (last.confidence ?? 0) { rowsFound[rowsFound.count - 1] = b }
+            if let last = found.last, abs(last.box.midY - b.midY) < 0.006 {
+                if (b.confidence ?? 0) > (last.box.confidence ?? 0) { found[found.count - 1] = (key, b) }
                 continue
             }
-            rowsFound.append(b)
+            found.append((key, b))
         }
-        guard rowsFound.count >= 5 else { throw Failure.noSubjects }
-        let pitch = rowsFound.map(\.midY).adjacentDifferences.median ?? 0.018
+        guard found.count >= 5 else { throw Failure.noSubjects }
+        let diffs = found.map(\.box.midY).adjacentDifferences
+        var pitch = diffs.median ?? 0.018
+        if let regular = diffs.filter({ $0 < pitch * 1.5 }).median { pitch = regular }
 
-        // Halbjahr columns from the "Summen" row
+        // rows: every recognised subject, plus rows in gaps of the regular pitch (a subject the
+        // recognition missed, or an empty "--" row) and between the table header and the first row
+        var anchors: [(key: String?, y: Double)] = found.map { ($0.key, $0.box.midY) }
+        var gaps: [Double] = []
+        for (a, b) in zip(anchors, anchors.dropFirst()) {
+            let n = Int(((b.y - a.y) / pitch).rounded())
+            if n >= 2 { for j in 1..<n { gaps.append(a.y + (b.y - a.y) * Double(j) / Double(n)) } }
+        }
+        let headerTexts = ["pro kurs", "fachart", "fächer"]
+        if let first = anchors.first,
+           let header = lines.filter({ line in headerTexts.contains { line.text.lowercased().contains($0) } && line.midY < first.y }).map(\.midY).max() {
+            let n = Int(((first.y - header) / pitch).rounded())
+            if n >= 2 { for j in 1..<n { gaps.append(first.y - Double(j) * pitch) } }
+        }
+        anchors += gaps.map { (nil, $0) }
+        anchors.sort { $0.y < $1.y }
+
+        // slope of the photo: from the "Summen" row, else from the bracketed values next to their subjects
         let summen = lines.first(where: { $0.text.lowercased().hasPrefix("summen") })
+            ?? words.first(where: { $0.text.lowercased().hasPrefix("summen") })
         var columns: [Double] = []
-        var slope = 0.0
         var sums: [Int?] = [nil, nil, nil, nil]
-        if let summen {
-            let numbers = words.filter { w in
-                w.midX > columnX + 0.12 && abs(w.midY - summen.midY) < pitch * 1.2 && w.text.wholeMatch(of: #/\d{2}/#) != nil
-            }
-            .sorted { $0.midX < $1.midX }
-            let deduped = numbers.reduce(into: [TextBox]()) { acc, w in
-                if let last = acc.last, abs(last.midX - w.midX) < 0.02 { return }
-                acc.append(w)
-            }
-            if deduped.count >= 4 {
-                let first4 = Array(deduped.prefix(4))
-                columns = first4.map(\.midX)
-                sums = first4.map { Int($0.text) }
-                let dx = first4[3].midX - summen.midX
-                if dx > 0.1 { slope = (first4[3].midY - summen.midY) / dx }
-            }
+        var slope = 0.0
+        // "Summen" itself is not always recognised; then the numbers under the table stand in for it
+        let lastRowY = found.last?.box.midY ?? 0
+        let sumAnchors = summen.map { [$0] } ?? words.filter { w in
+            w.midY > lastRowY && w.midY < lastRowY + pitch * 8 && w.midX > columnX + 0.12
+                && w.text.wholeMatch(of: #/\d{2}\.?/#) != nil
+        }
+        .sorted { $0.midX < $1.midX }
+        let sumLine = sumAnchors.lazy.compactMap { sumRow(words, anchor: $0, columnX: columnX, pitch: pitch) }.first
+        if let row = sumLine {
+            columns = row.boxes.map(\.midX)
+            sums = row.boxes.map { Int($0.text.filter(\.isNumber)) }
+            slope = row.slope
+        } else {
+            slope = bracketSlope(words, rows: found.map(\.box), pitch: pitch)
         }
         if columns.isEmpty {
             // fallback: the bracketed values "5(3)" sit in the first Halbjahr column
             let bracketed = words.filter { parseCell($0.text).parallel != nil }.map(\.midX)
             guard let first = densestX(bracketed, window: 0.02) else { throw Failure.noColumns }
-            columns = (0..<4).map { first + Double($0) * 0.062 }
+            let spacing = columnToRowRatio * pitch * aspect
+            columns = (0..<4).map { first + Double($0) * spacing }
         }
-        let spacing = columns.map { $0 }.adjacentDifferences.median ?? 0.062
+        let spacing = columns.adjacentDifferences.median ?? columnToRowRatio * pitch * aspect
         let fachartX = columns[0] - spacing * 2
-        let lowest = rowsFound.last?.midY ?? 1
+        let lowest = summen?.midY ?? sumLine?.boxes.first?.midY ?? (lastRowY + pitch)
 
         var rows: [Kurswahl.Row] = []
-        for subject in rowsFound {
-            let key = keys.first { $0.caseInsensitiveCompare(subject.text) == .orderedSame } ?? subject.text
+        for anchor in anchors where anchor.y < lowest - pitch * 0.5 {
             // expected y of this row at a given x, following the tilt
             func onRow(_ w: TextBox) -> Bool {
-                abs(w.midY - (subject.midY + slope * (w.midX - subject.midX))) < pitch * 0.42
+                abs(w.midY - (anchor.y + slope * (w.midX - columnX))) < pitch * 0.42
             }
-            let rowWords = words.filter { $0.midX > columnX + 0.03 && onRow($0) && $0.midY < lowest + pitch }
+            let rowWords = words.filter { onRow($0) }
             var halves: [Kurswahl.Cell] = []
             for cx in columns {
                 let candidates = rowWords.filter { abs($0.midX - cx) < spacing * 0.42 }
@@ -159,11 +186,18 @@ public enum KurswahlParser {
             }
             let fachart = rowWords.filter { abs($0.midX - fachartX) < spacing * 0.6 }
                 .map(\.text).first { ["L", "B", "m", "L/B"].contains($0) }
-            rows.append(.init(subject: key, fachart: fachart, halves: halves))
+            if let key = anchor.key {
+                rows.append(.init(subject: key, fachart: fachart, halves: halves))
+            } else {
+                // a gap row: only worth keeping when something is taken in it
+                guard halves.contains(where: \.taken) else { continue }
+                let label = rowWords.filter { abs($0.midX - columnX) < 0.04 }.map(\.text).first
+                rows.append(.init(subject: label.flatMap(misreadSubject) ?? "?", fachart: fachart, halves: halves, label: label))
+            }
         }
 
         let name = lines.first { line in
-            line.midY < (rowsFound.first?.midY ?? 1) - 0.1
+            line.midY < (found.first?.box.midY ?? 1) - 0.1
                 && line.text.wholeMatch(of: #/[A-ZÄÖÜ][\p{L}\-]+(?: [\p{L}\-]+)*,\s*[A-ZÄÖÜ][\p{L}\- ]+/#) != nil
                 && !line.text.hasPrefix("Name")
                 && !line.text.hasPrefix("Datum")
@@ -198,9 +232,65 @@ public enum KurswahlParser {
         return .init(raw: unreadable ? text : nil, hours: nil, parallel: nil, unreadable: unreadable)
     }
 
+    /// The four Halbjahr sums: two-digit numbers on one straight line through `anchor` ("Summen",
+    /// or the first sum). The photo may be tilted, so the line is searched, not assumed horizontal.
+    private static func sumRow(_ words: [TextBox], anchor: TextBox, columnX: Double, pitch: Double) -> (boxes: [TextBox], slope: Double)? {
+        let numbers = words.filter { w in
+            w.midX > columnX + 0.12 && abs(w.midY - anchor.midY) < pitch * 4 && w.text.wholeMatch(of: #/\d{2}\.?/#) != nil
+        }
+        let summen = anchor
+        var best: (boxes: [TextBox], slope: Double)?
+        for candidate in numbers {
+            let dx = candidate.midX - summen.midX
+            guard dx > 0.05 else { continue }
+            let slope = (candidate.midY - summen.midY) / dx
+            guard abs(slope) < 0.2 else { continue }
+            let onLine = numbers
+                .filter { $0.midX >= summen.midX - 0.01 && abs($0.midY - (summen.midY + slope * ($0.midX - summen.midX))) < pitch * 0.5 }
+                .sorted { $0.midX < $1.midX }
+                .reduce(into: [TextBox]()) { acc, w in
+                    if let last = acc.last, abs(last.midX - w.midX) < 0.02 { return }
+                    acc.append(w)
+                }
+            if onLine.count >= 4, onLine.count > (best?.boxes.count ?? 0) {
+                let first4 = Array(onLine.prefix(4))
+                let reference = first4[0].midX - summen.midX > 0.05 ? summen : first4[0]
+                let fitted = (first4[3].midY - reference.midY) / (first4[3].midX - reference.midX)
+                best = (first4, fitted)
+            }
+        }
+        return best
+    }
+
+    /// Tilt from bracketed values ("5(3)") and the subject on their row.
+    private static func bracketSlope(_ words: [TextBox], rows: [TextBox], pitch: Double) -> Double {
+        var slopes: [Double] = []
+        for w in words where parseCell(w.text).parallel != nil {
+            guard let row = rows.min(by: { abs($0.midY - w.midY) < abs($1.midY - w.midY) }),
+                  abs(row.midY - w.midY) < pitch * 0.9, w.midX - row.midX > 0.1 else { continue }
+            slopes.append((w.midY - row.midY) / (w.midX - row.midX))
+        }
+        return slopes.median ?? 0
+    }
+
     /// Prefers readable values, then bracketed ones (the most specific), then confidence.
     private static func score(_ cell: Kurswahl.Cell, _ box: TextBox) -> Double {
         (cell.unreadable ? 0 : 10) + (cell.parallel != nil ? 2 : 0) + (box.confidence ?? 0.5)
+    }
+
+    private static func subjectKey(_ text: String) -> String? {
+        SchoolReference.subjects.first { $0.key.caseInsensitiveCompare(text) == .orderedSame }?.key
+    }
+
+    /// Common recognition slips in the subject column of a row that was not recognised at first.
+    private static func misreadSubject(_ text: String) -> String? {
+        if let key = subjectKey(text.replacingOccurrences(of: "0", with: "o")) { return key }
+        switch text {
+        case "O", "0", "Ö", "Q", "o", "DI", "D.", "D,": return "D"
+        case "Mü", "Mo": return "Mu"
+        case "Sp.", "5p": return "Sp"
+        default: return nil
+        }
     }
 
     /// Text recognition reads some Latin letters as look-alike Cyrillic or Greek ones.

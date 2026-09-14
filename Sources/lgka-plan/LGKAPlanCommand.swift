@@ -27,15 +27,24 @@ struct LGKAPlanCommand {
         switch command {
         case "build":
             let plans = values(rest, "--plan")
-            guard !plans.isEmpty, let photo = values(rest, "--kurswahl").first, let out = values(rest, "--out").first else { throw Usage() }
+            guard !plans.isEmpty, let out = values(rest, "--out").first else { throw Usage() }
             let halbjahr = values(rest, "--halbjahr").first ?? "1. Halbjahr"
             let stufenplaene = try plans.map { try PdfText.stufenplan(at: URL(fileURLWithPath: $0)) }
-            let scan = try await KurswahlScanner.read(try image(photo))
+            let kurswahl: Kurswahl
+            if let scanPath = values(rest, "--scan").first {
+                // recognised text saved by a debug build of the app (last-scan.json), parsed again
+                let scan = try JSONDecoder().decode(KurswahlScanner.Result.self, from: Data(contentsOf: URL(fileURLWithPath: scanPath)))
+                kurswahl = try KurswahlParser.parse(scan.boxes, aspect: scan.aspect)
+            } else if let photo = values(rest, "--kurswahl").first {
+                kurswahl = try await KurswahlScanner.read(try image(photo)).kurswahl
+            } else {
+                throw Usage()
+            }
             // the Stufenplan of the sheet's Jahrgang when several are given
             let plan = stufenplaene.first { p in
-                p.schuljahr.flatMap { scan.kurswahl.grade(inSchuljahr: $0) } == p.grade
+                p.schuljahr.flatMap { kurswahl.grade(inSchuljahr: $0) } == p.grade
             } ?? stufenplaene[0]
-            var result = CustomPlanBuilder.build(kurswahl: scan.kurswahl, plan: plan, halbjahr: halbjahr)
+            var result = CustomPlanBuilder.build(kurswahl: kurswahl, plan: plan, halbjahr: halbjahr)
             if let name = values(rest, "--name").first { result.name = name }
             try write(result, to: out)
             report(result)

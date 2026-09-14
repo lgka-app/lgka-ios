@@ -12,6 +12,9 @@ struct CustomPlanHost: View {
     @State private var store = CustomPlanStore.shared
     @State private var editing: CustomPlanDraft?
     @State private var rescanning = false
+    /// Review of a first scan. Pushed from here, not from the setup screen: saving swaps the setup
+    /// screen for the plan, and a destination owned by the removed screen would never pop.
+    @State private var reviewing: CustomPlanDraft?
 
     var body: some View {
         Group {
@@ -21,7 +24,13 @@ struct CustomPlanHost: View {
                                  onRescan: { rescanning = true },
                                  onDelete: { store.delete() })
             } else {
-                CustomPlanSetupScreen()
+                CustomPlanSetupScreen(onDraft: { reviewing = $0 })
+            }
+        }
+        .navigationDestination(item: $reviewing) { draft in
+            CustomPlanReviewScreen(draft: draft) { value in
+                store.save(value)
+                reviewing = nil
             }
         }
         .task { await refreshIfPlanChanged() }
@@ -116,6 +125,8 @@ struct CustomPlanDraft: Identifiable, Hashable {
     /// Findings of the scan itself (unreadable cells, sheet of another Jahrgang).
     var scanIssues: [CustomPlan.Issue]
     var expectedTotal: Int?
+    /// Courses found by the scan; an unrecognised row counts as handled once a subject was added.
+    var initialChoiceCount = 0
 
     init(kurswahl: Kurswahl, loaded: CustomPlanSource.Loaded, name: String? = nil) {
         let built = CustomPlanBuilder.build(kurswahl: kurswahl, plan: loaded.stufenplan, halbjahr: loaded.item.halbjahr)
@@ -123,8 +134,9 @@ struct CustomPlanDraft: Identifiable, Hashable {
         self.loaded = loaded
         self.name = name ?? built.name
         choices = built.choices
-        scanIssues = built.checks.issues.filter { $0.kind == .unreadable || $0.kind == .gradeMismatch }
+        scanIssues = built.checks.issues.filter { [.unreadable, .gradeMismatch, .unknownRow, .sumUnreadable].contains($0.kind) }
         expectedTotal = built.checks.expectedTotal
+        initialChoiceCount = built.choices.count
     }
 
     /// A saved plan against a (possibly newer) Stufenplan: same choices, or the sheet's
@@ -147,10 +159,16 @@ struct CustomPlanDraft: Identifiable, Hashable {
         CustomPlanBuilder.build(name: name.trimmingCharacters(in: .whitespaces), choices: choices,
                                 konfession: kurswahl?.konfession, plan: loaded.stufenplan,
                                 halbjahr: loaded.item.halbjahr, expectedTotal: expectedTotal,
-                                extraIssues: scanIssues, planSha256: loaded.item.pdf?.sha256)
+                                extraIssues: scanIssues.filter { $0.kind != .unknownRow || choices.count <= initialChoiceCount },
+                                planSha256: loaded.item.pdf?.sha256)
     }
 
-    var saved: SavedCustomPlan { .init(plan: plan, kurswahl: kurswahl, planTitle: loaded.item.title) }
+    var saved: SavedCustomPlan {
+        var value = plan
+        // hints about the photo itself do not belong to the saved plan
+        value.checks.issues.removeAll { $0.kind == .unknownRow || $0.kind == .sumUnreadable }
+        return .init(plan: value, kurswahl: kurswahl, planTitle: loaded.item.title)
+    }
 
     static func == (a: Self, b: Self) -> Bool { a.id == b.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
@@ -160,6 +178,8 @@ struct CustomPlanDraft: Identifiable, Hashable {
 
 /// Explains the feature, then scans (guided camera) or picks a photo of the Kurswahlprotokoll.
 struct CustomPlanSetupScreen: View {
+    /// When set, the host shows the review; otherwise this screen pushes it itself.
+    var onDraft: ((CustomPlanDraft) -> Void)?
     var onDone: (() -> Void)?
     @Environment(HomeModel.self) private var model
     @Environment(\.appAccent) private var accent
@@ -344,8 +364,12 @@ struct CustomPlanSetupScreen: View {
                         ?? CustomPlanSource.pick(published, stufe: nil, kurswahl: nil) else {
                     throw CustomPlanSource.Failure.noPlanPublished
                 }
+                #if DEBUG
+                CustomPlanDebug.keep(scan)
+                #endif
                 Haptics.success()
-                draft = CustomPlanDraft(kurswahl: scan.kurswahl, loaded: loaded)
+                let next = CustomPlanDraft(kurswahl: scan.kurswahl, loaded: loaded)
+                if let onDraft { onDraft(next) } else { draft = next }
             } catch is KurswahlParser.Failure {
                 Haptics.error()
                 failure = L.s("custom.error.notASheet")
@@ -539,6 +563,8 @@ struct CustomPlanReviewScreen: View {
         case .totalMismatch: return L.f("custom.issue.total", plan.checks.totalHours, plan.checks.expectedTotal ?? 0)
         case .conflict: return L.f("custom.issue.conflict", issue.codes.joined(separator: " & "))
         case .gradeMismatch: return L.s("custom.issue.grade")
+        case .unknownRow: return L.f("custom.issue.unknownRow", issue.codes.first ?? "?")
+        case .sumUnreadable: return L.s("custom.issue.sumUnreadable")
         }
     }
 }
