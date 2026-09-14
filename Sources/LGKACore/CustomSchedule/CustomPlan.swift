@@ -154,7 +154,11 @@ public enum CustomPlanBuilder {
             case "B", "m": .basisfach
             default: hours >= 5 ? .leistungsfach : .basisfach
             }
-            choices.append(.init(subject: row.subject, level: level, hours: hours, parallel: cell.parallel))
+            // winprosa prints the parallel course only in the first Halbjahr column ("5(3)", then "5"):
+            // a later Halbjahr with the same hours continues that course
+            let parallel = cell.parallel ?? row.halves[..<half].reversed()
+                .first { $0.parallel != nil && $0.hours == hours }?.parallel
+            choices.append(.init(subject: row.subject, level: level, hours: hours, parallel: parallel))
         }
         return (choices, issues)
     }

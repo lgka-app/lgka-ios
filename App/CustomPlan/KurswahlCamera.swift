@@ -8,7 +8,7 @@ import Vision
 import LGKAPlanKit
 
 /// Live state of the Kurswahlprotokoll camera: permission, the detected sheet, the current
-/// instruction and the capture. The AVFoundation work runs in `CameraPipeline`.
+/// instruction, the automatic torch and the capture. The AVFoundation work runs in `CameraPipeline`.
 @Observable
 @MainActor
 final class KurswahlCamera {
@@ -20,6 +20,7 @@ final class KurswahlCamera {
     private(set) var state = ScanGuidance.State(hint: .noDocument, progress: 0, capture: false)
     /// Gravity across the screen (x right, y up), for the spirit level.
     private(set) var level = CGPoint.zero
+    /// The torch was switched on automatically because the scene was too dark.
     private(set) var torchOn = false
     private(set) var hasTorch = false
     private(set) var isCapturing = false
@@ -30,6 +31,7 @@ final class KurswahlCamera {
     @ObservationIgnored var onAutoCapture: (() -> Void)?
     @ObservationIgnored let pipeline = CameraPipeline()
     @ObservationIgnored private var guidance = ScanGuidance()
+    @ObservationIgnored private var torch = TorchPolicy()
     @ObservationIgnored private var stableQuad: ScanQuad?
     @ObservationIgnored private var running = false
 
@@ -51,17 +53,14 @@ final class KurswahlCamera {
     func stop() {
         running = false
         torchOn = false
+        torch = TorchPolicy()
         pipeline.stop()
-    }
-
-    func toggleTorch() {
-        torchOn.toggle()
-        pipeline.setTorch(torchOn)
     }
 
     /// Takes a few photos in a row and straightens each with the last stable detection. The scanner
     /// merges them cell by cell, so a digit blurred or glared in one photo is read from another.
-    func capture(count: Int = 3) async -> [CGImage] {
+    /// `onPhoto` runs right after each photo was taken (0-based index), for the shutter effect.
+    func capture(count: Int = 3, onPhoto: (Int) -> Void = { _ in }) async -> [CGImage] {
         guard !isCapturing else { return [] }
         isCapturing = true
         defer {
@@ -70,11 +69,12 @@ final class KurswahlCamera {
         }
         let quad = stableQuad ?? self.quad
         var images: [CGImage] = []
-        for _ in 0..<count {
+        for index in 0..<count {
             let data: Data? = await withCheckedContinuation { continuation in
                 pipeline.capture { continuation.resume(returning: $0) }
             }
             guard let data else { continue }
+            onPhoto(index)
             let image = await Task.detached(priority: .userInitiated) { () -> CGImage? in
                 // 4032 px keeps three photos in memory; the table crops are enlarged again for reading
                 guard let image = KurswahlScanner.image(from: data, maxPixels: 4032) else { return nil }
@@ -90,7 +90,21 @@ final class KurswahlCamera {
         frameAspect = result.aspect
         level = CGPoint(x: result.gravityX, y: result.gravityY)
         quad = result.frame.quad
-        let next = guidance.update(result.frame)
+
+        // the torch decides itself: on when it stays dark, stronger or weaker as the frames show
+        var frame = result.frame
+        if hasTorch {
+            let previous = torch.level
+            let next = torch.update(luma: frame.luma, glare: frame.glare, time: frame.time)
+            if next != previous {
+                pipeline.setTorch(level: next)
+                if previous == 0 { Haptics.light() }
+            }
+            torchOn = torch.isOn
+            frame.torch = next
+        }
+
+        let next = guidance.update(frame)
         if next.hint == .ready, let q = result.frame.quad { stableQuad = q }
         state = next
         if next.capture { onAutoCapture?() }
@@ -201,10 +215,15 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
         }
     }
 
-    func setTorch(_ on: Bool) {
+    /// 0 turns the torch off.
+    func setTorch(level: Double) {
         sessionQueue.async { [self] in
             guard let device, device.hasTorch, (try? device.lockForConfiguration()) != nil else { return }
-            if on { try? device.setTorchModeOn(level: 0.6) } else { device.torchMode = .off }
+            if level > 0 {
+                try? device.setTorchModeOn(level: Float(min(level, 1)))
+            } else {
+                device.torchMode = .off
+            }
             device.unlockForConfiguration()
         }
     }

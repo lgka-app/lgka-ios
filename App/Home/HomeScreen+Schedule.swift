@@ -90,7 +90,12 @@ extension HomeScreen {
     /// The saved plan as its Untis-style PDF, rebuilt first when the school published a newer Stufenplan.
     func openCustomPlan(_ saved: SavedCustomPlan) {
         Task {
-            let current = await CustomPlanSource.refreshed(saved, model: model)
+            let (current, rebuilt) = await CustomPlanSource.refreshed(saved, model: model)
+            // a new Stufenplan or Halbjahr left courses it could not place: check them before the PDF
+            if rebuilt, !current.plan.checks.issues.isEmpty {
+                path.append(HomeRoute.customPlanEdit)
+                return
+            }
             guard let file = try? CustomPlanSource.pdfFile(for: current.plan) else { return }
             pdfDestination = PdfDestination(fileUrl: file, title: L.s("custom.home.title"), targetPage: nil)
         }

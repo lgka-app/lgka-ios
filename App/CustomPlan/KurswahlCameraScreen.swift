@@ -2,20 +2,23 @@ import AVFoundation
 import SwiftUI
 import LGKAPlanKit
 
-/// Guided camera for the Kurswahlprotokoll: outlines the sheet live, paints a faint table grid
-/// on it, tells the user what to change (closer, light, parallel, still) and takes the photo
-/// by itself once everything holds.
+/// Guided camera for the Kurswahlprotokoll, fully automatic: outlines the sheet live, paints a
+/// faint table grid on it, tells the user what to change (closer, parallel, still), turns the
+/// torch on when it is too dark and takes a burst of photos by itself once everything holds.
 struct KurswahlCameraScreen: View {
     /// The photos of one shot (a short burst of the same framing), upright and straightened.
     let onCapture: ([CGImage]) -> Void
     let onCancel: () -> Void
+
+    static let burstCount = 3
 
     @Environment(\.appAccent) private var accent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
     @State private var camera = KurswahlCamera()
     @State private var flash = false
-    @State private var shutterDown = false
+    /// Photos of the running burst taken so far.
+    @State private var photosTaken = 0
 
     private var hint: ScanHint { camera.state.hint }
 
@@ -43,7 +46,7 @@ struct KurswahlCameraScreen: View {
                 .padding(.bottom, 20)
                 .animation(reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.25), value: hint)
             }
-            Color.white.opacity(flash ? 0.9 : 0)
+            Color.white.opacity(flash ? (reduceMotion ? 0.35 : 0.9) : 0)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         }
@@ -55,6 +58,7 @@ struct KurswahlCameraScreen: View {
         }
         .onDisappear { camera.stop() }
         .onChange(of: hint) { _, new in
+            guard !camera.isCapturing else { return }
             if new == .ready { Haptics.light() }
             AccessibilityNotification.Announcement(Self.text(for: new)).post()
         }
@@ -106,20 +110,34 @@ struct KurswahlCameraScreen: View {
     // MARK: Instruction
 
     private var instructionPill: some View {
-        HStack(spacing: 10) {
-            Image(systemName: Self.symbol(for: hint))
+        let bursting = camera.isCapturing
+        let highlighted = hint == .ready || bursting
+        return HStack(spacing: 10) {
+            Image(systemName: bursting ? "hand.raised.fill" : Self.symbol(for: hint))
                 .font(.body.weight(.semibold))
-                .foregroundStyle(hint == .ready ? accent : .white)
+                .foregroundStyle(highlighted ? accent : .white)
                 .contentTransition(.symbolEffect(.replace))
-                .symbolEffect(.pulse, isActive: (hint == .tooDark || hint == .noDocument) && !reduceMotion)
-            Text(Self.text(for: hint))
+                .symbolEffect(.pulse, isActive: (hint == .tooDark || hint == .noDocument) && !bursting && !reduceMotion)
+            Text(bursting ? L.s("scan.burst.hold") : Self.text(for: hint))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .contentTransition(.opacity)
+            if bursting {
+                BurstDots(taken: photosTaken, total: Self.burstCount, accent: accent)
+            }
+            if camera.torchOn {
+                // the torch came on by itself
+                Image(systemName: "flashlight.on.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.yellow)
+                    .accessibilityLabel(L.s("scan.torch.auto"))
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .glassEffect(.regular.tint(hint == .ready ? accent.opacity(0.3) : nil), in: .capsule)
+        .glassEffect(.regular.tint(highlighted ? accent.opacity(0.3) : nil), in: .capsule)
+        .animation(reduceMotion ? nil : .spring(duration: 0.3), value: bursting)
+        .animation(reduceMotion ? nil : .spring(duration: 0.3), value: camera.torchOn)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.updatesFrequently)
     }
@@ -159,75 +177,62 @@ struct KurswahlCameraScreen: View {
 
             Spacer()
 
-            Button {
-                Task { await shoot() }
-            } label: {
-                ZStack {
-                    Circle().stroke(.white.opacity(0.35), lineWidth: 4)
-                    Circle()
-                        .trim(from: 0, to: camera.state.progress)
-                        .stroke(accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .animation(.linear(duration: 0.12), value: camera.state.progress)
-                    Circle()
-                        .fill(.white)
-                        .padding(8)
-                        .scaleEffect(shutterDown ? 0.82 : 1)
-                }
-                .frame(width: 84, height: 84)
-            }
-            .buttonStyle(.plain)
-            .disabled(camera.isCapturing || camera.authorization != .allowed)
-            .accessibilityLabel(L.s("scan.shutter"))
+            captureStatus
 
             Spacer()
 
-            Group {
-                if camera.hasTorch {
-                    Button {
-                        Haptics.light()
-                        camera.toggleTorch()
-                    } label: {
-                        Image(systemName: camera.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(camera.torchOn ? .yellow : .white)
-                            .contentTransition(.symbolEffect(.replace))
-                            .frame(width: 56, height: 56)
-                    }
-                    .glassEffect(.regular.tint(camera.torchOn ? Color.yellow.opacity(0.25) : nil).interactive(), in: .circle)
-                    .scaleEffect(hint == .tooDark && !camera.torchOn && !reduceMotion ? 1.12 : 1)
-                    .animation(hint == .tooDark && !reduceMotion
-                               ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true) : .default,
-                               value: hint == .tooDark && !camera.torchOn)
-                    .accessibilityLabel(L.s("scan.torch"))
-                } else {
-                    Color.clear.frame(width: 56, height: 56)
-                }
-            }
+            // keeps the status centred against the close button
+            Color.clear.frame(width: 56, height: 56)
         }
         .padding(.horizontal, 28)
     }
 
+    /// Not a button: the ring fills while the framing holds, then the photos are taken by themselves.
+    private var captureStatus: some View {
+        let bursting = camera.isCapturing
+        let progress = bursting ? Double(photosTaken) / Double(Self.burstCount) : camera.state.progress
+        return ZStack {
+            Circle().stroke(.white.opacity(0.25), lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 0.12), value: progress)
+            Image(systemName: bursting ? "camera.shutter.button.fill" : "camera.fill")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(hint == .ready || bursting ? accent : .white.opacity(0.85))
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: photosTaken)
+        }
+        .frame(width: 84, height: 84)
+        .glassEffect(in: .circle)
+        .accessibilityHidden(true)
+    }
+
     private func shoot() async {
         guard !camera.isCapturing, camera.authorization == .allowed else { return }
-        Haptics.success()
-        withAnimation(.easeOut(duration: 0.08)) {
-            flash = true
-            shutterDown = true
+        photosTaken = 0
+        let images = await camera.capture(count: Self.burstCount) { index in
+            photoTaken(index)
         }
-        Task {
-            try? await Task.sleep(for: .milliseconds(150))
-            withAnimation(.easeOut(duration: 0.4)) {
-                flash = false
-                shutterDown = false
-            }
-        }
-        let images = await camera.capture()
         if !images.isEmpty {
             camera.stop()
             onCapture(images)
         } else {
+            photosTaken = 0
             Haptics.error()
+        }
+    }
+
+    /// The shutter effect for every single photo of the burst.
+    private func photoTaken(_ index: Int) {
+        photosTaken = index + 1
+        Haptics.success()
+        AccessibilityNotification.Announcement(L.f("scan.burst.photo", index + 1, Self.burstCount)).post()
+        withAnimation(.easeOut(duration: 0.06)) { flash = true }
+        Task {
+            try? await Task.sleep(for: .milliseconds(110))
+            withAnimation(.easeOut(duration: 0.3)) { flash = false }
         }
     }
 
@@ -287,6 +292,28 @@ private struct CameraPreview: UIViewRepresentable {
                 connection.videoRotationAngle = 90
             }
         }
+    }
+}
+
+// MARK: - Burst dots
+
+/// One dot per photo of the burst, filled as each is taken.
+private struct BurstDots: View {
+    let taken: Int
+    let total: Int
+    let accent: Color
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<total, id: \.self) { index in
+                Circle()
+                    .fill(index < taken ? accent : .white.opacity(0.3))
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(index == taken - 1 ? 1.25 : 1)
+                    .animation(.spring(duration: 0.25, bounce: 0.5), value: taken)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

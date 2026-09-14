@@ -74,8 +74,11 @@ public struct ScanFrame: Sendable, Hashable {
     public var jitter: Double
     /// Seconds, monotonic.
     public var time: Double
+    /// Torch level 0…1 while the frame was taken (0 = off).
+    public var torch: Double
 
-    public init(quad: ScanQuad?, luma: Double, glare: Double, tilt: Double, motion: Double, jitter: Double, time: Double) {
+    public init(quad: ScanQuad?, luma: Double, glare: Double, tilt: Double, motion: Double, jitter: Double, time: Double,
+                torch: Double = 0) {
         self.quad = quad
         self.luma = luma
         self.glare = glare
@@ -83,6 +86,57 @@ public struct ScanFrame: Sendable, Hashable {
         self.motion = motion
         self.jitter = jitter
         self.time = time
+        self.torch = torch
+    }
+}
+
+/// Decides the torch on its own: on after the scene stayed too dark for a moment, brighter while it
+/// is still too dark, dimmer when it glares on the paper. Once on it stays on for the rest of the
+/// session, so the picture never flickers between lit and unlit frames.
+public struct TorchPolicy: Sendable {
+    /// Dark enough for the torch: below what the guidance accepts.
+    public static let darkLuma = ScanGuidance.minLuma
+    /// How long it has to stay dark before the torch comes on.
+    public static let darkDelay = 0.5
+    public static let startLevel = 0.5
+    public static let minLevel = 0.2
+    public static let maxLevel = 1.0
+    /// Pause between two level changes, so the exposure can settle.
+    public static let adjustInterval = 0.6
+
+    /// 0 = off.
+    public private(set) var level = 0.0
+    private var darkSince: Double?
+    private var lastChange = 0.0
+
+    public init() {}
+
+    public var isOn: Bool { level > 0 }
+
+    /// The torch level for this frame.
+    public mutating func update(luma: Double, glare: Double, time: Double) -> Double {
+        guard isOn else {
+            if luma < Self.darkLuma {
+                let since = darkSince ?? time
+                darkSince = since
+                if time - since >= Self.darkDelay {
+                    level = Self.startLevel
+                    lastChange = time
+                }
+            } else {
+                darkSince = nil
+            }
+            return level
+        }
+        guard time - lastChange >= Self.adjustInterval else { return level }
+        if glare > ScanGuidance.maxGlare, level > Self.minLevel {
+            level = max(Self.minLevel, level - 0.2)
+            lastChange = time
+        } else if luma < Self.darkLuma, level < Self.maxLevel {
+            level = min(Self.maxLevel, level + 0.25)
+            lastChange = time
+        }
+        return level
     }
 }
 
@@ -134,10 +188,15 @@ public struct ScanGuidance: Sendable {
 
     public init() {}
 
+    /// Brightness needed for a frame: with the torch on the sheet itself is lit even when the frame
+    /// average stays a little lower, so a bit less is enough.
+    static func requiredLuma(torch: Double) -> Double { torch > 0 ? minLuma * 0.8 : minLuma }
+
     /// The instruction for a single frame, without any smoothing.
     public static func hint(for frame: ScanFrame) -> ScanHint {
-        guard let quad = frame.quad else { return frame.luma < minLuma ? .tooDark : .noDocument }
-        if frame.luma < minLuma { return .tooDark }
+        let dark = frame.luma < requiredLuma(torch: frame.torch)
+        guard let quad = frame.quad else { return dark ? .tooDark : .noDocument }
+        if dark { return .tooDark }
         if quad.touchesEdge(margin: edgeMargin) { return .moveBack }
         if quad.area < minArea { return .moveCloser }
         if frame.tilt > maxTilt || quad.squareness < minSquareness { return .holdParallel }

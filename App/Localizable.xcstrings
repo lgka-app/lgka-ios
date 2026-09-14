@@ -1104,6 +1104,193 @@
         }
       }
     },
+    "custom.setup.a11y.bad": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schlechtes Beispielfoto: schräg, abgeschnitten, unscharf oder zu dunkel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bad example photo: tilted, cut off, blurry or too dark"
+          }
+        }
+      }
+    },
+    "custom.setup.a11y.good": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gutes Beispielfoto: Blatt flach, ganz im Bild, scharf und hell"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good example photo: sheet flat, fully in frame, sharp and bright"
+          }
+        }
+      }
+    },
+    "custom.setup.a11y.sample": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beispiel eines Kurswahlprotokolls mit Fächern, Stunden je Halbjahr und Summenzeile"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Example Kurswahlprotokoll with subjects, hours per semester and totals row"
+          }
+        }
+      }
+    },
+    "custom.setup.bad": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht so"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not like this"
+          }
+        }
+      }
+    },
+    "custom.setup.callout.hours": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stunden je Halbjahr"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hours per semester"
+          }
+        }
+      }
+    },
+    "custom.setup.callout.subjects": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fächer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subjects"
+          }
+        }
+      }
+    },
+    "custom.setup.callout.sums": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Totals"
+          }
+        }
+      }
+    },
+    "custom.setup.good": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Like this"
+          }
+        }
+      }
+    },
+    "custom.setup.needBody": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Kurswahlprotokoll aus der Kurswahl. Gelesen werden die Fächer, die Stunden je Halbjahr und die Summenzeile."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Kurswahlprotokoll from choosing your courses. The app reads the subjects, the hours per semester and the totals row."
+          }
+        }
+      }
+    },
+    "custom.setup.needTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das brauchst du"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What you need"
+          }
+        }
+      }
+    },
+    "custom.setup.photoTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So klappt das Foto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting the photo right"
+          }
+        }
+      }
+    },
     "custom.setup.pick": {
       "extractionState": "manual",
       "localizations": {
@@ -1138,6 +1325,23 @@
         }
       }
     },
+    "custom.setup.sampleHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beispiel ansehen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View example"
+          }
+        }
+      }
+    },
     "custom.setup.scan": {
       "extractionState": "manual",
       "localizations": {
@@ -1161,13 +1365,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kurswahlprotokoll auf den Tisch legen und das Handy langsam darüber bewegen, bis die Stunden stimmen."
+            "value": "Handy über das Blatt halten – die Kamera fotografiert von selbst."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Put your Kurswahlprotokoll on a table and move your phone slowly over it until the hours add up."
+            "value": "Hold your phone over the sheet – the camera takes the photos by itself."
           }
         }
       }
@@ -1195,13 +1399,30 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fertig: dein Plan im Untis-Look, auch als PDF."
+            "value": "Fertig: dein Plan als PDF zum Ansehen und Teilen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Done: your timetable in the Untis look, also as a PDF."
+            "value": "Done: your timetable as a PDF to view and share."
+          }
+        }
+      }
+    },
+    "custom.setup.stepsTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So geht's"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How it works"
           }
         }
       }
@@ -1212,13 +1433,81 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus dem vollen J11/J12-Plan wird dein persönlicher Plan – nur mit deinen Kursen."
+            "value": "Scanne dein Kurswahlprotokoll – LGKA+ macht daraus deinen persönlichen J11/J12-Plan."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The crowded J11/J12 timetable becomes yours – only your courses."
+            "value": "Scan your Kurswahlprotokoll – LGKA+ turns it into your personal J11/J12 timetable."
+          }
+        }
+      }
+    },
+    "custom.setup.tip.flat": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blatt flach auf den Tisch legen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lay the sheet flat on a table"
+          }
+        }
+      }
+    },
+    "custom.setup.tip.light": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Helles Licht – bei Bedarf geht das Licht von selbst an"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Good light – the flash turns on by itself if needed"
+          }
+        }
+      }
+    },
+    "custom.setup.tip.still": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruhig halten – drei Fotos entstehen automatisch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold still – three photos are taken automatically"
+          }
+        }
+      }
+    },
+    "custom.setup.tip.whole": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ganze Blatt ins Bild"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get the whole sheet in the frame"
           }
         }
       }
@@ -1229,13 +1518,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dein Stundenplan, entwirrt"
+            "value": "Dein Stundenplan, nur deine Kurse"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your timetable, untangled"
+            "value": "Your timetable, only your courses"
           }
         }
       }
@@ -2072,6 +2361,40 @@
         }
       }
     },
+    "scan.burst.hold": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht bewegen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't move"
+          }
+        }
+      }
+    },
+    "scan.burst.photo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto %1$lld von %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo %1$lld of %2$lld"
+          }
+        }
+      }
+    },
     "scan.close": {
       "extractionState": "manual",
       "localizations": {
@@ -2276,36 +2599,19 @@
         }
       }
     },
-    "scan.shutter": {
+    "scan.torch.auto": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foto aufnehmen"
+            "value": "Licht automatisch eingeschaltet"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take photo"
-          }
-        }
-      }
-    },
-    "scan.torch": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Licht"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Light"
+            "value": "Light switched on automatically"
           }
         }
       }

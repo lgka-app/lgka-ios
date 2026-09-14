@@ -98,6 +98,42 @@ struct ScanGuidanceTests {
         #expect(guidance.update(Self.frame(time: 0.7)).hint == .ready)
     }
 
+    @Test func torchLightsTheSheetEnough() {
+        let dim = ScanGuidance.minLuma * 0.85
+        #expect(ScanGuidance.hint(for: ScanFrame(quad: Self.good, luma: dim, glare: 0, tilt: 3, motion: 0.05, jitter: 0.002, time: 0)) == .tooDark)
+        #expect(ScanGuidance.hint(for: ScanFrame(quad: Self.good, luma: dim, glare: 0, tilt: 3, motion: 0.05, jitter: 0.002, time: 0,
+                                                 torch: 0.5)) == .ready)
+        #expect(ScanGuidance.hint(for: ScanFrame(quad: Self.good, luma: 0.05, glare: 0, tilt: 3, motion: 0.05, jitter: 0.002, time: 0,
+                                                 torch: 1)) == .tooDark)
+    }
+
+    @Test func torchComesOnAfterAMomentOfDarkness() {
+        var torch = TorchPolicy()
+        #expect(torch.update(luma: 0.1, glare: 0, time: 0) == 0)
+        #expect(torch.update(luma: 0.1, glare: 0, time: 0.3) == 0)
+        // a bright frame in between starts the wait over
+        #expect(torch.update(luma: 0.6, glare: 0, time: 0.4) == 0)
+        #expect(torch.update(luma: 0.1, glare: 0, time: 0.5) == 0)
+        #expect(torch.update(luma: 0.1, glare: 0, time: 0.9) == 0)
+        #expect(torch.update(luma: 0.1, glare: 0, time: 1.0) == TorchPolicy.startLevel)
+    }
+
+    @Test func torchStaysOnAndAdjusts() {
+        var torch = TorchPolicy()
+        _ = torch.update(luma: 0.1, glare: 0, time: 0)
+        _ = torch.update(luma: 0.1, glare: 0, time: 0.5)
+        #expect(torch.isOn)
+        // still too dark: brighter, but only after the exposure had time to settle
+        #expect(torch.update(luma: 0.1, glare: 0, time: 0.8) == TorchPolicy.startLevel)
+        #expect(torch.update(luma: 0.1, glare: 0, time: 1.2) == 0.75)
+        // bright now: stays on, no flicker
+        #expect(torch.update(luma: 0.7, glare: 0, time: 5) == 0.75)
+        // glare on the paper: dimmer, never off
+        #expect(abs(torch.update(luma: 0.7, glare: 0.2, time: 6) - 0.55) < 1e-9)
+        for step in 1...10 { _ = torch.update(luma: 0.7, glare: 0.2, time: 6 + Double(step)) }
+        #expect(torch.level == TorchPolicy.minLevel)
+    }
+
     @Test func resetStartsOver() {
         var guidance = ScanGuidance()
         for step in 0...9 { _ = guidance.update(Self.frame(time: Double(step) * 0.1)) }

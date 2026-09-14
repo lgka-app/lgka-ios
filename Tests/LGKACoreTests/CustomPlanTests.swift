@@ -221,6 +221,16 @@ struct CustomPlanTests {
         #expect(KurswahlParser.inferMissing(cells, perCourse: "2")[0].taken == false)
     }
 
+    /// The second Halbjahr column reads "5", not "5(3)": the course number carries over from the first.
+    @Test func secondHalbjahrKeepsTheParallelCourse() throws {
+        let kurswahl = try Self.kurswahl()
+        let (choices, _) = CustomPlanBuilder.choices(from: kurswahl, half: 1)
+        #expect(choices.first { $0.subject == "D" }?.parallel == 3)
+        #expect(choices.first { $0.subject == "E" }?.parallel == 3)
+        // Geo starts in the second Halbjahr ("2.p"): nothing to carry over
+        #expect(choices.first { $0.subject == "Geo" }?.parallel == nil)
+    }
+
     @Test func handPickedCodeWins() throws {
         let plan = CustomPlanBuilder.build(name: "", choices: [.init(subject: "M", level: .leistungsfach, hours: 5, parallel: 3, code: "M1")],
                                            konfession: nil, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr", expectedTotal: nil)
