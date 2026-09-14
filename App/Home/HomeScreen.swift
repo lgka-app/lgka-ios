@@ -111,8 +111,15 @@ struct HomeScreen: View {
                 Button(L.s("cancel"), role: .cancel) { Haptics.light() }
                 Button(L.s("setClassButton")) {
                     Haptics.medium()
-                    let cls = classInput.trimmingCharacters(in: .whitespaces).lowercased()
-                    if !cls.isEmpty { prefs.selectedScheduleClass = cls }
+                    let query = ScheduleClasses.normalize(classInput)
+                    guard !query.isEmpty else { return }
+                    if let cls = ScheduleClasses.validate(query, in: model.preferredGroup) {
+                        prefs.selectedScheduleClass = cls
+                    } else {
+                        // same wording as the PDF viewer's class bar; the alert queues behind this one
+                        Haptics.error()
+                        scheduleUnavailable = L.f("noResults", query.uppercased())
+                    }
                 }
             }
         }

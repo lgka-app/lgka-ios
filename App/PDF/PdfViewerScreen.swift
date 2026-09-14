@@ -113,7 +113,7 @@ struct PdfViewerScreen: View {
 
     // ── Class selector (pdf_search_bar.dart parity) ─────────────────────────
 
-    private var canSubmit: Bool { classInput.trimmingCharacters(in: .whitespaces).count >= 2 }
+    private var canSubmit: Bool { ScheduleClasses.normalize(classInput).count >= 2 }
 
     private var classBar: some View {
         HStack(spacing: 10) {
@@ -135,23 +135,21 @@ struct PdfViewerScreen: View {
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 
-    /// Validates the class against the index (pdf_viewer_screen _validateAndSaveClass):
-    /// unknown → "Klasse X existiert nicht.", known → persist, jump, confirm.
+    /// Validates the class against the index of every timetable of the group
+    /// (pdf_viewer_screen _validateAndSaveClass): unknown → "Klasse X existiert nicht.",
+    /// known → persist, jump, confirm.
     private func submitClass() {
-        let query = classInput.trimmingCharacters(in: .whitespaces).lowercased()
+        let query = ScheduleClasses.normalize(classInput)
         guard canSubmit else { return }
         Haptics.medium()
-        guard ScheduleGrades.isClassToken(query) else {
+        guard let cls = ScheduleClasses.validate(query, in: model.preferredGroup) else {
             flash(L.f("noResults", query.uppercased()), error: true); return
         }
-        if let current = currentSchedule, !current.covers(query) {
-            switchPdf(className: query) // the class lives in another schedule PDF
-            return
+        if let page = currentIndex[cls] {
+            applyClass(cls, page: page)
+        } else {
+            switchPdf(className: cls) // the class lives in another schedule PDF
         }
-        guard let page = currentIndex[query] else {
-            flash(L.f("noResults", query.uppercased()), error: true); return
-        }
-        applyClass(query, page: page)
     }
 
     private func applyClass(_ cls: String, page: Int) {
@@ -177,9 +175,9 @@ struct PdfViewerScreen: View {
     }
 
     /// Cross-PDF class switching (pdf_viewer_screen _navigateCrossPdf parity):
-    /// the PDF whose discovered grades contain the class, whatever it is called.
+    /// the PDF whose class index lists the class, whatever it is called.
     private func switchPdf(className: String) {
-        guard let schedule = model.preferredGroup.first(where: { $0.covers(className) }),
+        guard let schedule = model.preferredGroup.first(where: { $0.classIndex[className] != nil }),
               schedule.available, let pdf = schedule.pdf,
               let page = schedule.classIndex[className] else {
             flash(L.f("noResults", className.uppercased()), error: true)

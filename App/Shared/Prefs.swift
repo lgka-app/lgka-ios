@@ -1,4 +1,5 @@
 import SwiftUI
+import LGKACore
 
 /// Persisted preferences — mirrors PreferencesManager. Observable so views
 /// re-render on change; every write lands in UserDefaults immediately.
@@ -96,7 +97,8 @@ enum DebugSeed {
         }
         if let accent = env["LGKA_DEBUG_ACCENT"] { prefs.accentColor = accent }
         if let theme = env["LGKA_DEBUG_THEME"] { prefs.themeMode = theme }
-        if let cls = env["LGKA_DEBUG_CLASS"] { prefs.selectedScheduleClass = cls }
+        // seeded before any timetable is loaded, so it can only be normalised, not validated
+        if let cls = env["LGKA_DEBUG_CLASS"] { prefs.selectedScheduleClass = ScheduleClasses.normalize(cls) }
     }
 }
 #endif

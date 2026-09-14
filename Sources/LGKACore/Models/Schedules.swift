@@ -96,7 +96,26 @@ public enum ScheduleGrades {
         if let m = lower.wholeMatch(of: #/(\d{1,2})[a-e]/#) { return Int(m.1) }
         return nil
     }
+}
 
-    /// Is `cls` a class or Jahrgang token the app accepts ("5a"…"10e", "j11", "j13", …)?
-    public static func isClassToken(_ cls: String) -> Bool { gradeOf(cls) != nil }
+// MARK: - Class input (shared by every place a class is entered or stored)
+
+/// A class is only accepted when a timetable of the group lists it in its class
+/// index, so a typo never becomes the saved class of a card that opens nothing.
+public enum ScheduleClasses {
+    /// The form class-index keys use: " 10 B " → "10b", "J11" → "j11".
+    public static func normalize(_ input: String) -> String {
+        String(input.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) }).lowercased()
+    }
+
+    /// Every class listed by any PDF of the group.
+    public static func known(in group: [ScheduleItem]) -> Set<String> {
+        Set(group.flatMap(\.classIndex.keys))
+    }
+
+    /// The normalised class when the group's index lists it, nil otherwise.
+    public static func validate(_ input: String, in group: [ScheduleItem]) -> String? {
+        let cls = normalize(input)
+        return group.contains(where: { $0.classIndex[cls] != nil }) ? cls : nil
+    }
 }
