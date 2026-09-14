@@ -166,6 +166,15 @@ public enum CustomPlanBuilder {
     /// Kurswahlprotokoll + Stufenplan → plan.
     public static func build(kurswahl: Kurswahl, plan: Stufenplan, halbjahr: String,
                              planSha256: String? = nil, now: Date = Date()) -> CustomPlan {
+        if let original = kurswahl.original?.first {
+            // the reading with the detection additions is kept unless its plan has more issues, or a
+            // wrong total the plan from the reading as it was always made does not have
+            var reading = kurswahl
+            reading.original = nil
+            let withAdditions = build(kurswahl: reading, plan: plan, halbjahr: halbjahr, planSha256: planSha256, now: now)
+            let asBefore = build(kurswahl: original, plan: plan, halbjahr: halbjahr, planSha256: planSha256, now: now)
+            return prefersAdditions(withAdditions, over: asBefore) ? withAdditions : asBefore
+        }
         let grade = plan.grade ?? 11
         let half = Kurswahl.halfIndex(grade: grade, halbjahr: halbjahr)
         var (choices, issues) = Self.choices(from: kurswahl, half: half)
@@ -287,7 +296,7 @@ public enum CustomPlanBuilder {
             let parallel = row.halves[half].parallel
             let occupied = cells(of: choices, konfession: kurswahl.konfession, plan: plan)
             let taken = Set(choices.map(\.subject))
-            let matches = SchoolReference.subjects.map(\.key).filter { key in
+            var matches = SchoolReference.subjects.map(\.key).filter { key in
                 !taken.contains(key) && (index < firstOther) == languages.contains(key)
             }
             .compactMap { key -> CustomPlan.Choice? in
@@ -298,6 +307,15 @@ public enum CustomPlanBuilder {
                 let courseCells = cells(of: [choice], konfession: kurswahl.konfession, plan: plan)
                 return courseCells.count == hours && courseCells.isDisjoint(with: occupied) ? choice : nil
             }
+            if matches.count > 1 {
+                // several subjects fit: the sheet groups subjects in blocks, and a row sits in a block from
+                // its named neighbour above to its named neighbour below (unnamed rows in a row can span blocks)
+                let above = kurswahl.rows[..<index].last { sheetBlock($0.subject) != nil }.flatMap { sheetBlock($0.subject) }
+                let below = kurswahl.rows[(index + 1)...].first { sheetBlock($0.subject) != nil }.flatMap { sheetBlock($0.subject) }
+                let allowedBlocks = (above ?? 0)...max(above ?? 0, below ?? Int.max - 1)
+                let inBlock = matches.filter { sheetBlock($0.subject).map(allowedBlocks.contains) ?? true }
+                if inBlock.count == 1 { matches = inBlock }
+            }
             if matches.count == 1 {
                 choices.append(matches[0])
             } else {
@@ -305,6 +323,24 @@ public enum CustomPlanBuilder {
                                     message: "Ein Fach mit \(hours) Wochenstunden wurde im Kurswahlprotokoll nicht erkannt"))
             }
         }
+    }
+
+    /// The plan from the reading with additions has no more issues, and no more of any kind but
+    /// `inferred` (a new conflict, wrong hours or missing course means something was misread).
+    static func prefersAdditions(_ additions: CustomPlan, over original: CustomPlan) -> Bool {
+        func counts(_ plan: CustomPlan) -> [CustomPlan.Issue.Kind: Int] {
+            plan.checks.issues.reduce(into: [:]) { $0[$1.kind, default: 0] += 1 }
+        }
+        let added = counts(additions), before = counts(original)
+        let noWorseKind = added.allSatisfy { kind, count in kind == .inferred || count <= before[kind, default: 0] }
+        return noWorseKind && additions.checks.issues.count <= original.checks.issues.count
+    }
+
+    /// The block of the Kurswahlprotokoll a subject is printed in.
+    static func sheetBlock(_ key: String) -> Int? {
+        let blocks: [Set<String>] = [["D", "E", "F", "L", "I", "Sp"], ["BK", "Mu"], ["G", "Gk", "Geo", "WBS"], ["Rel", "Eth", "Phil"],
+                                     ["M"], ["Bio", "Ph", "Ch", "NwT"], ["Inf", "Sport", "Psy", "Ast", "LTh"]]
+        return blocks.firstIndex { $0.contains(key) }
     }
 
     /// "day-period" of every lesson the choices resolve to.

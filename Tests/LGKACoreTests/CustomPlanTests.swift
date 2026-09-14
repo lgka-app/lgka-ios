@@ -62,6 +62,101 @@ struct CustomPlanTests {
         #expect(KurswahlParser.parseCell("a7x").unreadable)
     }
 
+    @Test func recognitionSlipsInCells() {
+        #expect(KurswahlParser.tolerantCell("2.5").hours == 2 && KurswahlParser.tolerantCell("2.5").suffix == "s")
+        #expect(KurswahlParser.tolerantCell("24)").hours == 2 && KurswahlParser.tolerantCell("24)").parallel == 4)
+        #expect(KurswahlParser.tolerantCell("2(11").parallel == 1)
+        // values that already read are untouched, unreadable text without a known slip stays unreadable
+        #expect(KurswahlParser.tolerantCell("5(3)") == KurswahlParser.parseCell("5(3)"))
+        #expect(KurswahlParser.tolerantCell("-") == KurswahlParser.parseCell("-"))
+        #expect(KurswahlParser.tolerantCell("25").unreadable)
+        #expect(KurswahlParser.tolerantCell("a7x").unreadable)
+    }
+
+    /// Two photos read nothing in Geographie's 1. Hj, one read "2.p" there (its columns one off):
+    /// the 1. Hj would exceed its sum by exactly that cell, so it is not taken.
+    @Test func mergeDropsASuffixCellThatBreaksTheSum() {
+        func sheet(_ geo: [String?]) -> Kurswahl {
+            Kurswahl(name: nil, abiturjahr: nil, konfession: nil, rows: [
+                .init(subject: "M", fachart: "L", halves: ["5(3)", "5", "5", "5"].map(KurswahlParser.parseCell)),
+                .init(subject: "Geo", fachart: "B", halves: geo.map { $0.map(KurswahlParser.parseCell) ?? .missing }),
+            ], sums: [5, 7, 7, 5])
+        }
+        let merged = KurswahlParser.merge([sheet(["2.p", "2.s", nil, nil]), sheet([nil, "2.p", "2.s", "-"]), sheet(["-", "2.p", "2.s", nil])])
+        #expect(merged.rows[1].halves[0].taken == false)
+        #expect(merged.rows[1].halves[1].hours == 2 && merged.rows[1].halves[2].hours == 2)
+        // agreed by two photos, or adding up: kept
+        let agreed = KurswahlParser.merge([sheet(["2.p", "2.s", nil, nil]), sheet(["2.p", "2.s", nil, nil]), sheet([nil, nil, nil, nil])])
+        #expect(agreed.rows[1].halves[0].hours == 2)
+        // a plain value read by one photo only, equal to the excess, of a row the others found: dropped
+        let plain = KurswahlParser.merge([sheet(["2", "2.s", nil, nil]), sheet([nil, "2.p", "2.s", "-"]), sheet([nil, "2.p", "2.s", nil])])
+        #expect(plain.rows[1].halves[0].taken == false)
+        // a required subject is never dropped
+        func sport(_ first: String?) -> Kurswahl {
+            Kurswahl(name: nil, abiturjahr: nil, konfession: nil, rows: [
+                .init(subject: "M", fachart: "L", halves: ["5(3)", "5", "5", "5"].map(KurswahlParser.parseCell)),
+                .init(subject: "Sport", fachart: "B", halves: [first, "2", "2", "2"].map { $0.map(KurswahlParser.parseCell) ?? .missing }),
+            ], sums: [5, 7, 7, 7])
+        }
+        #expect(KurswahlParser.merge([sport("2"), sport(nil), sport(nil)]).rows[1].halves[0].hours == 2)
+    }
+
+    /// The sums line 36 / 36 / 34 / 46 / 36 taken one column late, and the 2. Hj sum unread: the
+    /// columns are rebuilt from the brackets with the common gap, so the 1. Hj is 34 and the missing
+    /// sum stays missing instead of pulling in "46".
+    @Test func sumColumnsRebuiltFromTheBracketsWithAMissingSum() throws {
+        var boxes = try JSONDecoder().decode([KurswahlScanner.Shot].self, from: Fixtures.data("kurswahl_scan_burst"))[1].boxes
+        boxes.removeAll { $0.text == "36" && $0.midX > 0.59 && $0.midX < 0.63 && $0.midY > 0.7 }
+        let kurswahl = try KurswahlParser.parse(boxes, aspect: 1.429)
+        #expect(kurswahl.sums[0] == 34)
+        #expect(!kurswahl.sums.contains(46))
+        #expect(kurswahl.rows.first { $0.subject == "Geo" }?.halves.first?.taken == false)
+    }
+
+    /// A reading with the detection additions is kept only when its plan is not worse than the plan
+    /// from the reading as it was always made.
+    @Test func planFallsBackToTheOriginalReadingWhenAdditionsAddIssues() throws {
+        let original = try Self.kurswahl()
+        var additions = original
+        // an addition that named nothing but added hours in an unnamed row
+        additions.rows.append(.init(subject: "?", fachart: nil, halves: ["3(2)", "3", "3", "3"].map(KurswahlParser.parseCell)))
+        additions.original = [original]
+        let plan = CustomPlanBuilder.build(kurswahl: additions, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(plan.checks.issues.map(\.message) == [])
+        #expect(plan.checks.totalHours == 34)
+        // additions that fix the sheet win
+        var broken = original
+        if let d = broken.rows.firstIndex(where: { $0.subject == "D" }) { broken.rows[d].halves[0] = .missing }
+        var fixed = original
+        fixed.original = [broken]
+        #expect(CustomPlanBuilder.build(kurswahl: fixed, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr").checks.issues.isEmpty)
+    }
+
+    @Test func valueAndBracketReadApartAreJoined() {
+        let boxes = [TextBox(text: "5", x: 0.50, y: 0.40, width: 0.008, height: 0.012),
+                     TextBox(text: "(3)", x: 0.509, y: 0.401, width: 0.02, height: 0.012),
+                     TextBox(text: "(2)", x: 0.80, y: 0.40, width: 0.02, height: 0.012)]
+        let joined = KurswahlParser.joinedBrackets(boxes)
+        // only the bracket right next to a digit on its line
+        #expect(joined.map(\.text) == ["5(3)"])
+        #expect(KurswahlParser.parseCell(joined[0].text).parallel == 3)
+    }
+
+    @Test func unknownRowOnlyTakesASubjectOfItsBlock() throws {
+        #expect(CustomPlanBuilder.sheetBlock("Ph") == CustomPlanBuilder.sheetBlock("Ch"))
+        #expect(CustomPlanBuilder.sheetBlock("Sport") != CustomPlanBuilder.sheetBlock("M"))
+        // a 3 hour row between Geschichte and Religion is a subject of one of those blocks, never a science
+        let sheet = Kurswahl(name: nil, abiturjahr: nil, konfession: .katholisch, rows: [
+            .init(subject: "E", fachart: "L", halves: ["5(3)", "5", "5", "5"].map(KurswahlParser.parseCell)),
+            .init(subject: "G", fachart: "B", halves: ["2(2)", "2", "2", "2"].map(KurswahlParser.parseCell)),
+            .init(subject: "?", fachart: "B", halves: ["3(1)", "3", "3", "3"].map(KurswahlParser.parseCell)),
+            .init(subject: "Rel", fachart: "B", halves: ["2(1)", "2", "2", "2"].map(KurswahlParser.parseCell)),
+        ], sums: [nil, nil, nil, nil])
+        let plan = CustomPlanBuilder.build(kurswahl: sheet, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(!plan.choices.contains { ["Bio", "Ph", "Ch", "NwT", "M"].contains($0.subject) })
+        #expect(plan.checks.issues.contains { $0.kind == .unknownRow })
+    }
+
     @Test func kurswahlFromPhoto() throws {
         let k = try Self.kurswahl()
         #expect(k.name == "Max Muster")
@@ -191,6 +286,25 @@ struct CustomPlanTests {
         #expect(plan.checks.totalHours == 34)
     }
 
+    /// A three-photo burst from the app (name replaced, SchNr, SchID and birth date removed). In the
+    /// first photo the sums line search took 36 / 36 / 34 / 46 (one column late, "anrechenbar" as
+    /// the 4. Hj), so Geographie's "2.p" landed in the 1. Hj and the plan came out at 39 hours.
+    /// A second burst of that sheet (42 hours in the app): again one photo's columns one off, with
+    /// Geographie's "2.p" in its 1. Hj.
+    @Test(arguments: ["kurswahl_scan_burst", "kurswahl_scan_burst_b", "kurswahl_scan_burst_c"])
+    func burstWithSumsOneColumnLate(fixture: String) throws {
+        let shots = try JSONDecoder().decode([KurswahlScanner.Shot].self, from: Fixtures.data(fixture))
+        #expect(shots.count == 3)
+        let sheets = try shots.map { try KurswahlParser.parse($0.boxes, aspect: $0.aspect) }
+        for sheet in sheets { #expect(sheet.sums == [34, 36, 36, 34]) }
+        let merged = KurswahlParser.merge(sheets)
+        #expect(merged.rows.first { $0.subject == "Geo" }?.halves.first?.taken == false)
+        let plan = CustomPlanBuilder.build(kurswahl: merged, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(!plan.courses.contains { $0.subjectKey == "Geo" })
+        #expect(!plan.checks.issues.contains { $0.kind == .conflict || $0.kind == .totalMismatch })
+        #expect(plan.checks.totalHours == 34)
+    }
+
     @Test func overviewAndCloseUpsMerge() throws {
         let boxes = try JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr"))
         // stand-ins for close-ups: the upper and the lower part of the table, each with its own gaps
@@ -219,6 +333,96 @@ struct CustomPlanTests {
         #expect(geo[0].taken == false)
         // an explicit dash stays a dash
         #expect(KurswahlParser.inferMissing(cells, perCourse: "2")[0].taken == false)
+    }
+
+    /// Nothing of Sport's row was read but its Fachart: Basisfach 2 hours, Leistungsfach 5.
+    @Test func sportHoursFromFachartWhenNothingElseWasRead() {
+        #expect(KurswahlParser.sportHours(fachart: "B") == 2)
+        #expect(KurswahlParser.sportHours(fachart: "L") == 5)
+        #expect(KurswahlParser.sportHours(fachart: nil) == nil)
+        let empty = [Kurswahl.Cell](repeating: .missing, count: 4)
+        let filled = KurswahlParser.inferMissing(empty, perCourse: nil, allHalves: true, fallbackHours: 5)
+        #expect(filled.allSatisfy { $0.hours == 5 && $0.inferred == true })
+        // a Halbjahr that was read still decides over the Fachart
+        let read = KurswahlParser.inferMissing([.missing, KurswahlParser.parseCell("2"), .missing, .missing],
+                                               perCourse: nil, allHalves: true, fallbackHours: 5)
+        #expect(read[0].hours == 2)
+        // without a fallback nothing changes
+        #expect(KurswahlParser.inferMissing(empty, perCourse: nil, allHalves: true).allSatisfy { !$0.taken })
+    }
+
+    @Test func sumFillsTheOneCellThatIsMissing() {
+        func row(_ subject: String, _ cells: [String?], perCourse: String? = nil) -> Kurswahl.Row {
+            .init(subject: subject, fachart: nil, halves: cells.map { $0.map(KurswahlParser.parseCell) ?? .missing }, perCourse: perCourse)
+        }
+        let sheet = Kurswahl(name: nil, abiturjahr: nil, konfession: nil, rows: [
+            row("Bio", [nil, "3", "3", "3"]),
+            row("Inf", ["2(1)", "2", "2", "2"]),
+            row("Ast", [nil, nil, nil, nil], perCourse: "2"),
+            row("Geo", ["-", "2.p", "2.s", nil]),
+        ], sums: [5, 5, 7, 5])
+        let repaired = KurswahlParser.repairWithSums(sheet)
+        // 1. Hj: 2 read, sum 5 → Biologie's usual 3 fills the gap
+        #expect(repaired.rows[0].halves[0].hours == 3 && repaired.rows[0].halves[0].inferred == true)
+        // a subject never taken and a two-Halbjahr subject are not candidates
+        #expect(repaired.rows[2].halves.allSatisfy { !$0.taken })
+        #expect(repaired.rows[3].halves[3].taken == false)
+        // sums that already add up leave everything as it was
+        #expect(Array(repaired.rows[1...]) == Array(sheet.rows[1...]))
+
+        // two rows that would fit equally: nothing is guessed
+        var twice = sheet
+        twice.rows.append(row("Ch", [nil, "3", "3", "3"]))
+        twice.sums = [5, 8, 10, 8]
+        #expect(KurswahlParser.repairWithSums(twice).rows[0].halves[0].taken == false)
+        // a dash that was read is never overwritten
+        var dash = sheet
+        dash.rows[0].halves[0] = KurswahlParser.parseCell("-")
+        #expect(KurswahlParser.repairWithSums(dash).rows[0].halves[0].taken == false)
+    }
+
+    @Test func secondReadingOnlyFillsGaps() {
+        func row(_ subject: String, _ cells: [String?]) -> Kurswahl.Row {
+            .init(subject: subject, fachart: nil, halves: cells.map { $0.map(KurswahlParser.parseCell) ?? .missing })
+        }
+        var sportInferred = row("Sport", [nil, "2", "2", "2"])
+        sportInferred.halves[0] = .init(raw: nil, hours: 2, parallel: nil, unreadable: false, inferred: true)
+        let base = Kurswahl(name: nil, abiturjahr: nil, konfession: nil, rows: [
+            row("D", [nil, "3", "3", "3"]),
+            row("?", ["5(4)", "5", "5", nil]),
+            row("M", ["5(3)", "5", nil, "5"]),
+            row("Geo", ["-", "2.p", "2.s", "-"]),
+            sportInferred,
+        ], sums: [nil, 36, 36, 34])
+        let other = Kurswahl(name: nil, abiturjahr: nil, konfession: nil, rows: [
+            row("D", ["3(3)", "3", "3", "3"]),
+            row("E", ["5(4)", "5", "5", "5"]),
+            row("M", ["5(1)", "3", "5", "5"]),
+            row("Geo", ["2", "2.p", "2.s", "-"]),
+            row("Sport", ["2", "2", "2", "2"]),
+            row("Inf", ["2(1)", "2", "2", "2"]),
+        ], sums: [34, 36, 36, 34])
+        let filled = KurswahlParser.fillGaps(base, from: other)
+        #expect(filled.rows.map(\.subject) == ["D", "E", "M", "Geo", "Sport", "Inf"])
+        #expect(filled.rows[0].halves[0].hours == 3 && filled.rows[0].halves[0].parallel == 3)
+        // the unnamed row follows D and its hours agree: Englisch; its unread 4. Hj is filled
+        #expect(filled.rows[1].halves[3].hours == 5)
+        // read values stay even where the second reading differs
+        #expect(filled.rows[2].halves[0].parallel == 3 && filled.rows[2].halves[1].hours == 5)
+        #expect(filled.rows[2].halves[2].hours == 5)
+        // a dash that was read stays a dash
+        #expect(filled.rows[3].halves[0].taken == false)
+        // an inferred value confirmed by a reading becomes a read value
+        #expect(filled.rows[4].halves[0].hours == 2 && filled.rows[4].halves[0].inferred == nil)
+        #expect(filled.sums == [34, 36, 36, 34])
+    }
+
+    @Test func consistencyPrefersAReadingThatAddsUp() throws {
+        let sheet = try Self.kurswahl()
+        var broken = sheet
+        if let d = broken.rows.firstIndex(where: { $0.subject == "D" }) { broken.rows[d].halves[0] = .missing }
+        #expect(KurswahlParser.consistency(sheet) > KurswahlParser.consistency(broken))
+        #expect(!KurswahlParser.isComplete(broken))
     }
 
     /// The second Halbjahr column reads "5", not "5(3)": the course number carries over from the first.

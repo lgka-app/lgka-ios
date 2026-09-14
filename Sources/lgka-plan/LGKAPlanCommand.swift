@@ -35,7 +35,13 @@ struct LGKAPlanCommand {
                 // recognised text saved by a debug build of the app (last-scan.json), parsed again
                 let scan = try JSONDecoder().decode(KurswahlScanner.Result.self, from: Data(contentsOf: URL(fileURLWithPath: scanPath)))
                 let shots = scan.shots ?? [.init(boxes: scan.boxes, aspect: scan.aspect)]
-                kurswahl = KurswahlParser.merge(shots.compactMap { try? KurswahlParser.parse($0.boxes, aspect: $0.aspect) })
+                let sheets = shots.compactMap { try? KurswahlParser.parse($0.boxes, aspect: $0.aspect) }
+                var merged = sheets.count > 1 ? KurswahlParser.repairWithSums(KurswahlParser.merge(sheets)) : KurswahlParser.merge(sheets)
+                // the reading as it was always made, like the app's scanner keeps it
+                let originalSheets = shots.compactMap { try? KurswahlParser.parseDetailed($0.boxes, aspect: $0.aspect, enhanced: false).kurswahl }
+                let original = KurswahlParser.merge(originalSheets, guards: false)
+                if !originalSheets.isEmpty, original != merged { merged.original = [original] }
+                kurswahl = merged
             } else if !values(rest, "--kurswahl").isEmpty {
                 // several --kurswahl photos of one sheet (overview, close-ups) are merged
                 kurswahl = try await KurswahlScanner.read(try values(rest, "--kurswahl").map { try image($0) }).kurswahl
@@ -46,6 +52,9 @@ struct LGKAPlanCommand {
             let plan = stufenplaene.first { p in
                 p.schuljahr.flatMap { kurswahl.grade(inSchuljahr: $0) } == p.grade
             } ?? stufenplaene[0]
+            if let kurswahlOut = values(rest, "--kurswahl-out").first {
+                try encoder().encode(kurswahl).write(to: URL(fileURLWithPath: kurswahlOut))
+            }
             var result = CustomPlanBuilder.build(kurswahl: kurswahl, plan: plan, halbjahr: halbjahr)
             if let name = values(rest, "--name").first { result.name = name }
             try write(result, to: out)
@@ -69,6 +78,31 @@ struct LGKAPlanCommand {
         case "ocr":
             guard let path = rest.first else { throw Usage() }
             try printJSON(try await KurswahlScanner.read(try image(path)).boxes)
+        case "parse-debug":
+            // a recorded scan read both ways (as always, and with the additions) and which one was taken
+            guard let path = rest.first else { throw Usage() }
+            let scan = try JSONDecoder().decode(KurswahlScanner.Result.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+            for (index, shot) in (scan.shots ?? [.init(boxes: scan.boxes, aspect: scan.aspect)]).enumerated() {
+                func describe(_ label: String, _ detail: KurswahlParser.Detail?) {
+                    guard let detail else { return print("  \(label): no table") }
+                    let k = detail.kurswahl
+                    print("  \(label): sums \(k.sums) matched \(KurswahlParser.matchedSums(k)) rebuilt \(detail.columnsRebuilt)")
+                    for row in k.rows {
+                        let cells = row.halves.map { c in (c.raw ?? "·") + (c.hours.map { "=\($0)" } ?? "") + (c.inferred == true ? "i" : "") }
+                        print("    \(row.subject.padding(toLength: 6, withPad: " ", startingAt: 0)) \(cells.joined(separator: " | "))")
+                    }
+                }
+                print("shot \(index + 1)")
+                describe("legacy", try? KurswahlParser.parseDetailed(shot.boxes, aspect: shot.aspect, enhanced: false))
+                describe("enhanced", try? KurswahlParser.parseDetailed(shot.boxes, aspect: shot.aspect, enhanced: true))
+                describe("chosen", try? KurswahlParser.parseDetailed(shot.boxes, aspect: shot.aspect))
+            }
+        case "ocr-region":
+            // text recognised in one region (0…1, top-left) the way the scanner's extra passes read it
+            guard rest.count >= 5, let x = Double(rest[1]), let y = Double(rest[2]), let w = Double(rest[3]), let h = Double(rest[4]) else { throw Usage() }
+            let options = KurswahlScanner.PassOptions(contrast: rest.contains("--contrast"),
+                                                      maxScale: values(rest, "--scale").first.flatMap(Double.init) ?? 3)
+            try printJSON(try await KurswahlScanner.recognize(try image(rest[0]), region: CGRect(x: x, y: y, width: w, height: h), options: options))
         default:
             throw Usage()
         }
