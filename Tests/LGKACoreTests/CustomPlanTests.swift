@@ -178,6 +178,49 @@ struct CustomPlanTests {
         #expect(plan.checks.totalHours == 34)
     }
 
+    /// The same sheet scanned in the app (camera, perspective-corrected): the Sport row's "2" in the
+    /// 1. Hj column was not recognised at all, only the "-" of the "bes. Lernleistung" row below.
+    /// Sport is required every Halbjahr, so its "pro Kurs" 2 fills the gap, marked for checking.
+    @Test func phoneScanFillsRequiredSubjectFromPerCourse() throws {
+        let kurswahl = try KurswahlParser.parse(JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr_c")),
+                                                aspect: 1.5092336103416435)
+        let sport = kurswahl.rows.first { $0.subject == "Sport" }?.halves.first
+        #expect(sport?.hours == 2 && sport?.inferred == true)
+        let plan = CustomPlanBuilder.build(kurswahl: kurswahl, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(plan.checks.issues.map(\.kind) == [.inferred])
+        #expect(plan.checks.totalHours == 34)
+    }
+
+    @Test func overviewAndCloseUpsMerge() throws {
+        let boxes = try JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr"))
+        // stand-ins for close-ups: the upper and the lower part of the table, each with its own gaps
+        let top = boxes.filter { $0.y < 0.66 && $0.text != "Ph" }
+        let bottom = boxes.filter { $0.y > 0.55 || $0.text.contains("Abiturjahr") }
+        let overview = boxes.filter { $0.text != "D" && $0.text != "5(1)" }
+        let sheets = [overview, top, bottom].compactMap { try? KurswahlParser.parse($0) }
+        #expect(sheets.count == 3)
+        let merged = KurswahlParser.merge(sheets)
+        #expect(merged.rows.first { $0.subject == "D" }?.halves.first?.parallel == 3)
+        #expect(merged.rows.first { $0.subject == "Sport" }?.halves.first?.parallel == 1)
+        #expect(merged.sums.first == 34)
+        let plan = CustomPlanBuilder.build(kurswahl: merged, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
+        #expect(plan.checks.issues.map(\.message) == [])
+        #expect(plan.checks.totalHours == 34)
+    }
+
+    @Test func missingHalfIsTakenFromTheOtherThree() {
+        let cells = ["-", "2", "2", "2"].map(KurswahlParser.parseCell)
+        var halves = cells
+        halves[0] = .missing
+        let inferred = KurswahlParser.inferMissing(halves, perCourse: "2")
+        #expect(inferred[0].hours == 2 && inferred[0].inferred == true)
+        // a two-Halbjahr subject is not filled in
+        let geo = KurswahlParser.inferMissing([.missing, KurswahlParser.parseCell("2.p"), KurswahlParser.parseCell("2.s"), .missing], perCourse: "2")
+        #expect(geo[0].taken == false)
+        // an explicit dash stays a dash
+        #expect(KurswahlParser.inferMissing(cells, perCourse: "2")[0].taken == false)
+    }
+
     @Test func handPickedCodeWins() throws {
         let plan = CustomPlanBuilder.build(name: "", choices: [.init(subject: "M", level: .leistungsfach, hours: 5, parallel: 3, code: "M1")],
                                            konfession: nil, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr", expectedTotal: nil)

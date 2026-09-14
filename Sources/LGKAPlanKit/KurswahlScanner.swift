@@ -12,10 +12,22 @@ import LGKACore
 public enum KurswahlScanner {
     public struct Result: Codable, Sendable {
         public var kurswahl: Kurswahl
-        /// Every recognised box of both passes, 0…1 of the whole image.
+        /// Every recognised box of both passes of the first photo, 0…1 of that image.
         public var boxes: [TextBox]
-        /// Image height ÷ width.
+        /// Image height ÷ width of the first photo.
         public var aspect: Double
+        /// Every photo's boxes, for replaying a multi-photo scan.
+        public var shots: [Shot]?
+    }
+
+    public struct Shot: Codable, Sendable {
+        public var boxes: [TextBox]
+        public var aspect: Double
+
+        public init(boxes: [TextBox], aspect: Double) {
+            self.boxes = boxes
+            self.aspect = aspect
+        }
     }
 
     /// Decodes a photo with its EXIF orientation applied, at most `maxPixels` on the long side.
@@ -30,13 +42,31 @@ public enum KurswahlScanner {
     }
 
     public static func read(_ image: CGImage) async throws -> Result {
-        let full = try await recognize(image, region: CGRect(x: 0, y: 0, width: 1, height: 1))
-        var boxes = full
-        if let table = tableRegion(full) {
-            boxes += try await recognize(image, region: table)
+        try await read([image])
+    }
+
+    /// Several photos of one sheet (overview and close-ups): each read on its own, then merged cell by cell.
+    public static func read(_ images: [CGImage]) async throws -> Result {
+        var shots: [Shot] = []
+        var sheets: [Kurswahl] = []
+        var firstError: (any Error)?
+        for image in images {
+            let full = try await recognize(image, region: CGRect(x: 0, y: 0, width: 1, height: 1))
+            var boxes = full
+            if let table = tableRegion(full) {
+                boxes += try await recognize(image, region: table)
+            }
+            let aspect = Double(image.height) / Double(max(1, image.width))
+            shots.append(Shot(boxes: boxes, aspect: aspect))
+            do {
+                sheets.append(try KurswahlParser.parse(boxes, aspect: aspect))
+            } catch {
+                firstError = firstError ?? error
+            }
         }
-        let aspect = Double(image.height) / Double(max(1, image.width))
-        return Result(kurswahl: try KurswahlParser.parse(boxes, aspect: aspect), boxes: boxes, aspect: aspect)
+        guard !sheets.isEmpty else { throw firstError ?? KurswahlParser.Failure.noSubjects }
+        return Result(kurswahl: KurswahlParser.merge(sheets), boxes: shots.first?.boxes ?? [],
+                      aspect: shots.first?.aspect ?? 4.0 / 3.0, shots: shots)
     }
 
     /// Recognised text of a region (0…1, origin top-left), mapped back to whole-image coordinates.

@@ -2,21 +2,25 @@ import AVFoundation
 import SwiftUI
 import LGKAPlanKit
 
-/// Guided camera for the Kurswahlprotokoll: outlines the sheet live, paints a faint table grid
-/// on it, tells the user what to change (closer, light, parallel, still) and takes the photo
-/// by itself once everything holds.
+/// Guided camera for the Kurswahlprotokoll in three forced photos: the whole sheet, then the upper
+/// and the lower half of the table up close. Live trackers mark what text recognition sees (the
+/// subject column, the table header, the "Summen" row), the instruction says what to change, and
+/// each photo is taken by itself once its part of the sheet is framed and readable.
 struct KurswahlCameraScreen: View {
-    let onCapture: (CGImage) -> Void
+    let onFinish: ([CGImage]) -> Void   // one upright image per KurswahlShot, in allCases order
     let onCancel: () -> Void
 
     @Environment(\.appAccent) private var accent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
     @State private var camera = KurswahlCamera()
+    @State private var images: [KurswahlShot: CGImage] = [:]
+    @State private var thumbnails: [KurswahlShot: UIImage] = [:]
     @State private var flash = false
     @State private var shutterDown = false
 
     private var hint: ScanHint { camera.state.hint }
+    private var shot: KurswahlShot { camera.shot }
 
     var body: some View {
         ZStack {
@@ -26,21 +30,29 @@ struct KurswahlCameraScreen: View {
             } else {
                 CameraPreview(session: camera.pipeline.session)
                     .ignoresSafeArea()
-                GeometryReader { geo in sheetOverlay(size: geo.size) }
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-                VStack(spacing: 12) {
+                GeometryReader { geo in
+                    ZStack {
+                        if shot.needsSheet { sheetOverlay(size: geo.size) } else { closeUpOverlay(size: geo.size) }
+                        trackerMarkers(size: geo.size)
+                    }
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                VStack(spacing: 10) {
+                    stepHeader
                     instructionPill
                     if hint == .holdParallel {
                         SpiritLevel(gravity: camera.level, accent: accent)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
                     }
                     Spacer()
+                    shotStrip
                     controls
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 20)
                 .animation(reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.25), value: hint)
+                .animation(reduceMotion ? nil : .spring(duration: 0.45, bounce: 0.2), value: shot)
             }
             Color.white.opacity(flash ? 0.9 : 0)
                 .ignoresSafeArea()
@@ -51,6 +63,7 @@ struct KurswahlCameraScreen: View {
         .task {
             camera.onAutoCapture = { Task { await shoot() } }
             await camera.start()
+            announceStep()
         }
         .onDisappear { camera.stop() }
         .onChange(of: hint) { _, new in
@@ -59,10 +72,57 @@ struct KurswahlCameraScreen: View {
         }
     }
 
+    // MARK: Step header
+
+    private var stepHeader: some View {
+        HStack(spacing: 12) {
+            StepDiagram(shot: shot, accent: accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L.f("scan.step.progress", shot.rawValue + 1, KurswahlShot.allCases.count))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .monospacedDigit()
+                Text(Self.title(for: shot))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .contentTransition(.opacity)
+            }
+            HStack(spacing: 6) {
+                ForEach(KurswahlShot.allCases, id: \.self) { step in
+                    Capsule()
+                        .fill(step == shot ? accent : .white.opacity(images[step] == nil ? 0.3 : 0.75))
+                        .frame(width: step == shot ? 18 : 7, height: 7)
+                }
+            }
+            .padding(.leading, 4)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: .capsule)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(stepAnnouncement)
+    }
+
+    private var stepAnnouncement: String {
+        L.f("scan.a11y.step", shot.rawValue + 1, KurswahlShot.allCases.count, Self.title(for: shot))
+    }
+
+    private func announceStep() {
+        AccessibilityNotification.Announcement(stepAnnouncement).post()
+    }
+
+    static func title(for shot: KurswahlShot) -> String {
+        switch shot {
+        case .overview: L.s("scan.step.overview")
+        case .tableTop: L.s("scan.step.tableTop")
+        case .tableBottom: L.s("scan.step.tableBottom")
+        }
+    }
+
     // MARK: Overlay
 
     private func sheetOverlay(size: CGSize) -> some View {
-        let detected = camera.quad.map { mapped($0, into: size) }
+        let detected = camera.quad.map { quad in quad.corners.map { mapped($0, into: size) } }
         let corners = detected ?? guideCorners(in: size)
         let vector = QuadVector(corners)
         let ready = hint == .ready
@@ -83,14 +143,68 @@ struct KurswahlCameraScreen: View {
         .animation(.easeInOut(duration: 0.25), value: ready)
     }
 
+    /// Close-ups fill the frame with half the table: a wide frame guide with brackets and faint rows.
+    private func closeUpOverlay(size: CGSize) -> some View {
+        let rect = CGRect(x: size.width * 0.05, y: size.height * 0.2, width: size.width * 0.9, height: size.height * 0.6)
+        let vector = QuadVector([CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
+                                 CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY)])
+        let ready = hint == .ready
+        let tint = ready ? accent : .white
+        return ZStack {
+            SheetDim(quad: vector)
+                .fill(.black.opacity(0.28), style: FillStyle(eoFill: true))
+            CloseUpRows(quad: vector)
+                .stroke(.white.opacity(0.12), lineWidth: 0.75)
+            CornerBrackets(quad: vector, length: 30)
+                .stroke(tint, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                .shadow(color: tint.opacity(ready ? 0.8 : 0.3), radius: ready ? 10 : 4)
+        }
+        .animation(.easeInOut(duration: 0.25), value: ready)
+    }
+
+    /// What text recognition sees: dots on the subject column, the "Summen" row, the table header.
+    private func trackerMarkers(size: CGSize) -> some View {
+        let structure = camera.structure
+        let points = structure.subjectPoints.map { mapped($0, into: size) }
+        let line = structure.summenLine.map { mapped($0, into: size) }
+        return ZStack {
+            ForEach(Array(points.enumerated()), id: \.offset) { _, point in
+                Circle()
+                    .fill(accent)
+                    .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                    .frame(width: 9, height: 9)
+                    .shadow(color: accent.opacity(0.7), radius: 5)
+                    .position(point)
+            }
+            if line.count == 2 {
+                Path { path in
+                    path.move(to: line[0])
+                    path.addLine(to: line[1])
+                }
+                .stroke(accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .shadow(color: accent.opacity(0.8), radius: 6)
+            }
+            if let header = structure.header {
+                Image(systemName: "tablecells")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(6)
+                    .background(accent, in: .circle)
+                    .shadow(color: accent.opacity(0.7), radius: 6)
+                    .position(mapped(header, into: size))
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: structure)
+    }
+
     /// Frame coordinates (portrait, 0…1) → view points, as the preview fills the view.
-    private func mapped(_ quad: ScanQuad, into size: CGSize) -> [CGPoint] {
+    private func mapped(_ point: ScanPoint, into size: CGSize) -> CGPoint {
         let aspect = max(camera.frameAspect, 0.1)
         let content: CGSize = size.width / size.height > aspect
             ? CGSize(width: size.width, height: size.width / aspect)
             : CGSize(width: size.height * aspect, height: size.height)
         let dx = (size.width - content.width) / 2, dy = (size.height - content.height) / 2
-        return quad.corners.map { CGPoint(x: dx + $0.x * content.width, y: dy + $0.y * content.height) }
+        return CGPoint(x: dx + point.x * content.width, y: dy + point.y * content.height)
     }
 
     /// A centred A4-portrait frame showing where the sheet should go.
@@ -110,7 +224,7 @@ struct KurswahlCameraScreen: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(hint == .ready ? accent : .white)
                 .contentTransition(.symbolEffect(.replace))
-                .symbolEffect(.pulse, isActive: (hint == .tooDark || hint == .noDocument) && !reduceMotion)
+                .symbolEffect(.pulse, isActive: [.tooDark, .noDocument, .wholeSheet].contains(hint) && !reduceMotion)
             Text(Self.text(for: hint))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
@@ -133,11 +247,65 @@ struct KurswahlCameraScreen: View {
         case .glare: "sun.max.fill"
         case .holdStill: "hand.raised.fill"
         case .ready: "checkmark.circle.fill"
+        case .wholeSheet: "doc.text.viewfinder"
+        case .frameTableTop: "rectangle.tophalf.inset.filled"
+        case .frameTableBottom: "rectangle.bottomhalf.inset.filled"
         }
     }
 
     static func text(for hint: ScanHint) -> String {
         L.s("scan.hint.\(hint.rawValue)")
+    }
+
+    // MARK: Shots
+
+    private var shotStrip: some View {
+        HStack(spacing: 10) {
+            ForEach(KurswahlShot.allCases, id: \.self) { step in
+                let taken = thumbnails[step]
+                Button {
+                    retake(step)
+                } label: {
+                    ZStack {
+                        if let taken {
+                            Image(uiImage: taken)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Text("\(step.rawValue + 1)")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white.opacity(step == shot ? 0.95 : 0.6))
+                        }
+                    }
+                    .frame(width: 40, height: 54)
+                    .background(.white.opacity(0.08))
+                    .clipShape(.rect(cornerRadius: 8))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(step == shot ? accent : .white.opacity(0.4),
+                                    style: StrokeStyle(lineWidth: step == shot ? 2.5 : 1, dash: taken == nil && step != shot ? [4, 3] : []))
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if taken != nil {
+                            Image(systemName: "arrow.counterclockwise.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.white, accent)
+                                .offset(x: 5, y: 5)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(taken == nil || camera.isCapturing)
+                .accessibilityLabel(taken == nil ? Self.title(for: step) : L.f("scan.retake", Self.title(for: step)))
+            }
+        }
+    }
+
+    private func retake(_ step: KurswahlShot) {
+        guard images[step] != nil, step != shot || images[step] != nil else { return }
+        Haptics.light()
+        camera.begin(step)
+        announceStep()
     }
 
     // MARK: Controls
@@ -209,6 +377,7 @@ struct KurswahlCameraScreen: View {
 
     private func shoot() async {
         guard !camera.isCapturing, camera.authorization == .allowed else { return }
+        let step = shot
         Haptics.success()
         withAnimation(.easeOut(duration: 0.08)) {
             flash = true
@@ -221,11 +390,34 @@ struct KurswahlCameraScreen: View {
                 shutterDown = false
             }
         }
-        if let image = await camera.capture() {
-            camera.stop()
-            onCapture(image)
-        } else {
+        guard let image = await camera.capture() else {
             Haptics.error()
+            return
+        }
+        images[step] = image
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.35)) {
+            thumbnails[step] = Self.thumbnail(of: image)
+        }
+        // the next photo not taken yet, in order; all three taken → done
+        let order = KurswahlShot.allCases
+        let after = order.drop(while: { $0 != step }).dropFirst() + order
+        if let next = after.first(where: { images[$0] == nil }) {
+            Haptics.medium()
+            camera.begin(next)
+            announceStep()
+        } else {
+            camera.stop()
+            onFinish(order.compactMap { images[$0] })
+        }
+    }
+
+    private static func thumbnail(of image: CGImage) -> UIImage {
+        let width: CGFloat = 120
+        let height = width * CGFloat(image.height) / CGFloat(max(image.width, 1))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format).image { _ in
+            UIImage(cgImage: image).draw(in: CGRect(x: 0, y: 0, width: width, height: height))
         }
     }
 
@@ -257,6 +449,40 @@ struct KurswahlCameraScreen: View {
         }
         .foregroundStyle(.white)
         .padding(32)
+    }
+}
+
+// MARK: - Step diagram
+
+/// A tiny A4 sheet with the table outline and the part the current photo should frame.
+private struct StepDiagram: View {
+    let shot: KurswahlShot
+    let accent: Color
+
+    var body: some View {
+        let width: CGFloat = 26, height: CGFloat = 36
+        let region = shot.region
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(.white.opacity(0.9))
+            // title lines and the table
+            VStack(alignment: .leading, spacing: 2) {
+                Capsule().fill(.black.opacity(0.35)).frame(width: 12, height: 2)
+                Capsule().fill(.black.opacity(0.2)).frame(width: 8, height: 2)
+            }
+            .offset(x: 3, y: 3)
+            Rectangle()
+                .stroke(.black.opacity(0.35), lineWidth: 0.75)
+                .frame(width: width - 6, height: height * 0.64)
+                .offset(x: 3, y: height * 0.28)
+            RoundedRectangle(cornerRadius: 2)
+                .fill(accent.opacity(0.35))
+                .overlay(RoundedRectangle(cornerRadius: 2).stroke(accent, lineWidth: 1.5))
+                .frame(width: width - 2, height: height * (region.upperBound - region.lowerBound))
+                .offset(x: 1, y: height * region.lowerBound)
+        }
+        .frame(width: width, height: height)
+        .accessibilityHidden(true)
     }
 }
 
@@ -401,6 +627,27 @@ private struct SheetGrid: Shape {
         for u in Self.columns {
             path.move(to: quad.point(u: u, v: top))
             path.addLine(to: quad.point(u: u, v: bottom))
+        }
+        return path
+    }
+}
+
+/// Half the table up close: about ten rows and the same columns, larger.
+private struct CloseUpRows: Shape {
+    var quad: QuadVector
+
+    private static let rows: [Double] = stride(from: 0.0, through: 1.0, by: 0.1).map { $0 }
+    private static let columns: [Double] = [0.0, 0.25, 0.33, 0.40, 0.46, 0.52, 0.58, 0.64, 0.70, 0.78, 1.0]
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        for v in Self.rows {
+            path.move(to: quad.point(u: 0, v: v))
+            path.addLine(to: quad.point(u: 1, v: v))
+        }
+        for u in Self.columns {
+            path.move(to: quad.point(u: u, v: 0))
+            path.addLine(to: quad.point(u: u, v: 1))
         }
         return path
     }

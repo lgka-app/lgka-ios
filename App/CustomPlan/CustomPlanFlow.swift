@@ -134,7 +134,7 @@ struct CustomPlanDraft: Identifiable, Hashable {
         self.loaded = loaded
         self.name = name ?? built.name
         choices = built.choices
-        scanIssues = built.checks.issues.filter { [.unreadable, .gradeMismatch, .unknownRow, .sumUnreadable].contains($0.kind) }
+        scanIssues = built.checks.issues.filter { [.unreadable, .gradeMismatch, .unknownRow, .sumUnreadable, .inferred].contains($0.kind) }
         expectedTotal = built.checks.expectedTotal
         initialChoiceCount = built.choices.count
     }
@@ -166,7 +166,7 @@ struct CustomPlanDraft: Identifiable, Hashable {
     var saved: SavedCustomPlan {
         var value = plan
         // hints about the photo itself do not belong to the saved plan
-        value.checks.issues.removeAll { $0.kind == .unknownRow || $0.kind == .sumUnreadable }
+        value.checks.issues.removeAll { [.unknownRow, .sumUnreadable, .inferred].contains($0.kind) }
         return .init(plan: value, kurswahl: kurswahl, planTitle: loaded.item.title)
     }
 
@@ -214,9 +214,9 @@ struct CustomPlanSetupScreen: View {
         .safeAreaInset(edge: .bottom) { actions }
         .overlay { if let reading { readingOverlay(reading) } }
         .fullScreenCover(isPresented: $showCamera) {
-            KurswahlCameraScreen(onCapture: { image in
+            KurswahlCameraScreen(onFinish: { images in
                 showCamera = false
-                read(image)
+                read(images)
             }, onCancel: { showCamera = false })
         }
         .onChange(of: photoItem) { _, item in
@@ -228,7 +228,7 @@ struct CustomPlanSetupScreen: View {
                     failure = L.s("custom.error.photo")
                     return
                 }
-                read(image)
+                read([image])
             }
         }
         .navigationDestination(item: $draft) { draft in
@@ -351,14 +351,15 @@ struct CustomPlanSetupScreen: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func read(_ image: CGImage) {
-        withAnimation { reading = UIImage(cgImage: image) }
+    private func read(_ images: [CGImage]) {
+        guard let first = images.first else { return }
+        withAnimation { reading = UIImage(cgImage: first) }
         sweep = false
         Task {
             defer { withAnimation { reading = nil } }
             do {
                 async let plans = CustomPlanSource.plans(model: model)
-                let scan = try await KurswahlScanner.read(image)
+                let scan = try await KurswahlScanner.read(images)
                 let published = try await plans
                 guard let loaded = CustomPlanSource.pick(published, stufe: nil, kurswahl: scan.kurswahl)
                         ?? CustomPlanSource.pick(published, stufe: nil, kurswahl: nil) else {
@@ -565,6 +566,7 @@ struct CustomPlanReviewScreen: View {
         case .gradeMismatch: return L.s("custom.issue.grade")
         case .unknownRow: return L.f("custom.issue.unknownRow", issue.codes.first ?? "?")
         case .sumUnreadable: return L.s("custom.issue.sumUnreadable")
+        case .inferred: return L.f("custom.issue.inferred", name)
         }
     }
 }

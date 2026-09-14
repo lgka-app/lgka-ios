@@ -7,16 +7,21 @@ import SwiftUI
 import Vision
 import LGKAPlanKit
 
-/// Live state of the Kurswahlprotokoll camera: permission, the detected sheet, the current
-/// instruction and the capture. The AVFoundation work runs in `CameraPipeline`.
+/// Live state of the Kurswahlprotokoll camera: permission, the current photo step, the detected
+/// sheet and table structure, the instruction and the capture. The AVFoundation work runs in
+/// `CameraPipeline`.
 @Observable
 @MainActor
 final class KurswahlCamera {
     enum Authorization { case unknown, allowed, denied }
 
     private(set) var authorization: Authorization = .unknown
+    /// The photo being taken.
+    private(set) var shot: KurswahlShot = .overview
     /// The sheet in the latest analysed frame (0…1 of the portrait frame).
     private(set) var quad: ScanQuad?
+    /// What text recognition last found of the table (for the live markers).
+    private(set) var structure: ShotStructure = .empty
     private(set) var state = ScanGuidance.State(hint: .noDocument, progress: 0, capture: false)
     /// Gravity across the screen (x right, y up), for the spirit level.
     private(set) var level = CGPoint.zero
@@ -31,7 +36,11 @@ final class KurswahlCamera {
     @ObservationIgnored let pipeline = CameraPipeline()
     @ObservationIgnored private var guidance = ScanGuidance()
     @ObservationIgnored private var stableQuad: ScanQuad?
+    @ObservationIgnored private var structureTime = -Double.infinity
     @ObservationIgnored private var running = false
+
+    /// Text recognition runs every ~0.35 s; an older result no longer describes the frame.
+    private static let structureLifetime = 1.2
 
     func start() async {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -54,12 +63,25 @@ final class KurswahlCamera {
         pipeline.stop()
     }
 
+    /// Switches to a photo step and starts its checks from scratch.
+    func begin(_ next: KurswahlShot) {
+        shot = next
+        guidance.reset()
+        stableQuad = nil
+        structure = .empty
+        structureTime = -.infinity
+        state = ScanGuidance.State(hint: next.needsSheet ? .noDocument : ScanGuidance.hint(
+            for: ScanFrame(quad: nil, luma: 1, glare: 0, tilt: 0, motion: 0, jitter: 0, time: 0), shot: next, structure: nil),
+            progress: 0, capture: false)
+    }
+
     func toggleTorch() {
         torchOn.toggle()
         pipeline.setTorch(torchOn)
     }
 
-    /// Takes the photo and straightens the sheet with the last stable detection.
+    /// Takes the photo of the current step. The whole sheet is straightened with the last stable
+    /// outline; a close-up only when the sheet lies completely inside the frame.
     func capture() async -> CGImage? {
         guard !isCapturing else { return nil }
         isCapturing = true
@@ -67,13 +89,19 @@ final class KurswahlCamera {
             isCapturing = false
             guidance.reset()
         }
-        let quad = stableQuad ?? self.quad
+        let quad: ScanQuad? = if shot.needsSheet {
+            stableQuad ?? self.quad
+        } else if let q = self.quad, !q.touchesEdge(margin: 0.02), q.area > 0.25 {
+            q
+        } else {
+            nil
+        }
         let data: Data? = await withCheckedContinuation { continuation in
             pipeline.capture { continuation.resume(returning: $0) }
         }
         guard let data else { return nil }
         return await Task.detached(priority: .userInitiated) {
-            guard let image = KurswahlScanner.image(from: data, maxPixels: 6000) else { return nil }
+            guard let image = KurswahlScanner.image(from: data, maxPixels: 4200) else { return nil }
             return SheetCorrection.corrected(image, quad: quad)
         }.value
     }
@@ -83,14 +111,20 @@ final class KurswahlCamera {
         frameAspect = result.aspect
         level = CGPoint(x: result.gravityX, y: result.gravityY)
         quad = result.frame.quad
-        let next = guidance.update(result.frame)
+        if let found = result.structure {
+            structure = found
+            structureTime = result.frame.time
+        }
+        let fresh = result.frame.time - structureTime < Self.structureLifetime ? structure : nil
+        if fresh == nil, structure != .empty { structure = .empty }
+        let next = guidance.update(result.frame, shot: shot, structure: fresh)
         if next.hint == .ready, let q = result.frame.quad { stableQuad = q }
         state = next
         if next.capture { onAutoCapture?() }
     }
 }
 
-/// Session, live analysis (sheet outline, brightness, glare, motion) and photo capture.
+/// Session, live analysis (sheet outline, brightness, glare, motion, table text) and photo capture.
 /// Session state lives on `sessionQueue`, analysis state on `analysisQueue`.
 final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOutputSampleBufferDelegate {
     struct FrameResult: Sendable {
@@ -98,6 +132,8 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
         var gravityX: Double
         var gravityY: Double
         var aspect: Double
+        /// Set on the frames that also ran text recognition.
+        var structure: ShotStructure?
     }
 
     let session = AVCaptureSession()
@@ -115,6 +151,7 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
     private var configured = false
     private var photoDelegates: [Int64: PhotoDelegate] = [:]
     private var lastAnalysis: CFTimeInterval = 0
+    private var lastText: CFTimeInterval = 0
     private var previousQuad: ScanQuad?
     private var motion = (tilt: 0.0, shake: 0.0, gx: 0.0, gy: 0.0)
 
@@ -219,7 +256,7 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
         }
     }
 
-    // MARK: Live analysis (~9 frames a second)
+    // MARK: Live analysis (~9 frames a second, table text ~3 a second)
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         let now = CACurrentMediaTime()
@@ -234,6 +271,11 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
         default: 0
         }
         previousQuad = quad
+        var structure: ShotStructure?
+        if now - lastText >= 0.35 {
+            lastText = now
+            structure = KurswahlShotTracker.structure(in: buffer)
+        }
         motionLock.lock()
         let m = motion
         motionLock.unlock()
@@ -241,7 +283,7 @@ final class CameraPipeline: NSObject, @unchecked Sendable, AVCaptureVideoDataOut
         let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
         let frame = ScanFrame(quad: quad, luma: luma, glare: glare, tilt: m.tilt, motion: m.shake, jitter: jitter, time: now)
         onFrame?(FrameResult(frame: frame, gravityX: m.gx, gravityY: m.gy,
-                             aspect: height > 0 ? Double(width) / Double(height) : 0.75))
+                             aspect: height > 0 ? Double(width) / Double(height) : 0.75, structure: structure))
     }
 
     private static func detectSheet(in buffer: CVPixelBuffer) -> ScanQuad? {

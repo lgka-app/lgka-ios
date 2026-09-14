@@ -109,6 +109,8 @@ public struct CustomPlan: Codable, Hashable, Sendable {
             case unknownRow
             /// The sheet's "Summen" row was not readable, so a missing subject would go unnoticed.
             case sumUnreadable
+            /// A Halbjahr value was not read and taken over from the subject's other Halbjahre.
+            case inferred
         }
         public var kind: Kind
         public var subject: String?
@@ -142,6 +144,10 @@ public enum CustomPlanBuilder {
                 issues.append(.init(kind: .unknownRow, subject: nil, codes: ["\(hours)"],
                                     message: "Ein Fach mit \(hours) Wochenstunden wurde im Kurswahlprotokoll nicht erkannt"))
                 continue
+            }
+            if cell.inferred == true {
+                issues.append(.init(kind: .inferred, subject: row.subject, codes: [],
+                                    message: "\(subjectName(row.subject)): Stunden nicht lesbar, aus dem Kurswahlprotokoll ergänzt"))
             }
             let level: CustomPlan.Level = switch row.fachart {
             case "L": .leistungsfach

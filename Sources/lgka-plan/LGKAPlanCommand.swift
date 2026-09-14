@@ -34,9 +34,11 @@ struct LGKAPlanCommand {
             if let scanPath = values(rest, "--scan").first {
                 // recognised text saved by a debug build of the app (last-scan.json), parsed again
                 let scan = try JSONDecoder().decode(KurswahlScanner.Result.self, from: Data(contentsOf: URL(fileURLWithPath: scanPath)))
-                kurswahl = try KurswahlParser.parse(scan.boxes, aspect: scan.aspect)
-            } else if let photo = values(rest, "--kurswahl").first {
-                kurswahl = try await KurswahlScanner.read(try image(photo)).kurswahl
+                let shots = scan.shots ?? [.init(boxes: scan.boxes, aspect: scan.aspect)]
+                kurswahl = KurswahlParser.merge(shots.compactMap { try? KurswahlParser.parse($0.boxes, aspect: $0.aspect) })
+            } else if !values(rest, "--kurswahl").isEmpty {
+                // several --kurswahl photos of one sheet (overview, close-ups) are merged
+                kurswahl = try await KurswahlScanner.read(try values(rest, "--kurswahl").map { try image($0) }).kurswahl
             } else {
                 throw Usage()
             }

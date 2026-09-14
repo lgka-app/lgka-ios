@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import LGKACore
 @testable import LGKAPlanKit
 
 @Suite("Scan guidance")
@@ -105,5 +106,86 @@ struct ScanGuidanceTests {
         let state = guidance.update(Self.frame(time: 2))
         #expect(state.progress == 0)
         #expect(!state.capture)
+    }
+
+    // MARK: Structure trackers (recognised text of a real Kurswahlprotokoll photo)
+
+    static func sheetBoxes() throws -> [TextBox] {
+        try JSONDecoder().decode([TextBox].self, from: Fixtures.data("kurswahl_ocr"))
+    }
+
+    /// The boxes a close-up of one vertical band of the sheet would see, rescaled to that frame.
+    static func closeUp(_ boxes: [TextBox], _ band: ClosedRange<Double>) -> [TextBox] {
+        let span = band.upperBound - band.lowerBound
+        return boxes.filter { band.contains($0.midY) }.map { box in
+            var b = box
+            b.y = (box.y - band.lowerBound) / span
+            b.height = box.height / span
+            return b
+        }
+    }
+
+    @Test func wholeSheetSatisfiesTheOverviewOnly() throws {
+        let structure = ShotStructure.analyse(try Self.sheetBoxes())
+        #expect(structure.titleSeen)
+        #expect(structure.summenSeen)
+        #expect(structure.subjects.count >= ShotStructure.minOverviewSubjects)
+        #expect(structure.missing(for: .overview) == nil)
+        // the same text is too small for the close-up steps
+        #expect(structure.lineHeight < ShotStructure.minLineHeight)
+        #expect(structure.missing(for: .tableTop) == .moveCloser)
+        #expect(structure.missing(for: .tableBottom) == .moveCloser)
+    }
+
+    @Test func closeUpsOfTheTableHalves() throws {
+        let boxes = try Self.sheetBoxes()
+        let top = ShotStructure.analyse(Self.closeUp(boxes, 0.30...0.66))
+        #expect(top.headerSeen)
+        #expect(top.lineHeight >= ShotStructure.minLineHeight)
+        #expect(top.missing(for: .tableTop) == nil)
+        #expect(top.missing(for: .tableBottom) == .frameTableBottom)
+        #expect(top.missing(for: .overview) == .wholeSheet)
+
+        let bottom = ShotStructure.analyse(Self.closeUp(boxes, 0.62...0.93))
+        #expect(bottom.summenSeen)
+        #expect(bottom.sumNumbers >= ShotStructure.minSumNumbers)
+        #expect(bottom.summenLine.count == 2)
+        #expect(bottom.missing(for: .tableBottom) == nil)
+        #expect(bottom.missing(for: .tableTop) == .frameTableTop)
+    }
+
+    @Test func stepHints() throws {
+        let boxes = try Self.sheetBoxes()
+        let sheet = ShotStructure.analyse(boxes)
+        let top = ShotStructure.analyse(Self.closeUp(boxes, 0.30...0.66))
+
+        // overview: sheet checks first, then the structure
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil), shot: .overview, structure: sheet) == .noDocument)
+        #expect(ScanGuidance.hint(for: Self.frame(), shot: .overview, structure: nil) == .wholeSheet)
+        #expect(ScanGuidance.hint(for: Self.frame(motion: 1), shot: .overview, structure: .empty) == .wholeSheet)
+        #expect(ScanGuidance.hint(for: Self.frame(), shot: .overview, structure: sheet) == .ready)
+
+        // close-ups: a cut sheet is fine, no "move back", no outline needed
+        let cut = ScanQuad(topLeft: .init(x: -0.1, y: -0.2), topRight: .init(x: 1.1, y: -0.2),
+                           bottomRight: .init(x: 1.1, y: 1.2), bottomLeft: .init(x: -0.1, y: 1.2))
+        #expect(ScanGuidance.hint(for: Self.frame(quad: cut, jitter: 0.3), shot: .tableTop, structure: top) == .ready)
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil), shot: .tableTop, structure: top) == .ready)
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil), shot: .tableTop, structure: nil) == .frameTableTop)
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil), shot: .tableTop, structure: sheet) == .moveCloser)
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil, luma: 0.1), shot: .tableTop, structure: top) == .tooDark)
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil, tilt: 20), shot: .tableTop, structure: top) == .holdParallel)
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil, motion: 1), shot: .tableTop, structure: top) == .holdStill)
+        #expect(ScanGuidance.hint(for: Self.frame(quad: nil), shot: .tableBottom, structure: top) == .frameTableBottom)
+    }
+
+    @Test func closeUpCapturesOnceTheStructureHolds() throws {
+        let top = ShotStructure.analyse(Self.closeUp(try Self.sheetBoxes(), 0.30...0.66))
+        var guidance = ScanGuidance()
+        #expect(guidance.update(Self.frame(quad: nil, time: 0), shot: .tableTop, structure: nil).progress == 0)
+        var captured = false
+        for step in 1...10 {
+            captured = captured || guidance.update(Self.frame(quad: nil, time: Double(step) * 0.1), shot: .tableTop, structure: top).capture
+        }
+        #expect(captured)
     }
 }

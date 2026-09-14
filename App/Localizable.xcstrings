@@ -730,6 +730,23 @@
         }
       }
     },
+    "custom.issue.inferred": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: Stunden im Foto nicht lesbar, aus dem Kurswahlprotokoll ergänzt – bitte prüfen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: hours not readable in the photo, filled in from the rest of the sheet – please check"
+          }
+        }
+      }
+    },
     "custom.issue.notInPlan": {
       "extractionState": "manual",
       "localizations": {
@@ -2412,6 +2429,23 @@
         }
       }
     },
+    "scan.a11y.step": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schritt %1$lld von %2$lld: %3$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step %1$lld of %2$lld: %3$@"
+          }
+        }
+      }
+    },
     "scan.close": {
       "extractionState": "manual",
       "localizations": {
@@ -2425,6 +2459,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Close"
+          }
+        }
+      }
+    },
+    "scan.hint.frameTableBottom": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untere Tabellenhälfte bis zur Summenzeile"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bottom half of the table down to the Summen row"
+          }
+        }
+      }
+    },
+    "scan.hint.frameTableTop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obere Tabellenhälfte: Fächer D bis Ch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Top half of the table: subjects D to Ch"
           }
         }
       }
@@ -2565,6 +2633,23 @@
         }
       }
     },
+    "scan.hint.wholeSheet": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganzes Blatt ins Bild"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fit the whole sheet in the frame"
+          }
+        }
+      }
+    },
     "scan.permission.body": {
       "extractionState": "manual",
       "localizations": {
@@ -2616,6 +2701,23 @@
         }
       }
     },
+    "scan.retake": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ neu aufnehmen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retake %@"
+          }
+        }
+      }
+    },
     "scan.shutter": {
       "extractionState": "manual",
       "localizations": {
@@ -2629,6 +2731,74 @@
           "stringUnit": {
             "state": "translated",
             "value": "Take photo"
+          }
+        }
+      }
+    },
+    "scan.step.overview": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganzes Blatt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole sheet"
+          }
+        }
+      }
+    },
+    "scan.step.progress": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld von %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "scan.step.tableBottom": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tabelle unten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Table, bottom"
+          }
+        }
+      }
+    },
+    "scan.step.tableTop": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tabelle oben"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Table, top"
           }
         }
       }

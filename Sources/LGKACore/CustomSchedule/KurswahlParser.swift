@@ -27,12 +27,15 @@ public struct Kurswahl: Codable, Hashable, Sendable {
         public var halves: [Cell]
         /// What was read in the subject column of a "?" row, if anything.
         public var label: String?
+        /// The "pro Kurs" column: "5", "2", "5/3" (not chosen yet).
+        public var perCourse: String?
 
-        public init(subject: String, fachart: String?, halves: [Cell], label: String? = nil) {
+        public init(subject: String, fachart: String?, halves: [Cell], label: String? = nil, perCourse: String? = nil) {
             self.subject = subject
             self.fachart = fachart
             self.halves = halves
             self.label = label
+            self.perCourse = perCourse
         }
     }
 
@@ -45,12 +48,18 @@ public struct Kurswahl: Codable, Hashable, Sendable {
         public var parallel: Int?
         /// The text was found but does not look like a cell value.
         public var unreadable: Bool
+        /// "p" / "s" of a subject taken in two Halbjahre only ("2.p").
+        public var suffix: String?
+        /// Not read but taken over from the subject's other three Halbjahre.
+        public var inferred: Bool?
 
-        public init(raw: String?, hours: Int?, parallel: Int?, unreadable: Bool) {
+        public init(raw: String?, hours: Int?, parallel: Int?, unreadable: Bool, suffix: String? = nil, inferred: Bool? = nil) {
             self.raw = raw
             self.hours = hours
             self.parallel = parallel
             self.unreadable = unreadable
+            self.suffix = suffix
+            self.inferred = inferred
         }
 
         public var taken: Bool { hours != nil }
@@ -85,8 +94,9 @@ public struct Kurswahl: Codable, Hashable, Sendable {
 ///
 /// Anchors: the subject abbreviations form the left column and give the rows, with the regular
 /// row pitch filling in rows whose subject was not recognised. The "Summen" row gives the x of
-/// the four Halbjahr columns (its first four numbers, on a line that may be tilted); the tilt of
-/// the photo is taken out of every row.
+/// the four Halbjahr columns. Rows are then followed column by column (Fachart, pro Kurs, 1.–4. Hj):
+/// every value belongs to the one row it is nearest to, and each row's height is carried over
+/// from the value found in the previous column, so a curved or skewed sheet stays on its rows.
 public enum KurswahlParser {
     public enum Failure: Error, Equatable {
         /// No subject column was found: not a Kurswahlprotokoll, or the photo is unreadable.
@@ -138,13 +148,12 @@ public enum KurswahlParser {
         anchors += gaps.map { (nil, $0) }
         anchors.sort { $0.y < $1.y }
 
-        // slope of the photo: from the "Summen" row, else from the bracketed values next to their subjects
+        // Halbjahr columns and tilt from the sums row ("Summen", or the numbers under the table)
         let summen = lines.first(where: { $0.text.lowercased().hasPrefix("summen") })
             ?? words.first(where: { $0.text.lowercased().hasPrefix("summen") })
         var columns: [Double] = []
         var sums: [Int?] = [nil, nil, nil, nil]
         var slope = 0.0
-        // "Summen" itself is not always recognised; then the numbers under the table stand in for it
         let lastRowY = found.last?.box.midY ?? 0
         let sumAnchors = summen.map { [$0] } ?? words.filter { w in
             w.midY > lastRowY && w.midY < lastRowY + pitch * 8 && w.midX > columnX + 0.12
@@ -167,32 +176,56 @@ public enum KurswahlParser {
             columns = (0..<4).map { first + Double($0) * spacing }
         }
         let spacing = columns.adjacentDifferences.median ?? columnToRowRatio * pitch * aspect
-        let fachartX = columns[0] - spacing * 2
         let lowest = summen?.midY ?? sumLine?.boxes.first?.midY ?? (lastRowY + pitch)
+        let rowAnchors = anchors.filter { $0.y < lowest - pitch * 0.5 }
+        guard !rowAnchors.isEmpty else { throw Failure.noSubjects }
+
+        // follow the rows column by column: Fachart, pro Kurs, then the four Halbjahre
+        let columnXs = [columns[0] - spacing * 2, columns[0] - spacing] + columns
+        var ys = rowAnchors.map(\.y)
+        var lastX = columnX
+        var picked = Array(repeating: [TextBox?](repeating: nil, count: columnXs.count), count: rowAnchors.count)
+        let top = rowAnchors[0].y - pitch * 0.7
+        for (ci, cx) in columnXs.enumerated() {
+            let tokens = words.filter { w in
+                abs(w.midX - cx) < spacing * 0.42 && w.midY > top && w.midY < lowest - pitch * 0.3 && isValue(w.text, column: ci)
+            }
+            let predicted = ys.map { $0 + slope * (cx - lastX) }
+            var best: [Int: (box: TextBox, score: Double)] = [:]
+            for token in tokens {
+                // each value to the one row it is nearest to
+                guard let row = predicted.indices.min(by: { abs(predicted[$0] - token.midY) < abs(predicted[$1] - token.midY) }) else { continue }
+                let distance = abs(predicted[row] - token.midY)
+                guard distance < pitch * 0.5 else { continue }
+                let score = plausibility(token, column: ci) - distance / pitch
+                if best[row].map({ score > $0.score }) ?? true { best[row] = (token, score) }
+            }
+            var shifts: [Double] = []
+            for (row, value) in best {
+                picked[row][ci] = value.box
+                shifts.append(value.box.midY - predicted[row])
+            }
+            // rows without a value in this column move with their neighbours
+            let drift = shifts.median ?? 0
+            for row in ys.indices { ys[row] = picked[row][ci]?.midY ?? (predicted[row] + drift) }
+            lastX = cx
+        }
 
         var rows: [Kurswahl.Row] = []
-        for anchor in anchors where anchor.y < lowest - pitch * 0.5 {
-            // expected y of this row at a given x, following the tilt
-            func onRow(_ w: TextBox) -> Bool {
-                abs(w.midY - (anchor.y + slope * (w.midX - columnX))) < pitch * 0.42
-            }
-            let rowWords = words.filter { onRow($0) }
-            var halves: [Kurswahl.Cell] = []
-            for cx in columns {
-                let candidates = rowWords.filter { abs($0.midX - cx) < spacing * 0.42 }
-                    .map { (box: $0, cell: parseCell($0.text)) }
-                let best = candidates.max { a, b in score(a.cell, a.box) < score(b.cell, b.box) }
-                halves.append(best?.cell ?? .missing)
-            }
-            let fachart = rowWords.filter { abs($0.midX - fachartX) < spacing * 0.6 }
-                .map(\.text).first { ["L", "B", "m", "L/B"].contains($0) }
+        for (index, anchor) in rowAnchors.enumerated() {
+            let halves = (0..<columns.count).map { h in picked[index][2 + h].map { parseCell($0.text) } ?? .missing }
+            let fachart = picked[index][0].map { fachartValue($0.text) }
+            let perCourse = picked[index][1]?.text
             if let key = anchor.key {
-                rows.append(.init(subject: key, fachart: fachart, halves: halves))
+                rows.append(.init(subject: key, fachart: fachart,
+                                  halves: inferMissing(halves, perCourse: perCourse, allHalves: allFourHalves.contains(key)),
+                                  perCourse: perCourse))
             } else {
                 // a gap row: only worth keeping when something is taken in it
                 guard halves.contains(where: \.taken) else { continue }
-                let label = rowWords.filter { abs($0.midX - columnX) < 0.04 }.map(\.text).first
-                rows.append(.init(subject: label.flatMap(misreadSubject) ?? "?", fachart: fachart, halves: halves, label: label))
+                let label = words.filter { abs($0.midX - columnX) < 0.04 && abs($0.midY - anchor.y) < pitch * 0.42 }.map(\.text).first
+                rows.append(.init(subject: label.flatMap(misreadSubject) ?? "?", fachart: fachart,
+                                  halves: inferMissing(halves, perCourse: perCourse), label: label, perCourse: perCourse))
             }
         }
 
@@ -214,6 +247,75 @@ public enum KurswahlParser {
         return Kurswahl(name: name, abiturjahr: abiturjahr, konfession: konfession, rows: rows, sums: sums)
     }
 
+    /// Several photos of the same sheet (an overview and close-ups), each parsed on its own, merged
+    /// cell by cell: the reading most photos agree on wins, a taken value beats a "-" on a tie (a
+    /// dash is what a neighbouring row lends most often), and a bracketed course number beats none.
+    public static func merge(_ sheets: [Kurswahl]) -> Kurswahl {
+        let known = { (sheet: Kurswahl) in sheet.rows.filter { $0.subject != "?" }.count }
+        guard let base = sheets.max(by: { known($0) < known($1) }) else {
+            return Kurswahl(name: nil, abiturjahr: nil, konfession: nil, rows: [], sums: [nil, nil, nil, nil])
+        }
+        guard sheets.count > 1 else { return base }
+
+        // subjects in sheet order: the base's, others inserted after their predecessor
+        var order = base.rows.map(\.subject).filter { $0 != "?" }
+        for sheet in sheets {
+            var previous: String?
+            for row in sheet.rows where row.subject != "?" {
+                if !order.contains(row.subject) {
+                    let at = previous.flatMap { order.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
+                    order.insert(row.subject, at: at)
+                }
+                previous = row.subject
+            }
+        }
+
+        var rows: [Kurswahl.Row] = []
+        for key in order {
+            let versions = sheets.flatMap { $0.rows.filter { $0.subject == key } }
+            var halves: [Kurswahl.Cell] = []
+            for h in 0..<4 {
+                let cells = versions.compactMap { h < $0.halves.count ? $0.halves[h] : nil }
+                let read = cells.filter { !$0.unreadable && $0.inferred != true }
+                guard !read.isEmpty else {
+                    halves.append(cells.first { $0.inferred == true } ?? cells.first { $0.raw != nil } ?? .missing)
+                    continue
+                }
+                var counts: [Int: Int] = [:] // hours, -1 = not taken
+                for cell in read { counts[cell.hours ?? -1, default: 0] += 1 }
+                let winner = read.map { $0.hours ?? -1 }.max { a, b in
+                    let ca = counts[a] ?? 0, cb = counts[b] ?? 0
+                    return ca != cb ? ca < cb : (a == -1 && b != -1)
+                } ?? -1
+                let agreeing = read.filter { ($0.hours ?? -1) == winner }
+                var chosen = agreeing.first { $0.parallel != nil } ?? agreeing[0]
+                if let parallel = mostCommon(agreeing.map(\.parallel)) { chosen.parallel = parallel }
+                halves.append(chosen)
+            }
+            rows.append(.init(subject: key, fachart: mostCommon(versions.map(\.fachart)), halves: halves,
+                              perCourse: mostCommon(versions.map(\.perCourse))))
+        }
+
+        // unrecognised rows of the base stay unless another photo named that subject
+        let baseKnown = Set(base.rows.map(\.subject))
+        let recovered = rows.filter { !baseKnown.contains($0.subject) }
+        for (index, row) in base.rows.enumerated() where row.subject == "?" {
+            let named = recovered.contains { r in
+                zip(r.halves, row.halves).allSatisfy { $0.hours == $1.hours || $1.hours == nil }
+            }
+            guard !named else { continue }
+            let previous = base.rows[..<index].last { $0.subject != "?" }?.subject
+            let at = previous.flatMap { p in rows.firstIndex { $0.subject == p } }.map { $0 + 1 } ?? 0
+            rows.insert(row, at: at)
+        }
+
+        let sums: [Int?] = (0..<4).map { h in mostCommon(sheets.map { h < $0.sums.count ? $0.sums[h] : nil }) }
+        return Kurswahl(name: sheets.lazy.compactMap(\.name).first,
+                        abiturjahr: sheets.lazy.compactMap(\.abiturjahr).first,
+                        konfession: sheets.lazy.compactMap(\.konfession).first,
+                        rows: rows, sums: sums)
+    }
+
     /// "5(3)" → 5 hours, course 3; "2(3).p" → 2, course 3; "2.s" → 2; "-" → not taken.
     public static func parseCell(_ text: String) -> Kurswahl.Cell {
         var t = normalised(TextBox(text: text, x: 0, y: 0, width: 0, height: 0)).text.replacingOccurrences(of: " ", with: "")
@@ -225,11 +327,60 @@ public enum KurswahlParser {
             return .init(raw: text, hours: nil, parallel: nil, unreadable: false)
         }
         if let m = t.wholeMatch(of: #/(\d)(?:\((\d)\)?)?(?:\.?([psPS]))?/#) {
-            return .init(raw: text, hours: Int(m.1), parallel: m.2.flatMap { Int($0) }, unreadable: false)
+            return .init(raw: text, hours: Int(m.1), parallel: m.2.flatMap { Int($0) }, unreadable: false,
+                         suffix: m.3.map { $0.lowercased() })
         }
         // specks and table lines read as "..E" are not a value; only text with a digit is worth asking about
         let unreadable = t.contains(where: \.isNumber)
         return .init(raw: unreadable ? text : nil, hours: nil, parallel: nil, unreadable: unreadable)
+    }
+
+    /// Subjects the Kursstufe requires in all four Halbjahre (Belegpflicht "4 Hj").
+    static let allFourHalves: Set<String> = ["D", "M", "G", "Sport"]
+
+    /// A Halbjahr cell that was not read, taken over when the other three agree on plain hours
+    /// (a subject taken all four Halbjahre) and "pro Kurs" does not contradict. For a subject
+    /// required every Halbjahr (`allHalves`) a gap or dash is a misread, and "pro Kurs" gives the hours.
+    static func inferMissing(_ halves: [Kurswahl.Cell], perCourse: String?, allHalves: Bool = false) -> [Kurswahl.Cell] {
+        guard halves.count == 4 else { return halves }
+        var result = halves
+        for i in halves.indices where !halves[i].taken {
+            if allHalves {
+                if let hours = perCourse.flatMap({ Int($0) }) ?? mostCommon(halves.map(\.hours)) {
+                    result[i] = .init(raw: nil, hours: hours, parallel: nil, unreadable: false, inferred: true)
+                }
+                continue
+            }
+            guard halves[i].unreadable else { continue }
+            let others = halves.enumerated().filter { $0.offset != i }.map(\.element)
+            guard others.allSatisfy({ $0.taken && $0.suffix == nil }),
+                  let hours = others.first?.hours, others.allSatisfy({ $0.hours == hours }),
+                  perCourse.flatMap({ Int($0) }).map({ $0 == hours }) ?? true else { continue }
+            result[i] = .init(raw: nil, hours: hours, parallel: nil, unreadable: false, inferred: true)
+        }
+        return result
+    }
+
+    private static func isValue(_ text: String, column: Int) -> Bool {
+        switch column {
+        case 0: return ["L", "B", "m", "L/B", "LB", "UB", "L/8"].contains(text)
+        case 1: return text.wholeMatch(of: #/\d(/\d)?/#) != nil
+        default:
+            let cell = parseCell(text)
+            return cell.hours != nil || cell.raw != nil
+        }
+    }
+
+    private static func fachartValue(_ text: String) -> String {
+        ["LB", "UB", "L/8"].contains(text) ? "L/B" : text
+    }
+
+    /// How much a token looks like the value its column holds, 0…~1.2; distance is taken off separately.
+    private static func plausibility(_ token: TextBox, column: Int) -> Double {
+        let confidence = (token.confidence ?? 0.5) * 0.1
+        guard column >= 2 else { return 1 + confidence }
+        let cell = parseCell(token.text)
+        return (cell.unreadable ? 0.3 : 1) + (cell.parallel != nil ? 0.15 : 0) + confidence
     }
 
     /// The four Halbjahr sums: two-digit numbers on one straight line through `anchor` ("Summen",
@@ -238,15 +389,14 @@ public enum KurswahlParser {
         let numbers = words.filter { w in
             w.midX > columnX + 0.12 && abs(w.midY - anchor.midY) < pitch * 4 && w.text.wholeMatch(of: #/\d{2}\.?/#) != nil
         }
-        let summen = anchor
         var best: (boxes: [TextBox], slope: Double)?
         for candidate in numbers {
-            let dx = candidate.midX - summen.midX
+            let dx = candidate.midX - anchor.midX
             guard dx > 0.05 else { continue }
-            let slope = (candidate.midY - summen.midY) / dx
+            let slope = (candidate.midY - anchor.midY) / dx
             guard abs(slope) < 0.2 else { continue }
             let onLine = numbers
-                .filter { $0.midX >= summen.midX - 0.01 && abs($0.midY - (summen.midY + slope * ($0.midX - summen.midX))) < pitch * 0.5 }
+                .filter { $0.midX >= anchor.midX - 0.01 && abs($0.midY - (anchor.midY + slope * ($0.midX - anchor.midX))) < pitch * 0.5 }
                 .sorted { $0.midX < $1.midX }
                 .reduce(into: [TextBox]()) { acc, w in
                     if let last = acc.last, abs(last.midX - w.midX) < 0.02 { return }
@@ -254,7 +404,7 @@ public enum KurswahlParser {
                 }
             if onLine.count >= 4, onLine.count > (best?.boxes.count ?? 0) {
                 let first4 = Array(onLine.prefix(4))
-                let reference = first4[0].midX - summen.midX > 0.05 ? summen : first4[0]
+                let reference = first4[0].midX - anchor.midX > 0.05 ? anchor : first4[0]
                 let fitted = (first4[3].midY - reference.midY) / (first4[3].midX - reference.midX)
                 best = (first4, fitted)
             }
@@ -273,9 +423,11 @@ public enum KurswahlParser {
         return slopes.median ?? 0
     }
 
-    /// Prefers readable values, then bracketed ones (the most specific), then confidence.
-    private static func score(_ cell: Kurswahl.Cell, _ box: TextBox) -> Double {
-        (cell.unreadable ? 0 : 10) + (cell.parallel != nil ? 2 : 0) + (box.confidence ?? 0.5)
+    private static func mostCommon<T: Hashable>(_ values: [T?]) -> T? {
+        let present = values.compactMap { $0 }
+        var counts: [T: Int] = [:]
+        for value in present { counts[value, default: 0] += 1 }
+        return present.max { (counts[$0] ?? 0) < (counts[$1] ?? 0) }
     }
 
     private static func subjectKey(_ text: String) -> String? {

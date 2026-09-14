@@ -1,4 +1,5 @@
 import Foundation
+import LGKACore
 
 /// A point in a camera frame, 0…1, origin top-left.
 public struct ScanPoint: Sendable, Hashable {
@@ -89,6 +90,154 @@ public struct ScanFrame: Sendable, Hashable {
 /// What the user should do next, most important first.
 public enum ScanHint: String, Sendable, CaseIterable {
     case noDocument, tooDark, moveCloser, moveBack, holdParallel, glare, holdStill, ready
+    /// Overview step: the title, the table and the "Summen" row are not all visible yet.
+    case wholeSheet
+    /// Close-up of the table's upper half is not framed yet.
+    case frameTableTop
+    /// Close-up of the table's lower half down to "Summen" is not framed yet.
+    case frameTableBottom
+}
+
+/// The three photos of a Kurswahlprotokoll: the whole sheet for name, year and sums, then two
+/// close-ups of the table so the small bracketed course numbers are large enough to read.
+public enum KurswahlShot: Int, CaseIterable, Sendable {
+    case overview     // whole sheet: name, Abiturjahr, Konfession, table, Summen row
+    case tableTop     // close-up: table header ("Fächer", "pro Kurs", "1. Hj") and rows D … Ch
+    case tableBottom  // close-up: rows from about Ch / Sport down to "Summen"
+
+    /// Only the whole-sheet photo needs the sheet outline; close-ups cut the sheet on purpose.
+    public var needsSheet: Bool { self == .overview }
+
+    /// The part of an A4 portrait sheet this photo frames (0…1 from the top), for the step diagram.
+    public var region: ClosedRange<Double> {
+        switch self {
+        case .overview: 0...1
+        case .tableTop: 0.28...0.64
+        case .tableBottom: 0.58...0.92
+        }
+    }
+}
+
+/// What fast text recognition on a preview frame found of the Kurswahlprotokoll's structure.
+///
+/// Anchors come from the printed form: the title or "Abiturjahr" at the top, the table header
+/// ("Fächer", "Fachart", "pro Kurs"), the subject abbreviations lined up in the Fächer column,
+/// cell values like "5(3)" right of it, and the "Summen" row with its two-digit sums.
+public struct ShotStructure: Sendable, Hashable {
+    public var titleSeen: Bool
+    public var headerSeen: Bool
+    public var summenSeen: Bool
+    /// Subject keys found in the Fächer column.
+    public var subjects: Set<String>
+    /// Cell values ("5(3)", "2", "-") right of the Fächer column.
+    public var cellValues: Int
+    /// Two-digit numbers on the "Summen" row.
+    public var sumNumbers: Int
+    /// Median height of the short table tokens, 0…1 of the frame height (0 when none).
+    public var lineHeight: Double
+    /// Where the subject keys sit, for the live markers.
+    public var subjectPoints: [ScanPoint]
+    /// Start and end of the "Summen" row (empty when not seen).
+    public var summenLine: [ScanPoint]
+    /// The table header.
+    public var header: ScanPoint?
+
+    public init(titleSeen: Bool, headerSeen: Bool, summenSeen: Bool, subjects: Set<String>, cellValues: Int,
+                sumNumbers: Int, lineHeight: Double, subjectPoints: [ScanPoint], summenLine: [ScanPoint], header: ScanPoint?) {
+        self.titleSeen = titleSeen
+        self.headerSeen = headerSeen
+        self.summenSeen = summenSeen
+        self.subjects = subjects
+        self.cellValues = cellValues
+        self.sumNumbers = sumNumbers
+        self.lineHeight = lineHeight
+        self.subjectPoints = subjectPoints
+        self.summenLine = summenLine
+        self.header = header
+    }
+
+    public static let empty = ShotStructure(titleSeen: false, headerSeen: false, summenSeen: false, subjects: [],
+                                            cellValues: 0, sumNumbers: 0, lineHeight: 0, subjectPoints: [],
+                                            summenLine: [], header: nil)
+
+    /// Rows of the upper table half and of the lower one.
+    public static let upperSubjects: Set<String> = ["D", "E", "F", "Sp", "BK", "Mu", "G", "Gk", "Geo", "Rel", "Eth", "M", "Bio", "Ph", "Ch"]
+    public static let lowerSubjects: Set<String> = ["Ch", "Sport", "Inf", "Psy", "Ast", "LTh"]
+
+    /// The whole sheet shows most subjects even with small text.
+    public static let minOverviewSubjects = 8
+    public static let minTopSubjects = 6
+    public static let minTopCells = 3
+    public static let minBottomSubjects = 3
+    public static let minSumNumbers = 2
+    /// A close-up is only worth it when the table text is clearly larger than on the whole-sheet
+    /// photo (~1.2 % of the frame there): at ≥ 1.8 % the 2 mm course numbers read reliably.
+    public static let minLineHeight = 0.018
+
+    /// Reads the structure from recognised text (boxes 0…1 of the frame, origin top-left).
+    public static func analyse(_ boxes: [TextBox]) -> ShotStructure {
+        let words = boxes.flatMap { $0.words() }
+        let keys = SchoolReference.subjects.map(\.key)
+        let subjectWords: [(key: String, box: TextBox)] = words.compactMap { word in
+            let text = word.text.trimmingCharacters(in: .punctuationCharacters)
+            return keys.first { $0.caseInsensitiveCompare(text) == .orderedSame }.map { ($0, word) }
+        }
+        // the Fächer column: where most subject keys line up (single letters also occur elsewhere)
+        let column = densestX(subjectWords.map(\.box.midX), window: 0.05)
+        let inColumn = column.map { x in subjectWords.filter { abs($0.box.midX - x) < 0.06 } } ?? []
+
+        let cells = words.filter { word in
+            guard let column, word.midX > column + 0.08 else { return false }
+            let t = word.text
+            return t.firstMatch(of: #/^\d\(\d/#) != nil || t.wholeMatch(of: #/\d/#) != nil || t == "-" || t == "–"
+        }
+        let heights = (inColumn.map(\.box) + cells).map(\.height)
+
+        let lower = boxes.map { ($0, $0.text.lowercased()) }
+        let titleSeen = lower.contains { $0.1.contains("kurswahlprotokoll") || $0.1.contains("abiturjahr") }
+        let header = lower.first { t in ["fächer", "facher", "pro kurs", "fachart"].contains { t.1.contains($0) } }?.0
+        let summen = lower.first { $0.1.hasPrefix("summe") }?.0
+        var sumNumbers: [TextBox] = []
+        if let summen {
+            sumNumbers = words.filter { word in
+                word.midX > summen.maxX && abs(word.midY - summen.midY) < 0.05 && word.text.wholeMatch(of: #/\d{2}\.?/#) != nil
+            }
+        }
+        var line: [ScanPoint] = []
+        if let summen {
+            let end = sumNumbers.max { $0.midX < $1.midX }
+            line = [ScanPoint(x: summen.x, y: summen.midY), ScanPoint(x: end?.maxX ?? summen.maxX, y: end?.midY ?? summen.midY)]
+        }
+
+        return ShotStructure(titleSeen: titleSeen, headerSeen: header != nil, summenSeen: summen != nil,
+                             subjects: Set(inColumn.map(\.key)), cellValues: cells.count, sumNumbers: sumNumbers.count,
+                             lineHeight: heights.median ?? 0,
+                             subjectPoints: inColumn.map { ScanPoint(x: $0.box.midX, y: $0.box.midY) },
+                             summenLine: line, header: header.map { ScanPoint(x: $0.midX, y: $0.midY) })
+    }
+
+    /// What is still missing for a photo step; nil when the structure is good enough.
+    public func missing(for shot: KurswahlShot) -> ScanHint? {
+        switch shot {
+        case .overview:
+            return titleSeen && summenSeen && subjects.count >= Self.minOverviewSubjects ? nil : .wholeSheet
+        case .tableTop:
+            let upper = subjects.intersection(Self.upperSubjects).count
+            if upper >= 3 || headerSeen, lineHeight > 0, lineHeight < Self.minLineHeight { return .moveCloser }
+            return headerSeen && upper >= Self.minTopSubjects && cellValues >= Self.minTopCells ? nil : .frameTableTop
+        case .tableBottom:
+            let lower = subjects.intersection(Self.lowerSubjects).count
+            if lower >= 2 || summenSeen, lineHeight > 0, lineHeight < Self.minLineHeight { return .moveCloser }
+            return summenSeen && lower >= Self.minBottomSubjects && sumNumbers >= Self.minSumNumbers ? nil : .frameTableBottom
+        }
+    }
+
+    private static func densestX(_ xs: [Double], window: Double) -> Double? {
+        guard let best = xs.max(by: { a, b in
+            xs.filter { abs($0 - a) < window }.count < xs.filter { abs($0 - b) < window }.count
+        }) else { return nil }
+        return xs.filter { abs($0 - best) < window }.median
+    }
 }
 
 /// Turns analysed frames into one calm instruction and decides when to take the photo.
@@ -145,9 +294,36 @@ public struct ScanGuidance: Sendable {
         return .ready
     }
 
-    public mutating func update(_ frame: ScanFrame) -> State {
-        let raw = Self.hint(for: frame)
+    /// The instruction for a frame of one photo step, with what text recognition found.
+    ///
+    /// The overview adds the structure check to the sheet checks. Close-ups ignore the sheet
+    /// outline (it is cut on purpose, so no "move back") and rely on the structure instead.
+    public static func hint(for frame: ScanFrame, shot: KurswahlShot, structure: ShotStructure?) -> ScanHint {
+        let structure = structure ?? .empty
+        if shot.needsSheet {
+            let base = hint(for: frame)
+            guard [.ready, .glare, .holdStill].contains(base) else { return base }
+            return structure.missing(for: shot) ?? base
+        }
+        if frame.luma < minLuma { return .tooDark }
+        if frame.tilt > maxTilt { return .holdParallel }
+        if let quad = frame.quad, !quad.touchesEdge(margin: edgeMargin), quad.squareness < minSquareness { return .holdParallel }
+        if let missing = structure.missing(for: shot) { return missing }
+        if frame.glare > maxGlare { return .glare }
+        // the outline of a cut sheet jumps between detections, so only the phone's motion counts
+        if frame.motion > maxMotion { return .holdStill }
+        return .ready
+    }
 
+    public mutating func update(_ frame: ScanFrame) -> State {
+        advance(frame, raw: Self.hint(for: frame))
+    }
+
+    public mutating func update(_ frame: ScanFrame, shot: KurswahlShot, structure: ShotStructure?) -> State {
+        advance(frame, raw: Self.hint(for: frame, shot: shot, structure: structure))
+    }
+
+    private mutating func advance(_ frame: ScanFrame, raw: ScanHint) -> State {
         // "ready" is never delayed (the progress ring shows it), other hints wait a moment
         if raw == shown || raw == .ready || shown == .ready {
             shown = raw
@@ -176,5 +352,14 @@ public struct ScanGuidance: Sendable {
     /// Starts over, e.g. after a photo was taken.
     public mutating func reset() {
         self = ScanGuidance()
+    }
+}
+
+extension Array where Element == Double {
+    fileprivate var median: Double? {
+        guard !isEmpty else { return nil }
+        let sorted = self.sorted()
+        let mid = sorted.count / 2
+        return sorted.count % 2 == 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
     }
 }
