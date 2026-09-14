@@ -58,12 +58,12 @@ struct KurswahlCameraScreen: View {
                         SpiritLevel(gravity: camera.level, accent: accent)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
                     }
+                    Spacer()
                     if showsPlacementTip && hint != .ready && !camera.isCapturing {
                         placementTip
                             .padding(.horizontal, 20)
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    Spacer()
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 20)
@@ -151,27 +151,20 @@ struct KurswahlCameraScreen: View {
 
     // MARK: Instruction
 
-    /// Shown after `stuckDelay` without a ready frame; gone as soon as the frame is ready.
+    /// Shown at the bottom after `stuckDelay` without a ready frame; gone as soon as the frame is ready.
     private var placementTip: some View {
-        Label {
-            Text(L.s("scan.stuck"))
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(.white)
-                // wraps onto as many lines as it needs, never runs past the screen edge
-                .lineLimit(nil)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } icon: {
-            Image(systemName: "hand.raised.slash.fill")
-                .foregroundStyle(accent)
-                .accessibilityHidden(true)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: 420, alignment: .leading)
-        .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        .frame(maxWidth: .infinity)
+        Text(L.s("scan.stuck"))
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.white)
+            // wraps onto as many lines as it needs, never runs past the screen edge
+            .lineLimit(nil)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .frame(maxWidth: 420)
+            .glassEffect(.regular, in: .rect(cornerRadius: 18))
+            .frame(maxWidth: .infinity)
     }
 
     private var instructionPill: some View {

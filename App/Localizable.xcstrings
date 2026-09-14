@@ -2775,13 +2775,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leg das Blatt flach auf einen Tisch mit einer nicht weißen Unterlage – nicht in der Hand halten."
+            "value": "Leg das Blatt flach auf einen Tisch mit einer nicht weißen Unterlage."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lay the sheet flat on a table on a surface that isn't white – don't hold it in your hand."
+            "value": "Lay the sheet flat on a table on a surface that isn't white."
           }
         }
       }
