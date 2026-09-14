@@ -36,7 +36,7 @@ struct LGKAPlanCommand {
                 let scan = try JSONDecoder().decode(KurswahlScanner.Result.self, from: Data(contentsOf: URL(fileURLWithPath: scanPath)))
                 let shots = scan.shots ?? [.init(boxes: scan.boxes, aspect: scan.aspect)]
                 let sheets = shots.compactMap { try? KurswahlParser.parse($0.boxes, aspect: $0.aspect) }
-                var merged = sheets.count > 1 ? KurswahlParser.repairWithSums(KurswahlParser.merge(sheets)) : KurswahlParser.merge(sheets)
+                var merged = KurswahlParser.merge(sheets)
                 // the reading as it was always made, like the app's scanner keeps it
                 let originalSheets = shots.compactMap { try? KurswahlParser.parseDetailed($0.boxes, aspect: $0.aspect, enhanced: false).kurswahl }
                 let original = KurswahlParser.merge(originalSheets, guards: false)
@@ -44,7 +44,10 @@ struct LGKAPlanCommand {
                 kurswahl = merged
             } else if !values(rest, "--kurswahl").isEmpty {
                 // several --kurswahl photos of one sheet (overview, close-ups) are merged
-                kurswahl = try await KurswahlScanner.read(try values(rest, "--kurswahl").map { try image($0) }).kurswahl
+                // --budget seconds: the extra passes' deadline (a long one makes benchmark runs repeatable)
+                let budget = values(rest, "--budget").first.flatMap(Double.init).map { Duration.milliseconds(Int($0 * 1000)) }
+                kurswahl = try await KurswahlScanner.read(try values(rest, "--kurswahl").map { try image($0) },
+                                                          budget: budget ?? KurswahlScanner.defaultBudget).kurswahl
             } else {
                 throw Usage()
             }

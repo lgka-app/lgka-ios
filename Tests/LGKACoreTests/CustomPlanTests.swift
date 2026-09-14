@@ -132,6 +132,60 @@ struct CustomPlanTests {
         #expect(CustomPlanBuilder.build(kurswahl: fixed, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr").checks.issues.isEmpty)
     }
 
+    /// "D" and "E" unread at the top of the sheet: a row that fits both subjects is named once the
+    /// other row took one of them, and two rows that fit both take them in sheet order.
+    @Test func unnamedTopRowsBecomeDeutschAndEnglisch() throws {
+        func sheet(_ first: String, _ second: String) -> Kurswahl {
+            Kurswahl(name: nil, abiturjahr: 2028, konfession: .katholisch, rows: [
+                .init(subject: "?", fachart: "L", halves: [first, "5", "5", "5"].map(KurswahlParser.parseCell)),
+                .init(subject: "?", fachart: "L", halves: [second, "5", "5", "5"].map(KurswahlParser.parseCell)),
+                .init(subject: "M", fachart: "L", halves: ["5(1)", "5", "5", "5"].map(KurswahlParser.parseCell)),
+            ], sums: [nil, nil, nil, nil])
+        }
+        let plan = try Self.stufenplan()
+        for (first, second) in [("5(3)", "5(3)"), ("5(1)", "5(3)")] {
+            let built = CustomPlanBuilder.build(kurswahl: sheet(first, second), plan: plan, halbjahr: "1. Halbjahr")
+            let named = built.choices.filter { ["D", "E"].contains($0.subject) }
+            #expect(!built.checks.issues.contains { $0.kind == .unknownRow } || named.count < 2, "\(first) \(second)")
+            if named.count == 2 { #expect(named.map(\.subject).sorted() == ["D", "E"]) }
+        }
+    }
+
+    /// The verified dataset as Android records it (fictional sheets; per shot the recognised boxes and the
+    /// enlarged rereads), read like the app: each shot parsed and completed from its rereads, the burst merged,
+    /// then built against its Stufenplan. Every case gives exactly its expected plan, the same as on Android.
+    struct DatasetCase: Decodable {
+        struct Course: Decodable { let subject: String; let codes: [String]; let hours: Int }
+        struct Plan: Decodable { let stufe: String; let halbjahr: String; let courses: [Course]; let totalHours: Int }
+        struct Truth: Decodable { let sums: [Int]; let expectedPlan: Plan }
+        struct Shot: Decodable { let aspect: Double; let boxes: [TextBox]; let extra: [TextBox]? }
+        let truth: Truth
+        let shots: [Shot]
+    }
+
+    @Test(arguments: (1...10).map { String(format: "%02d", $0) })
+    func datasetBurstGivesItsExpectedPlan(_ number: String) throws {
+        let data = try JSONDecoder().decode(DatasetCase.self, from: Fixtures.data("kurswahl_dataset_\(number)"))
+        let expected = data.truth.expectedPlan
+        let plan = expected.stufe == "J12"
+            ? try StufenplanParser.parse(JSONDecoder().decode([TextBox].self, from: Fixtures.data("stufenplan_j12_words")))
+            : try Self.stufenplan()
+        let sheets = data.shots.compactMap { shot -> Kurswahl? in
+            guard let sheet = try? KurswahlParser.parse(shot.boxes, aspect: shot.aspect) else { return nil }
+            guard let extra = shot.extra, !extra.isEmpty,
+                  let reread = try? KurswahlParser.parse(shot.boxes + extra, aspect: shot.aspect) else { return sheet }
+            return KurswahlParser.completeGaps(sheet, extra: reread)
+        }
+        let merged = KurswahlParser.merge(sheets)
+        let built = CustomPlanBuilder.build(kurswahl: merged, plan: plan, halbjahr: expected.halbjahr)
+        let got = Dictionary(built.courses.map { ($0.subjectKey, "\($0.codes.sorted()) \($0.hours)") }, uniquingKeysWith: { a, _ in a })
+        let want = Dictionary(expected.courses.map { ($0.subject, "\($0.codes.sorted()) \($0.hours)") }, uniquingKeysWith: { a, _ in a })
+        #expect(got == want, "case \(number)")
+        #expect(built.checks.totalHours == expected.totalHours, "case \(number)")
+        #expect(built.checks.issues.map(\.message) == [], "case \(number)")
+        #expect(merged.sums == data.truth.sums.map { Optional($0) }, "case \(number)")
+    }
+
     @Test func valueAndBracketReadApartAreJoined() {
         let boxes = [TextBox(text: "5", x: 0.50, y: 0.40, width: 0.008, height: 0.012),
                      TextBox(text: "(3)", x: 0.509, y: 0.401, width: 0.02, height: 0.012),
@@ -284,6 +338,29 @@ struct CustomPlanTests {
         let plan = CustomPlanBuilder.build(kurswahl: kurswahl, plan: try Self.stufenplan(), halbjahr: "1. Halbjahr")
         #expect(plan.checks.issues.map(\.kind) == [.inferred])
         #expect(plan.checks.totalHours == 34)
+    }
+
+    /// A photo turned a few degrees: the columns slant, so the bracketed values high up in the table sit about a
+    /// column away from where their column crosses the sums row. Carried down along the slant of the subject
+    /// column, they stay in their column: the columns are not rebuilt and the sums found on the line are kept.
+    /// (Turning box centres is only a stand-in for a turned photo; which row a cell lands in is not checked here.)
+    @Test(arguments: [5.0, -5.0])
+    func tiltedBurstShotKeepsItsSumColumns(degrees: Double) throws {
+        let shot = try JSONDecoder().decode([KurswahlScanner.Shot].self, from: Fixtures.data("kurswahl_scan_burst_c"))[0]
+        let angle = degrees * .pi / 180
+        let turned = shot.boxes.map { box -> TextBox in
+            // turn the centre about the middle of the photo, in pixel proportions
+            let px = box.midX - 0.5, py = (box.midY - 0.5) * shot.aspect
+            let rx = px * cos(angle) - py * sin(angle), ry = px * sin(angle) + py * cos(angle)
+            var moved = box
+            moved.x = rx + 0.5 - box.width / 2
+            moved.y = ry / shot.aspect + 0.5 - box.height / 2
+            return moved
+        }
+        let enhanced = try KurswahlParser.parseDetailed(turned, aspect: shot.aspect, enhanced: true)
+        #expect(enhanced.kurswahl.sums == [34, 36, 36, 34])
+        #expect(!enhanced.columnsRebuilt)
+        #expect(try KurswahlParser.parse(turned, aspect: shot.aspect).sums == [34, 36, 36, 34])
     }
 
     /// A three-photo burst from the app (name replaced, SchNr, SchID and birth date removed). In the

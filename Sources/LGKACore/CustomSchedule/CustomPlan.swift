@@ -291,13 +291,27 @@ public enum CustomPlanBuilder {
         let firstOther = kurswahl.rows.firstIndex { row in
             SchoolReference.subject(row.subject) != nil && !languages.contains(row.subject)
         } ?? kurswahl.rows.count
+        let named: [Int?] = kurswahl.rows.map { SchoolReference.subject($0.subject) != nil ? sheetBlock($0.subject) : nil }
         for (index, row) in kurswahl.rows.enumerated() where SchoolReference.subject(row.subject) == nil {
             guard half < row.halves.count, let hours = row.halves[half].hours else { continue }
-            let parallel = row.halves[half].parallel
+            // winprosa prints the course number in the first Halbjahr column only: a later one continues it
+            func carried(_ other: Kurswahl.Row) -> Int? {
+                other.halves[half].parallel ?? other.halves[..<half].reversed().first { $0.parallel != nil && $0.hours == hours }?.parallel
+            }
+            let parallel = carried(row)
             let occupied = cells(of: choices, konfession: kurswahl.konfession, plan: plan)
             let taken = Set(choices.map(\.subject))
-            var matches = SchoolReference.subjects.map(\.key).filter { key in
-                !taken.contains(key) && (index < firstOther) == languages.contains(key)
+            // the sheet lists subjects in blocks: a row can only be a subject of a block between its named neighbours'
+            let above = named[..<index].last { $0 != nil } ?? nil
+            let below = named[(index + 1)...].first { $0 != nil } ?? nil
+            let matches = SchoolReference.subjects.map(\.key).filter { key in
+                guard !taken.contains(key), (index < firstOther) == languages.contains(key) else { return false }
+                // a subject with its own row on the sheet, read in this Halbjahr (a value or a "-"), is not this row
+                guard !kurswahl.rows.contains(where: { other in
+                    other.subject == key && half < other.halves.count && !other.halves[half].unreadable && other.halves[half].inferred != true
+                }) else { return false }
+                guard let block = sheetBlock(key) else { return true }
+                return (above.map { block >= $0 } ?? true) && (below.map { block <= $0 } ?? true)
             }
             .compactMap { key -> CustomPlan.Choice? in
                 let choice = CustomPlan.Choice(subject: key, level: level(fachart: row.fachart, hours: hours),
@@ -307,17 +321,16 @@ public enum CustomPlanBuilder {
                 let courseCells = cells(of: [choice], konfession: kurswahl.konfession, plan: plan)
                 return courseCells.count == hours && courseCells.isDisjoint(with: occupied) ? choice : nil
             }
-            if matches.count > 1 {
-                // several subjects fit: the sheet groups subjects in blocks, and a row sits in a block from
-                // its named neighbour above to its named neighbour below (unnamed rows in a row can span blocks)
-                let above = kurswahl.rows[..<index].last { sheetBlock($0.subject) != nil }.flatMap { sheetBlock($0.subject) }
-                let below = kurswahl.rows[(index + 1)...].first { sheetBlock($0.subject) != nil }.flatMap { sheetBlock($0.subject) }
-                let allowedBlocks = (above ?? 0)...max(above ?? 0, below ?? Int.max - 1)
-                let inBlock = matches.filter { sheetBlock($0.subject).map(allowedBlocks.contains) ?? true }
-                if inBlock.count == 1 { matches = inBlock }
-            }
+            // several unrecognised rows with the very same values (two Leistungsfach languages "5(1)"): as many
+            // subjects as rows fit, so they are those subjects in the sheet's order
+            let alike = kurswahl.rows.enumerated().filter { j, other in
+                j >= index && SchoolReference.subject(other.subject) == nil && half < other.halves.count
+                    && other.halves[half].hours == hours && carried(other) == parallel
+            }.count
             if matches.count == 1 {
                 choices.append(matches[0])
+            } else if matches.count > 1, matches.count == alike, let first = matches.min(by: { order($0.subject) < order($1.subject) }) {
+                choices.append(first)
             } else {
                 issues.append(.init(kind: .unknownRow, subject: nil, codes: ["\(hours)"],
                                     message: "Ein Fach mit \(hours) Wochenstunden wurde im Kurswahlprotokoll nicht erkannt"))

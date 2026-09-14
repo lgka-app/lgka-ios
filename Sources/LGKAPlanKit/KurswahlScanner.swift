@@ -87,20 +87,31 @@ public enum KurswahlScanner {
             timings["photo\(index + 1)"] = seconds(clock.now - photoStart)
         }
         let firstDone = clock.now
-        let sheets = readings.map(\.detail.kurswahl)
-        var result: Kurswahl? = sheets.isEmpty ? nil
-            : sheets.count > 1 ? KurswahlParser.repairWithSums(KurswahlParser.merge(sheets)) : sheets[0]
-        let mergeDone = clock.now
-        timings["merge"] = seconds(mergeDone - firstDone)
-        timings["extraRegions"] = 0
-
-        if let merged = result, !KurswahlParser.isComplete(merged), clock.now < deadline,
-           let best = readings.max(by: { KurswahlParser.consistency($0.detail.kurswahl) < KurswahlParser.consistency($1.detail.kurswahl) }) {
-            let (filled, regionsRead) = await refill(merged, image: best.image, boxes: best.boxes, detail: best.detail,
-                                                     aspect: best.aspect, deadline: deadline)
-            timings["extraRegions"] = Double(regionsRead)
-            if acceptsRefill(merged, filled) { result = filled }
+        // Each photo not read completely gets its gaps read again in enlarged bands (plain and with the contrast
+        // stretched), filled into that photo's reading before the burst is merged; nothing starts after the deadline
+        var sheets: [Kurswahl] = []
+        var regionsRead = 0
+        for reading in readings {
+            var sheet = reading.detail.kurswahl
+            if !KurswahlParser.isComplete(sheet), clock.now < deadline {
+                var extra: [TextBox] = []
+                for region in recheckRegions(reading.detail) {
+                    guard clock.now < deadline else { break }
+                    extra += await recognizeClamped(reading.image, region: region, options: PassOptions(maxScale: 8), deadline: deadline)
+                    extra += await recognizeClamped(reading.image, region: region, options: PassOptions(contrast: true, maxScale: 8), deadline: deadline)
+                    regionsRead += 1
+                }
+                if !extra.isEmpty, let reread = try? KurswahlParser.parse(reading.boxes + extra, aspect: reading.aspect) {
+                    sheet = KurswahlParser.completeGaps(sheet, extra: reread)
+                }
+            }
+            sheets.append(sheet)
         }
+        timings["extraRegions"] = Double(regionsRead)
+        let extraDone = clock.now
+        var result: Kurswahl? = sheets.isEmpty ? nil : KurswahlParser.merge(sheets)
+        let mergeDone = clock.now
+        timings["merge"] = seconds(mergeDone - extraDone)
 
         if result == nil, let image = images.first, let boxes = shots.first?.boxes, clock.now < deadline {
             // no photo showed a table: once more with the contrast stretched, then straightened
@@ -123,7 +134,7 @@ public enum KurswahlScanner {
         }
         let end = clock.now
         timings["first"] = seconds(firstDone - start)
-        timings["extra"] = seconds(end - mergeDone)
+        timings["extra"] = seconds(extraDone - firstDone)
         timings["total"] = seconds(end - start)
         return Result(kurswahl: result, boxes: shots.first?.boxes ?? [],
                       aspect: shots.first?.aspect ?? 4.0 / 3.0, shots: shots, seconds: timings)
@@ -144,82 +155,80 @@ public enum KurswahlScanner {
         return boxes
     }
 
-    /// Whether a reading with gaps filled replaces the merged one: every sum stays, no cell became
-    /// inferred and no unnamed row appeared, and either more Halbjahre now add up to their sums or
-    /// every change only confirms what was there (an inferred value read, a course number added).
-    static func acceptsRefill(_ merged: Kurswahl, _ filled: Kurswahl) -> Bool {
-        guard zip(merged.sums, filled.sums).allSatisfy({ $0 == nil || $0 == $1 }) else { return false }
-        func inferred(_ k: Kurswahl) -> Int { k.rows.reduce(0) { $0 + $1.halves.filter { $0.inferred == true }.count } }
-        func unnamed(_ k: Kurswahl) -> Int { k.rows.filter { $0.subject == "?" }.count }
-        guard inferred(filled) <= inferred(merged), unnamed(filled) <= unnamed(merged) else { return false }
-        if KurswahlParser.matchedSums(filled) > KurswahlParser.matchedSums(merged) { return true }
-        // the same rows, an unnamed one possibly named now
-        guard KurswahlParser.matchedSums(filled) == KurswahlParser.matchedSums(merged),
-              filled.rows.count == merged.rows.count,
-              zip(merged.rows, filled.rows).allSatisfy({ $0.subject == $1.subject || $0.subject == "?" }) else { return false }
-        return zip(merged.rows, filled.rows).allSatisfy { before, after in
-            zip(before.halves, after.halves).allSatisfy { $0.hours == $1.hours }
-        }
-    }
-
-    /// Most extra regions read for one scan.
+    /// Regions read again per photo at most (each is recognised twice, plain and with the contrast stretched).
     static let maxRegions = 6
 
-    /// The merged reading's gaps read again on one photo, each region enlarged up to 8× with the
-    /// contrast stretched. Lone digits such as Sport's "2" are dropped when the whole table is read,
-    /// but a row alone is read reliably. Regions, most important first, at most `maxRegions`, none
-    /// started after `deadline`: rows of required subjects (D, M, G, Sport) with an unread cell,
-    /// the sums row when a sum is missing, rows unread in a Halbjahr whose sum does not match, other
-    /// rows with an unread cell. The result is `merged` with gaps filled (`KurswahlParser.fillGaps`),
-    /// never a changed value, then `repairWithSums`.
-    /// Also returns how many regions were read.
-    static func refill(_ merged: Kurswahl, image: CGImage, boxes: [TextBox], detail: KurswahlParser.Detail,
-                       aspect: Double, deadline: ContinuousClock.Instant) async -> (Kurswahl, Int) {
-        guard let grid = detail.grid, grid.columnXs.count == 6, !grid.rows.isEmpty else { return (merged, 0) }
-        let pitch = grid.pitch, spacing = grid.spacing
-        let x0 = grid.columnXs[0] - spacing * 0.6, x1 = grid.columnXs[5] + spacing * 0.6
-        let unmatched = Set((0..<min(4, merged.sums.count)).filter { h in
-            merged.sums[h].map { sum in merged.rows.reduce(0) { $0 + (h < $1.halves.count ? $1.halves[h].hours ?? 0 : 0) } != sum } ?? true
-        })
-        var ranked: [(priority: Int, region: CGRect)] = []
-        for gridRow in grid.rows {
-            guard let subject = gridRow.subject, let row = merged.rows.first(where: { $0.subject == subject }), row.halves.count == 4 else { continue }
-            let open = (0..<4).filter { h in
-                let cell = row.halves[h]
-                return cell.inferred == true || (!cell.taken && (cell.raw == nil || cell.unreadable))
-            }
-            let required = KurswahlParser.allFourHalves.contains(subject)
-            guard !open.isEmpty, required || row.halves.contains(where: { $0.taken && $0.inferred != true }) else { continue }
-            guard let top = gridRow.ys.min(), let bottom = gridRow.ys.max() else { continue }
-            let priority = required ? 0 : open.contains(where: unmatched.contains) ? 2 : 3
-            ranked.append((priority, CGRect(x: x0, y: top - pitch * 0.9, width: x1 - x0, height: bottom - top + pitch * 1.8)))
+    /// Where a second, enlarged reading is worth it after `KurswahlParser.parseDetailed` (the same regions as on
+    /// Android): the sums row when a sum is missing, the row of every subject required in all four Halbjahre whose
+    /// cells were not all read (Sport's plain "2" is the value recognition misses most) first among the rows, rows
+    /// with a value that was found but not readable, and Halbjahr columns read in fewer than 80 % of the table rows.
+    /// Row bands run from the subject to past the fourth Halbjahr column and follow the tilt of the sums row.
+    static func recheckRegions(_ detail: KurswahlParser.Detail) -> [CGRect] {
+        func median(_ values: [Double]) -> Double? {
+            guard !values.isEmpty else { return nil }
+            let sorted = values.sorted(), mid = sorted.count / 2
+            return sorted.count % 2 == 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
         }
-        if merged.rows.contains(where: { $0.subject == "?" }), let top = grid.rows.map(\.subjectY).min(), let bottom = grid.rows.map(\.subjectY).max() {
-            // unnamed rows: single-letter subjects ("D", "E") are dropped when the whole sheet is read but
-            // read in the subject column alone; two overlapping halves, first
-            let middle = (top + bottom) / 2
-            for (y0, y1) in [(top - pitch, middle + pitch), (middle - pitch, bottom + pitch)] {
-                ranked.append((-1, CGRect(x: grid.subjectX - spacing * 0.6, y: y0, width: spacing * 1.2, height: y1 - y0)))
-            }
+        func differences(_ values: [Double]) -> [Double] {
+            values.count < 2 ? [] : (1..<values.count).map { values[$0] - values[$0 - 1] }
         }
-        if merged.sums.contains(where: { $0 == nil }) {
-            let y = grid.bottom
-            ranked.append((1, CGRect(x: grid.columnXs[2] - spacing, y: y - pitch * 1.2, width: spacing * 5, height: pitch * 2.4)))
-        }
-        let regions = ranked.enumerated().sorted { ($0.element.priority, $0.offset) < ($1.element.priority, $1.offset) }
-            .prefix(maxRegions).map(\.element.region)
-        guard !regions.isEmpty else { return (merged, 0) }
+        let subjects = detail.subjectBoxes.sorted { $0.midY < $1.midY }
+        guard subjects.count >= 2, let firstRow = subjects.first, let lastRow = subjects.last else { return [] }
+        let diffs = differences(subjects.map(\.midY))
+        guard let typical = median(diffs), let subjectX = median(subjects.map(\.midX)) else { return [] }
+        let pitch = median(diffs.filter { $0 < typical * 1.5 }) ?? typical
 
-        let options = PassOptions(contrast: true, maxScale: 8)
-        var extra: [TextBox] = []
-        var read = 0
-        for region in regions {
-            guard ContinuousClock.now < deadline else { break }
-            extra += await recognizeClamped(image, region: region, options: options, deadline: deadline)
-            read += 1
+        let columns: [Double]
+        let slope: Double
+        if detail.sumBoxes.count == 4 {
+            columns = detail.sumBoxes.map(\.midX)
+            let first = detail.sumBoxes[0], last = detail.sumBoxes[3]
+            slope = last.midX != first.midX ? (last.midY - first.midY) / (last.midX - first.midX) : 0
+        } else {
+            // too few sums: the columns from where the cells were read (0.06 of the width apart when only one was)
+            let read = detail.cellBoxes.enumerated().compactMap { h, boxes in median(boxes.map(\.midX)).map { (h, $0) } }
+            guard let first = read.first else { return [] }
+            let spacing = median(zip(read, read.dropFirst()).map { a, b in (b.1 - a.1) / Double(b.0 - a.0) }) ?? 0.06
+            columns = (0..<4).map { first.1 + Double($0 - first.0) * spacing }
+            slope = 0
         }
-        guard !extra.isEmpty, let reread = try? KurswahlParser.parseDetailed(boxes + extra, aspect: aspect) else { return (merged, read) }
-        return (KurswahlParser.repairWithSums(KurswahlParser.fillGaps(merged, from: reread.kurswahl)), read)
+        let spacing = median(differences(columns)) ?? 0.06
+        let right = min(1, columns[3] + spacing * 0.6)
+        func y(_ atY: Double, _ atX: Double, _ x: Double) -> Double { atY + slope * (x - atX) }
+        func region(_ left: Double, _ top: Double, _ right: Double, _ bottom: Double) -> CGRect {
+            let l = max(0, left), t = max(0, top)
+            return CGRect(x: l, y: t, width: min(1, right) - l, height: min(1, bottom) - t)
+        }
+
+        var regions: [CGRect] = []
+        if detail.kurswahl.sums.contains(where: { $0 == nil }) {
+            let top = min(y(lastRow.midY, lastRow.midX, columns[0]), y(lastRow.midY, lastRow.midX, columns[3])) + pitch * 0.5
+            regions.append(region(columns[0] - spacing * 1.5, top, right, top + pitch * 7))
+        }
+        var rowBands: [CGRect] = []
+        for row in detail.kurswahl.rows {
+            let required = KurswahlParser.allFourHalves.contains(row.subject) && row.halves.contains { !$0.taken || $0.inferred == true }
+            let unreadable = row.halves.contains { $0.unreadable && $0.raw != nil }
+            guard required || unreadable,
+                  let box = subjects.first(where: { $0.text.caseInsensitiveCompare(row.subject) == .orderedSame }) else { continue }
+            let left = box.x - 0.01
+            let yLeft = y(box.midY, box.midX, left), yRight = y(box.midY, box.midX, right)
+            let band = region(left, min(yLeft, yRight) - pitch * 1.1, right, max(yLeft, yRight) + pitch * 1.1)
+            // required subjects first: that is where a gap costs the most
+            if required { rowBands.insert(band, at: 0) } else { rowBands.append(band) }
+        }
+        regions += rowBands
+        for (h, x) in columns.enumerated() {
+            let read = h < detail.readCells.count ? detail.readCells[h] : 0
+            guard Double(read) < Double(detail.tableRows) * 0.8 else { continue }
+            let top = min(y(firstRow.midY, firstRow.midX, x), y(firstRow.midY, subjectX, x)) - pitch
+            let bottom = y(lastRow.midY, lastRow.midX, x) + pitch
+            regions.append(region(x - spacing * 0.55, top, x + spacing * 0.55, bottom))
+        }
+        var seen = Set<[Int]>()
+        return Array(regions.filter { $0.width > 0.01 && $0.height > 0.005 }
+            .filter { seen.insert([$0.minX, $0.minY, $0.maxX, $0.maxY].map { Int($0 * 200) }).inserted }
+            .prefix(maxRegions))
     }
 
     /// The photo read again with the contrast stretched, in four overlapping enlarged quarters:
