@@ -107,7 +107,8 @@ struct CustomPlanTests {
     @Test func sumColumnsRebuiltFromTheBracketsWithAMissingSum() throws {
         var boxes = try JSONDecoder().decode([KurswahlScanner.Shot].self, from: Fixtures.data("kurswahl_scan_burst"))[1].boxes
         boxes.removeAll { $0.text == "36" && $0.midX > 0.59 && $0.midX < 0.63 && $0.midY > 0.7 }
-        let kurswahl = try KurswahlParser.parse(boxes, aspect: 1.429)
+        // the extra column trigger is off by default; this is what it does when switched on
+        let kurswahl = try KurswahlParser.parseDetailed(boxes, aspect: 1.429, extraColumnTrigger: true).kurswahl
         #expect(kurswahl.sums[0] == 34)
         #expect(!kurswahl.sums.contains(46))
         #expect(kurswahl.rows.first { $0.subject == "Geo" }?.halves.first?.taken == false)
@@ -412,20 +413,22 @@ struct CustomPlanTests {
         #expect(KurswahlParser.inferMissing(cells, perCourse: "2")[0].taken == false)
     }
 
-    /// Nothing of Sport's row was read but its Fachart: Basisfach 2 hours, Leistungsfach 5.
-    @Test func sportHoursFromFachartWhenNothingElseWasRead() {
-        #expect(KurswahlParser.sportHours(fachart: "B") == 2)
-        #expect(KurswahlParser.sportHours(fachart: "L") == 5)
-        #expect(KurswahlParser.sportHours(fachart: nil) == nil)
+    /// Nothing of a required subject's row was read and no sum helps: its Fachart gives the hours, Basisfach
+    /// (Sport 2, Deutsch 3) or Leistungsfach 5, in all four Halbjahre, marked inferred.
+    @Test func requiredSubjectFromItsFachartWhenNothingWasRead() {
         let empty = [Kurswahl.Cell](repeating: .missing, count: 4)
-        let filled = KurswahlParser.inferMissing(empty, perCourse: nil, allHalves: true, fallbackHours: 5)
-        #expect(filled.allSatisfy { $0.hours == 5 && $0.inferred == true })
-        // a Halbjahr that was read still decides over the Fachart
-        let read = KurswahlParser.inferMissing([.missing, KurswahlParser.parseCell("2"), .missing, .missing],
-                                               perCourse: nil, allHalves: true, fallbackHours: 5)
-        #expect(read[0].hours == 2)
-        // without a fallback nothing changes
-        #expect(KurswahlParser.inferMissing(empty, perCourse: nil, allHalves: true).allSatisfy { !$0.taken })
+        func completed(_ subject: String, _ fachart: String?) -> [Kurswahl.Cell] {
+            KurswahlParser.completeFromSums([.init(subject: subject, fachart: fachart, halves: empty)], sums: [nil, nil, nil, nil])[0].halves
+        }
+        #expect(completed("Sport", "B").allSatisfy { $0.hours == 2 && $0.inferred == true })
+        #expect(completed("D", "m").allSatisfy { $0.hours == 3 && $0.inferred == true })
+        #expect(completed("Sport", "L").allSatisfy { $0.hours == 5 && $0.inferred == true })
+        // without a Fachart nothing is guessed; a subject not required is never filled this way
+        #expect(completed("Sport", nil).allSatisfy { !$0.taken })
+        #expect(completed("Psy", "B").allSatisfy { !$0.taken })
+        // pro Kurs out of a required subject's possible hours belongs to a neighbouring row
+        let lent = KurswahlParser.inferMissing(empty, perCourse: "3", allHalves: true, possibleHours: KurswahlParser.possibleHours("Sport"))
+        #expect(lent.allSatisfy { !$0.taken })
     }
 
     @Test func sumFillsTheOneCellThatIsMissing() {
@@ -438,7 +441,8 @@ struct CustomPlanTests {
             row("Ast", [nil, nil, nil, nil], perCourse: "2"),
             row("Geo", ["-", "2.p", "2.s", nil]),
         ], sums: [5, 5, 7, 5])
-        let repaired = KurswahlParser.repairWithSums(sheet)
+        var repaired = sheet
+        repaired.rows = KurswahlParser.completeFromSums(sheet.rows, sums: sheet.sums)
         // 1. Hj: 2 read, sum 5 → Biologie's usual 3 fills the gap
         #expect(repaired.rows[0].halves[0].hours == 3 && repaired.rows[0].halves[0].inferred == true)
         // a subject never taken and a two-Halbjahr subject are not candidates
@@ -451,11 +455,11 @@ struct CustomPlanTests {
         var twice = sheet
         twice.rows.append(row("Ch", [nil, "3", "3", "3"]))
         twice.sums = [5, 8, 10, 8]
-        #expect(KurswahlParser.repairWithSums(twice).rows[0].halves[0].taken == false)
+        #expect(KurswahlParser.completeFromSums(twice.rows, sums: twice.sums)[0].halves[0].taken == false)
         // a dash that was read is never overwritten
         var dash = sheet
         dash.rows[0].halves[0] = KurswahlParser.parseCell("-")
-        #expect(KurswahlParser.repairWithSums(dash).rows[0].halves[0].taken == false)
+        #expect(KurswahlParser.completeFromSums(dash.rows, sums: dash.sums)[0].halves[0].taken == false)
     }
 
     @Test func secondReadingOnlyFillsGaps() {
@@ -494,11 +498,10 @@ struct CustomPlanTests {
         #expect(filled.sums == [34, 36, 36, 34])
     }
 
-    @Test func consistencyPrefersAReadingThatAddsUp() throws {
-        let sheet = try Self.kurswahl()
-        var broken = sheet
+    /// A sheet with a cell missing is not complete: its photo is read again.
+    @Test func sheetWithAMissingCellIsNotComplete() throws {
+        var broken = try Self.kurswahl()
         if let d = broken.rows.firstIndex(where: { $0.subject == "D" }) { broken.rows[d].halves[0] = .missing }
-        #expect(KurswahlParser.consistency(sheet) > KurswahlParser.consistency(broken))
         #expect(!KurswahlParser.isComplete(broken))
     }
 

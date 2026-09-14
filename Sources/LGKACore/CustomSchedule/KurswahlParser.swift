@@ -164,8 +164,9 @@ public enum KurswahlParser {
     /// apart joined, recognition slips in cells, sums line placed by the bracketed values, Sport's
     /// hours from its Fachart, a missing cell from its sum). The additions win when more Halbjahre
     /// add up to their sums; otherwise they only fill cells the first reading left unread.
-    /// `extraColumnTrigger`: the iOS column rebuild from slanted brackets or a double gap (see `slantedBracketColumn`).
-    public static func parseDetailed(_ boxes: [TextBox], aspect: Double = 4.0 / 3.0, extraColumnTrigger: Bool = true) throws -> Detail {
+    /// `extraColumnTrigger`: the iOS column rebuild from slanted brackets or a double gap (see `slantedBracketColumn`),
+    /// off by default: on degraded variants it can make rows slip at the rebuilt spacing.
+    public static func parseDetailed(_ boxes: [TextBox], aspect: Double = 4.0 / 3.0, extraColumnTrigger: Bool = false) throws -> Detail {
         var enhanced = try? parseDetailed(boxes, aspect: aspect, enhanced: true, extraColumnTrigger: false)
         if extraColumnTrigger, let withTrigger = try? parseDetailed(boxes, aspect: aspect, enhanced: true, extraColumnTrigger: true),
            withTrigger.columnsRebuilt, !(enhanced?.columnsRebuilt ?? false) {
@@ -213,7 +214,7 @@ public enum KurswahlParser {
     }
 
     /// One of the two readings on its own: `enhanced` false is the sheet read as it always was.
-    public static func parseDetailed(_ boxes: [TextBox], aspect: Double, enhanced: Bool, extraColumnTrigger: Bool = true) throws -> Detail {
+    public static func parseDetailed(_ boxes: [TextBox], aspect: Double, enhanced: Bool, extraColumnTrigger: Bool = false) throws -> Detail {
         let split = boxes.flatMap { $0.words() }.map { normalised($0) }
         let words = enhanced ? split + joinedBrackets(split) : split
         let lines = boxes.map { normalised($0) }
@@ -447,7 +448,6 @@ public enum KurswahlParser {
         }
 
         var rows: [Kurswahl.Row] = []
-        var support: [String: Int] = [:] // "subject/half" → photos agreeing on the chosen value
         for key in order {
             let versions = sheets.flatMap { $0.rows.filter { $0.subject == key } }
             let perCourse = mostCommon(versions.map(\.perCourse))
@@ -478,7 +478,6 @@ public enum KurswahlParser {
                 let agreeing = read.filter { ($0.hours ?? -1) == winner }
                 var chosen = agreeing.first { $0.parallel != nil } ?? agreeing[0]
                 if let parallel = mostCommon(agreeing.map(\.parallel)) { chosen.parallel = parallel }
-                support["\(key)/\(h)"] = agreeing.count
                 halves.append(chosen)
             }
             rows.append(.init(subject: key, fachart: mostCommon(versions.map(\.fachart)), halves: halves,
@@ -536,7 +535,6 @@ public enum KurswahlParser {
             }
             if lone.count == 1 { rows[lone[0]].halves[h] = .missing }
         }
-        _ = support
         return Kurswahl(name: sheets.lazy.compactMap(\.name).first,
                         abiturjahr: sheets.lazy.compactMap(\.abiturjahr).first,
                         konfession: sheets.lazy.compactMap(\.konfession).first,
@@ -807,17 +805,16 @@ public enum KurswahlParser {
     /// A Halbjahr cell that was not read, taken over when the other three agree on plain hours
     /// (a subject taken all four Halbjahre) and "pro Kurs" does not contradict. For a subject
     /// required every Halbjahr (`allHalves`) a gap or dash is a misread, and "pro Kurs" gives the hours.
-    /// `fallbackHours`: what a required subject has when neither "pro Kurs" nor another Halbjahr was read.
     /// `possibleHours`: the hours a required subject can have; a "pro Kurs" or other value outside them belongs to a
     /// neighbouring row, and a "-" is then a misread (missing, not a reading that could outvote another photo).
     static func inferMissing(_ halves: [Kurswahl.Cell], perCourse: String?, allHalves: Bool = false,
-                             fallbackHours: Int? = nil, possibleHours: Set<Int>? = nil) -> [Kurswahl.Cell] {
+                             possibleHours: Set<Int>? = nil) -> [Kurswahl.Cell] {
         guard halves.count == 4 else { return halves }
         var result = halves
         for i in halves.indices where !halves[i].taken {
             if allHalves {
                 func possible(_ hours: Int?) -> Int? { hours.flatMap { possibleHours == nil || possibleHours!.contains($0) ? $0 : nil } }
-                if let hours = possible(perCourse.flatMap { Int($0) }) ?? possible(mostCommon(halves.map(\.hours))) ?? fallbackHours {
+                if let hours = possible(perCourse.flatMap { Int($0) }) ?? possible(mostCommon(halves.map(\.hours))) {
                     result[i] = .init(raw: nil, hours: hours, parallel: nil, unreadable: false, inferred: true)
                 } else if possibleHours != nil, !halves[i].unreadable {
                     result[i] = .missing
@@ -830,41 +827,6 @@ public enum KurswahlParser {
                   let hours = others.first?.hours, others.allSatisfy({ $0.hours == hours }),
                   perCourse.flatMap({ Int($0) }).map({ $0 == hours }) ?? true else { continue }
             result[i] = .init(raw: nil, hours: hours, parallel: nil, unreadable: false, inferred: true)
-        }
-        return result
-    }
-
-    /// Sport's weekly hours by its Fachart: Basisfach 2, Leistungsfach 5.
-    static func sportHours(fachart: String?) -> Int? {
-        switch fachart {
-        case "B": 2
-        case "L": 5
-        default: nil
-        }
-    }
-
-    /// A Halbjahr whose taken hours fall short of its sum by exactly what one unread cell would add.
-    /// Candidates are cells nothing (or nothing readable) was found in, in rows taken in other
-    /// Halbjahre without a "p"/"s" suffix; the cell is filled, marked inferred, only when a single
-    /// candidate's usual hours equal the missing hours. Read cells and dashes are never changed.
-    public static func repairWithSums(_ kurswahl: Kurswahl) -> Kurswahl {
-        var result = kurswahl
-        for h in 0..<min(4, kurswahl.sums.count) {
-            guard let sum = kurswahl.sums[h] else { continue }
-            let taken = result.rows.reduce(0) { $0 + (h < $1.halves.count ? $1.halves[h].hours ?? 0 : 0) }
-            let missing = sum - taken
-            guard (1...6).contains(missing) else { continue }
-            let candidates = result.rows.indices.filter { r in
-                let row = result.rows[r]
-                // an unnamed row's hours would only be another unknown subject to ask about
-                guard row.subject != "?", row.halves.count == 4, !row.halves.contains(where: { $0.suffix != nil }) else { return false }
-                let cell = row.halves[h]
-                guard !cell.taken, cell.raw == nil || cell.unreadable else { return false }
-                let others = row.halves.enumerated().filter { $0.offset != h && $0.element.inferred != true }.map(\.element.hours)
-                return (mostCommon(others) ?? nil) == missing
-            }
-            guard candidates.count == 1 else { continue }
-            result.rows[candidates[0]].halves[h] = .init(raw: nil, hours: missing, parallel: nil, unreadable: false, inferred: true)
         }
         return result
     }
@@ -937,26 +899,6 @@ public enum KurswahlParser {
             result.sums[h] = other.sums[h]
         }
         return result
-    }
-
-    /// How well a reading holds together, to choose between readings of the same photo: every
-    /// Halbjahr whose taken hours add up to its sum counts most, then read cells and course
-    /// numbers; unreadable, inferred and unnamed rows count against it.
-    public static func consistency(_ kurswahl: Kurswahl) -> Int {
-        var score = 0
-        for h in 0..<min(4, kurswahl.sums.count) {
-            guard let sum = kurswahl.sums[h] else { continue }
-            if kurswahl.rows.reduce(0, { $0 + (h < $1.halves.count ? $1.halves[h].hours ?? 0 : 0) }) == sum { score += 100 }
-        }
-        for row in kurswahl.rows {
-            for cell in row.halves {
-                if cell.unreadable && cell.raw != nil { score -= 3 }
-                if cell.inferred == true { score -= 2 } else if cell.taken { score += 1 }
-                if cell.parallel != nil { score += 1 }
-            }
-            if row.subject == "?" && row.halves.contains(where: \.taken) { score -= 10 }
-        }
-        return score
     }
 
     /// Halbjahre whose sum was read and equals the hours taken in them.
