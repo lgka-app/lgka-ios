@@ -951,19 +951,36 @@
         }
       }
     },
-    "custom.review.hoursOf": {
+    "custom.review.hoursMatch": {
       "extractionState": "manual",
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld von %2$lld Wochenstunden"
+            "value": "%lld Wochenstunden, passt zu deinem Kurswahlprotokoll"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld of %2$lld weekly hours"
+            "value": "%lld hours a week, matches your Kurswahlprotokoll"
+          }
+        }
+      }
+    },
+    "custom.review.hoursMismatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld Wochenstunden, laut Kurswahlprotokoll %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld hours a week, your Kurswahlprotokoll says %2$lld"
           }
         }
       }

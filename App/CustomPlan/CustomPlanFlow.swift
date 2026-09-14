@@ -446,8 +446,11 @@ struct CustomPlanReviewScreen: View {
             Image(systemName: matches ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(matches ? .green : .orange)
                 .accessibilityHidden(true)
-            if let expected = plan.checks.expectedTotal {
-                Text(L.f("custom.review.hoursOf", plan.checks.totalHours, expected))
+            // everyone's total differs: compare with the sheet, never show it as a goal
+            if let expected = plan.checks.expectedTotal, expected != plan.checks.totalHours {
+                Text(L.f("custom.review.hoursMismatch", plan.checks.totalHours, expected))
+            } else if plan.checks.expectedTotal != nil {
+                Text(L.f("custom.review.hoursMatch", plan.checks.totalHours))
             } else {
                 Text(L.f("custom.review.hours", plan.checks.totalHours))
             }
