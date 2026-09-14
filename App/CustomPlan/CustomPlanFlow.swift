@@ -18,7 +18,7 @@ struct CustomPlanHost: View {
     var body: some View {
         switch mode {
         case .scan:
-            CustomPlanSetupScreen(onDraft: { reviewing = $0 })
+            CustomPlanSetupScreen(onDraft: { reviewing = $0 }, onSaved: { save($0) })
                 .navigationDestination(item: $reviewing) { draft in
                     CustomPlanReviewScreen(draft: draft) { save($0) }
                 }

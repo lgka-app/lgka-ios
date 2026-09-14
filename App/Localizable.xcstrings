@@ -934,23 +934,6 @@
         }
       }
     },
-    "custom.reading.subtitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Direkt auf deinem iPhone"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Right on your iPhone"
-          }
-        }
-      }
-    },
     "custom.reading.title": {
       "extractionState": "manual",
       "localizations": {
