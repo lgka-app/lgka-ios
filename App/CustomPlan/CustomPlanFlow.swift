@@ -17,6 +17,8 @@ struct CustomPlanHost: View {
     @State private var reviewing: CustomPlanDraft?
     /// The plan just saved, revealed over the review.
     @State private var ready: SavedCustomPlan?
+    /// The saved plan could not be loaded for editing.
+    @State private var loadFailed = false
 
     var body: some View {
         switch mode {
@@ -29,6 +31,13 @@ struct CustomPlanHost: View {
             Group {
                 if let reviewing {
                     review(reviewing)
+                } else if loadFailed {
+                    Text(L.s("custom.error.generic"))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .navigationTitle(L.s("custom.review.title"))
                 } else {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -54,9 +63,14 @@ struct CustomPlanHost: View {
     }
 
     private func loadSaved() async {
-        guard reviewing == nil, let saved = CustomPlanStore.shared.saved,
+        guard reviewing == nil else { return }
+        guard let saved = CustomPlanStore.shared.saved,
               let plans = try? await CustomPlanSource.plans(model: model),
-              let loaded = CustomPlanSource.pick(plans, stufe: saved.plan.stufe, kurswahl: saved.kurswahl) else { return }
+              let loaded = CustomPlanSource.pick(plans, stufe: saved.plan.stufe, kurswahl: saved.kurswahl) else {
+            // offline or no Stufenplan: say so instead of spinning forever (as on Android)
+            loadFailed = true
+            return
+        }
         reviewing = CustomPlanDraft(saved: saved, loaded: loaded)
     }
 }

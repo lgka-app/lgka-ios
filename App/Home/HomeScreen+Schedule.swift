@@ -96,7 +96,10 @@ extension HomeScreen {
                 path.append(HomeRoute.customPlanEdit)
                 return
             }
-            guard let file = try? CustomPlanSource.pdfFile(for: current.plan) else { return }
+            guard let file = try? CustomPlanSource.pdfFile(for: current.plan) else {
+                Haptics.error()
+                return
+            }
             pdfDestination = PdfDestination(fileUrl: file, title: L.s("custom.home.title"), targetPage: nil)
         }
     }
