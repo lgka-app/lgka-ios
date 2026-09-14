@@ -108,14 +108,23 @@ public struct TorchPolicy: Sendable {
     public private(set) var level = 0.0
     private var darkSince: Double?
     private var lastChange = 0.0
+    /// On from the first frame, whatever the light (the scanner's setting): the sheet is always lit evenly.
+    public let alwaysOn: Bool
 
-    public init() {}
+    public init(alwaysOn: Bool = false) {
+        self.alwaysOn = alwaysOn
+    }
 
     public var isOn: Bool { level > 0 }
 
     /// The torch level for this frame.
     public mutating func update(luma: Double, glare: Double, time: Double) -> Double {
         guard isOn else {
+            if alwaysOn {
+                level = Self.startLevel
+                lastChange = time
+                return level
+            }
             if luma < Self.darkLuma {
                 let since = darkSince ?? time
                 darkSince = since

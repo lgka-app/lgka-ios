@@ -1,4 +1,5 @@
 import Foundation
+
 import Testing
 @testable import LGKAPlanKit
 
@@ -142,4 +143,13 @@ struct ScanGuidanceTests {
         #expect(state.progress == 0)
         #expect(!state.capture)
     }
+}
+
+/// The scanner keeps the torch on from the first frame, in any light; glare still dims it.
+@Test func alwaysOnTorchStartsImmediately() {
+    var torch = TorchPolicy(alwaysOn: true)
+    #expect(torch.update(luma: 0.9, glare: 0, time: 0) == TorchPolicy.startLevel)
+    #expect(torch.isOn)
+    #expect(torch.update(luma: 0.9, glare: 0.2, time: 1) < TorchPolicy.startLevel)
+    #expect(torch.isOn)
 }

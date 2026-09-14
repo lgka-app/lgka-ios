@@ -33,7 +33,8 @@ final class KurswahlCamera {
     @ObservationIgnored var onPhotoTaken: ((Int) -> Void)?
     @ObservationIgnored let pipeline = CameraPipeline()
     @ObservationIgnored private var guidance = ScanGuidance()
-    @ObservationIgnored private var torch = TorchPolicy()
+    /// Always on while scanning (brighter when dark, dimmer when it glares).
+    @ObservationIgnored private var torch = TorchPolicy(alwaysOn: true)
     @ObservationIgnored private var stableQuad: ScanQuad?
     @ObservationIgnored private var running = false
 
@@ -55,7 +56,7 @@ final class KurswahlCamera {
     func stop() {
         running = false
         torchOn = false
-        torch = TorchPolicy()
+        torch = TorchPolicy(alwaysOn: true)
         pipeline.stop()
     }
 
@@ -101,7 +102,6 @@ final class KurswahlCamera {
             let next = torch.update(luma: frame.luma, glare: frame.glare, time: frame.time)
             if next != previous {
                 pipeline.setTorch(level: next)
-                if previous == 0 { Haptics.light() }
             }
             torchOn = torch.isOn
             frame.torch = next
