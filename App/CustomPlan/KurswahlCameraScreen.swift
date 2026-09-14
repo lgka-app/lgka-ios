@@ -19,6 +19,12 @@ struct KurswahlCameraScreen: View {
     @State private var flash = false
     /// Photos of the running burst taken so far.
     @State private var photosTaken = 0
+    /// Since when the view has not been ready; after `stuckDelay` the placement tip shows.
+    @State private var notReadySince = Date()
+    @State private var showsPlacementTip = false
+
+    /// How long the scan may search before the tip about a flat, non-white surface appears.
+    static let stuckDelay: TimeInterval = 8
 
     private var hint: ScanHint { camera.state.hint }
 
@@ -52,11 +58,17 @@ struct KurswahlCameraScreen: View {
                         SpiritLevel(gravity: camera.level, accent: accent)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
                     }
+                    if showsPlacementTip && hint != .ready && !camera.isCapturing {
+                        placementTip
+                            .padding(.horizontal, 20)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     Spacer()
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 20)
                 .animation(reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.25), value: hint)
+                .animation(reduceMotion ? nil : .spring(duration: 0.4, bounce: 0.2), value: showsPlacementTip)
             }
             Color.white.opacity(flash ? (reduceMotion ? 0.35 : 0.9) : 0)
                 .ignoresSafeArea()
@@ -70,8 +82,24 @@ struct KurswahlCameraScreen: View {
             camera.onPhotoTaken = { photoTaken($0) }
             await camera.start()
         }
+        .task {
+            // searching for too long: most often the sheet is held in the hand or lies on a white table
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                let stuck = hint != .ready && !camera.isCapturing && Date().timeIntervalSince(notReadySince) >= Self.stuckDelay
+                if stuck && !showsPlacementTip {
+                    showsPlacementTip = true
+                    AccessibilityNotification.Announcement(L.s("scan.stuck")).post()
+                }
+            }
+        }
         .onDisappear { camera.stop() }
-        .onChange(of: hint) { _, new in
+        .onChange(of: hint) { old, new in
+            if new == .ready {
+                showsPlacementTip = false
+            } else if old == .ready {
+                notReadySince = Date()
+            }
             guard !camera.isCapturing else { return }
             if new == .ready { Haptics.light() }
             AccessibilityNotification.Announcement(Self.text(for: new)).post()
@@ -122,6 +150,24 @@ struct KurswahlCameraScreen: View {
     }
 
     // MARK: Instruction
+
+    /// Shown after `stuckDelay` without a ready frame; gone as soon as the frame is ready.
+    private var placementTip: some View {
+        Label {
+            Text(L.s("scan.stuck"))
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.white)
+                .fixedSize()
+        } icon: {
+            Image(systemName: "hand.raised.slash.fill")
+                .foregroundStyle(accent)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: 420, alignment: .leading)
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+    }
 
     private var instructionPill: some View {
         let bursting = camera.isCapturing

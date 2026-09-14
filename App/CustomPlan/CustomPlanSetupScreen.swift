@@ -122,6 +122,7 @@ struct CustomPlanSetupScreen: View {
             }
             VStack(alignment: .leading, spacing: 12) {
                 tip("rectangle.portrait.on.rectangle.portrait", L.s("custom.setup.tip.flat"))
+                tip("paintpalette", L.s("custom.setup.tip.background"))
                 tip("viewfinder", L.s("custom.setup.tip.whole"))
                 tip("camera.badge.clock", L.s("custom.setup.tip.auto"))
             }

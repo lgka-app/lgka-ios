@@ -1637,13 +1637,30 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Kamera fotografiert von selbst und macht bei Bedarf Licht an"
+            "value": "Die Kamera fotografiert von selbst, das Licht geht dabei automatisch an"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The camera takes the photos by itself and turns on the light if needed"
+            "value": "The camera takes the photos by itself and turns the light on automatically"
+          }
+        }
+      }
+    },
+    "custom.setup.tip.background": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine dunkle oder farbige Unterlage nutzen, keine weiße – so erkennt die Kamera das Blatt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a dark or coloured surface, not a white one – that way the camera can find the sheet"
           }
         }
       }
@@ -1654,13 +1671,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Blatt flach auf den Tisch legen"
+            "value": "Blatt flach auf einen Tisch legen – nicht in der Hand halten und nicht auf eine schräge Fläche"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lay the sheet flat on a table"
+            "value": "Lay the sheet flat on a table – don't hold it in your hand or put it on a slanted surface"
           }
         }
       }
@@ -2748,6 +2765,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Camera access needed"
+          }
+        }
+      }
+    },
+    "scan.stuck": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leg das Blatt flach auf einen Tisch, am besten auf eine dunkle, nicht weiße Unterlage – nicht in der Hand halten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lay the sheet flat on a table, ideally on a dark, non-white surface – don't hold it in your hand."
           }
         }
       }
