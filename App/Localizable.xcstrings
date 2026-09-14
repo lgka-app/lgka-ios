@@ -940,13 +940,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kurswahlprotokoll wird gelesen …"
+            "value": "Kurswahlprotokoll wird gelesen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reading your course selection record …"
+            "value": "Reading your course selection record"
           }
         }
       }

@@ -31,18 +31,20 @@ struct CustomPlanReadyView: View {
                     .shadow(color: .black.opacity(0.22), radius: 22, y: 12)
                     .scaleEffect(appeared ? 1 : 0.92)
                     .opacity(appeared ? 1 : 0)
+                    // only the preview itself opens the plan
+                    .contentShape(Rectangle())
+                    .onTapGesture { open() }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(L.s("custom.ready.a11y"))
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { open() }
                 Text(L.s("custom.ready.tap"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 28)
         }
-        .contentShape(Rectangle())
-        .onTapGesture { open() }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L.s("custom.ready.a11y"))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { open() }
         .task { await prepare() }
         // closing the viewer goes straight home: Home is put back underneath the moment the viewer
         // starts to close, instead of first returning here
@@ -81,14 +83,7 @@ struct CustomPlanReadyView: View {
 
     private func open() {
         guard appeared, !showViewer, file != nil else { return }
-        // a burst: one strong hit, then three quick ticks while the page morphs open
-        Haptics.success()
-        Task {
-            for _ in 0..<3 {
-                try? await Task.sleep(for: .milliseconds(60))
-                Haptics.light()
-            }
-        }
+        Haptics.medium()
         showViewer = true
     }
 }
