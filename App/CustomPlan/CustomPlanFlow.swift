@@ -214,9 +214,9 @@ struct CustomPlanSetupScreen: View {
         .safeAreaInset(edge: .bottom) { actions }
         .overlay { if let reading { readingOverlay(reading) } }
         .fullScreenCover(isPresented: $showCamera) {
-            KurswahlCameraScreen(onFinish: { images in
+            KurswahlLiveScanScreen(schuljahr: scanTarget.schuljahr, halbjahr: scanTarget.halbjahr, onFinish: { result in
                 showCamera = false
-                read(images)
+                finish { result }
             }, onCancel: { showCamera = false })
         }
         .onChange(of: photoItem) { _, item in
@@ -241,6 +241,13 @@ struct CustomPlanSetupScreen: View {
         .alert(failure ?? "", isPresented: .init(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("OK", role: .cancel) { Haptics.light() }
         }
+    }
+
+    /// Schuljahr and Halbjahr of the published J11/J12 plans, so a live scan counts the right Halbjahr column.
+    private var scanTarget: (schuljahr: String?, halbjahr: String) {
+        let item = model.preferredGroup.first { $0.grades.contains { $0 >= 11 } }
+        let year = item?.title.firstMatch(of: #/(\d{4})\/(\d{4})/#).map { "\($0.1)-\($0.2)" }
+        return (year, item?.halbjahr ?? "1. Halbjahr")
     }
 
     private var hero: some View {
@@ -355,11 +362,16 @@ struct CustomPlanSetupScreen: View {
         guard let first = images.first else { return }
         withAnimation { reading = UIImage(cgImage: first) }
         sweep = false
+        finish { try await KurswahlScanner.read(images) }
+    }
+
+    /// A live scan arrives already read; a picked photo is read here. Then the Stufenplan and the review.
+    private func finish(_ scanned: @escaping @Sendable () async throws -> KurswahlScanner.Result) {
         Task {
             defer { withAnimation { reading = nil } }
             do {
                 async let plans = CustomPlanSource.plans(model: model)
-                let scan = try await KurswahlScanner.read(images)
+                let scan = try await scanned()
                 let published = try await plans
                 guard let loaded = CustomPlanSource.pick(published, stufe: nil, kurswahl: scan.kurswahl)
                         ?? CustomPlanSource.pick(published, stufe: nil, kurswahl: nil) else {

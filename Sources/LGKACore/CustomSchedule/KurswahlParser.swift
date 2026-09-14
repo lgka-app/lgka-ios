@@ -110,6 +110,23 @@ public enum KurswahlParser {
 
     /// - Parameter aspect: image height ÷ width, to relate row and column distances.
     public static func parse(_ boxes: [TextBox], aspect: Double = 4.0 / 3.0) throws -> Kurswahl {
+        try parseDetailed(boxes, aspect: aspect).kurswahl
+    }
+
+    /// The parsed sheet plus what was found where, for live scanning.
+    public struct Detail: Sendable {
+        public var kurswahl: Kurswahl
+        /// Table rows between the header and the sums: estimated from the row pitch once both are seen.
+        public var tableRows: Int
+        /// Per Halbjahr column: rows whose cell was read ("-" included).
+        public var readCells: [Int]
+        public var subjectBoxes: [TextBox]
+        /// Per Halbjahr column: the boxes read in it.
+        public var cellBoxes: [[TextBox]]
+        public var sumBoxes: [TextBox]
+    }
+
+    public static func parseDetailed(_ boxes: [TextBox], aspect: Double = 4.0 / 3.0) throws -> Detail {
         let words = boxes.flatMap { $0.words() }.map { normalised($0) }
         let lines = boxes.map { normalised($0) }
 
@@ -244,7 +261,18 @@ public enum KurswahlParser {
             lines.contains(where: { $0.text.lowercased().contains("katholisch") }) ? .katholisch
             : lines.contains(where: { $0.text.lowercased().contains("evangelisch") }) ? .evangelisch : nil
 
-        return Kurswahl(name: name, abiturjahr: abiturjahr, konfession: konfession, rows: rows, sums: sums)
+        let kurswahl = Kurswahl(name: name, abiturjahr: abiturjahr, konfession: konfession, rows: rows, sums: sums)
+        var tableRows = rowAnchors.count
+        let headerY = lines.filter { line in headerTexts.contains { line.text.lowercased().contains($0) } && line.midY < rowAnchors[0].y }
+            .map(\.midY).max()
+        if let headerY, let sumY = sumLine?.boxes.first?.midY ?? summen?.midY {
+            tableRows = max(tableRows, Int(((sumY - headerY) / pitch).rounded()) - 1)
+        }
+        return Detail(kurswahl: kurswahl, tableRows: tableRows,
+                      readCells: columns.indices.map { h in picked.filter { $0[2 + h] != nil }.count },
+                      subjectBoxes: found.map(\.box),
+                      cellBoxes: columns.indices.map { h in picked.compactMap { $0[2 + h] } },
+                      sumBoxes: sumLine?.boxes ?? [])
     }
 
     /// Several photos of the same sheet (an overview and close-ups), each parsed on its own, merged

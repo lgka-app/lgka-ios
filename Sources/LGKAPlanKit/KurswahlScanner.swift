@@ -18,6 +18,13 @@ public enum KurswahlScanner {
         public var aspect: Double
         /// Every photo's boxes, for replaying a multi-photo scan.
         public var shots: [Shot]?
+
+        public init(kurswahl: Kurswahl, boxes: [TextBox], aspect: Double, shots: [Shot]? = nil) {
+            self.kurswahl = kurswahl
+            self.boxes = boxes
+            self.aspect = aspect
+            self.shots = shots
+        }
     }
 
     public struct Shot: Codable, Sendable {
