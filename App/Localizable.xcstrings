@@ -2633,23 +2633,6 @@
         }
       }
     },
-    "scan.torch.auto": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Licht automatisch eingeschaltet"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Light switched on automatically"
-          }
-        }
-      }
-    },
     "schedule": {
       "extractionState": "manual",
       "localizations": {

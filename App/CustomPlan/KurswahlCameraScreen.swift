@@ -34,12 +34,20 @@ struct KurswahlCameraScreen: View {
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                 VStack(spacing: 12) {
-                    HStack {
-                        closeButton
-                        Spacer()
+                    // close and the instruction share one row: X on the left, the pill centred at the same height,
+                    // kept clear of the X on both sides so it stays centred on screen
+                    ZStack {
+                        instructionPill
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
+                            .padding(.horizontal, 56)
+                        HStack {
+                            closeButton
+                            Spacer()
+                        }
                     }
+                    .frame(minHeight: 44)
                     .padding(.horizontal, 20)
-                    instructionPill
                     if hint == .holdParallel {
                         SpiritLevel(gravity: camera.level, accent: accent)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -131,19 +139,11 @@ struct KurswahlCameraScreen: View {
             if bursting {
                 BurstDots(taken: photosTaken, total: Self.burstCount, accent: accent)
             }
-            if camera.torchOn {
-                // the torch came on by itself
-                Image(systemName: "flashlight.on.fill")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.yellow)
-                    .accessibilityLabel(L.s("scan.torch.auto"))
-            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
         .glassEffect(.regular.tint(highlighted ? accent.opacity(0.3) : nil), in: .capsule)
         .animation(reduceMotion ? nil : .spring(duration: 0.3), value: bursting)
-        .animation(reduceMotion ? nil : .spring(duration: 0.3), value: camera.torchOn)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.updatesFrequently)
     }
