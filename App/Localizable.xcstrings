@@ -2180,13 +2180,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lädt..."
+            "value": "Lädt…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Loading..."
+            "value": "Loading…"
           }
         }
       }
