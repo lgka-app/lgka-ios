@@ -951,6 +951,57 @@
         }
       }
     },
+    "custom.ready.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorschau deines neuen Stundenplans. Tippen zum Öffnen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview of your new timetable. Tap to open."
+          }
+        }
+      }
+    },
+    "custom.ready.tap": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippe, um ihn anzusehen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to view it"
+          }
+        }
+      }
+    },
+    "custom.ready.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Stundenplan ist fertig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your timetable is ready"
+          }
+        }
+      }
+    },
     "custom.review.addSubject": {
       "extractionState": "manual",
       "localizations": {

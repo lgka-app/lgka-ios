@@ -11,21 +11,24 @@ struct CustomPlanHost: View {
     enum Mode { case scan, edit }
 
     let mode: Mode
-    let onSaved: (SavedCustomPlan) -> Void
+    /// After the new plan was revealed and its viewer closed: back to Home.
+    let onFinished: () -> Void
     @Environment(HomeModel.self) private var model
     @State private var reviewing: CustomPlanDraft?
+    /// The plan just saved, revealed over the review.
+    @State private var ready: SavedCustomPlan?
 
     var body: some View {
         switch mode {
         case .scan:
-            CustomPlanSetupScreen(onDraft: { reviewing = $0 }, onSaved: { save($0) })
+            CustomPlanSetupScreen(onDraft: { reviewing = $0 })
                 .navigationDestination(item: $reviewing) { draft in
-                    CustomPlanReviewScreen(draft: draft) { save($0) }
+                    review(draft)
                 }
         case .edit:
             Group {
                 if let reviewing {
-                    CustomPlanReviewScreen(draft: reviewing) { save($0) }
+                    review(reviewing)
                 } else {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -34,9 +37,20 @@ struct CustomPlanHost: View {
         }
     }
 
+    private func review(_ draft: CustomPlanDraft) -> some View {
+        CustomPlanReviewScreen(draft: draft) { save($0) }
+            .toolbar(ready == nil ? .automatic : .hidden, for: .navigationBar)
+            .overlay {
+                if let ready {
+                    CustomPlanReadyView(saved: ready, onFinished: onFinished)
+                        .transition(.opacity)
+                }
+            }
+    }
+
     private func save(_ value: SavedCustomPlan) {
         CustomPlanStore.shared.save(value)
-        onSaved(value)
+        withAnimation(.easeInOut(duration: 0.3)) { ready = value }
     }
 
     private func loadSaved() async {

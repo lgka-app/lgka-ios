@@ -101,12 +101,6 @@ extension HomeScreen {
         }
     }
 
-    /// After scanning or editing: back to Home, then straight into the PDF.
-    func finishCustomPlan(_ saved: SavedCustomPlan) {
-        if !path.isEmpty { path.removeLast() }
-        openCustomPlan(saved)
-    }
-
     private func homeCard(icon: String, title: String, subtitle: String,
                           action: @escaping () -> Void) -> some View {
         Button { Haptics.medium(); action() } label: {

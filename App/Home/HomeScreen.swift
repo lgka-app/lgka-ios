@@ -73,8 +73,8 @@ struct HomeScreen: View {
                         HomeScreen.openKrankmeldungForm()
                     }
                 case .bugReport: BugReportScreen()
-                case .customPlan: CustomPlanHost(mode: .scan) { finishCustomPlan($0) }
-                case .customPlanEdit: CustomPlanHost(mode: .edit) { finishCustomPlan($0) }
+                case .customPlan: CustomPlanHost(mode: .scan) { if !path.isEmpty { path.removeLast() } }
+                case .customPlanEdit: CustomPlanHost(mode: .edit) { if !path.isEmpty { path.removeLast() } }
                 case .web(let url, let title): WebScreen(url: url, title: title)
                 }
             }

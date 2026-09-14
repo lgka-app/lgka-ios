@@ -8,15 +8,13 @@ struct CustomPlanSetupScreen: View {
     /// When set, the host shows the review; otherwise this screen pushes it itself.
     var onDraft: ((CustomPlanDraft) -> Void)?
     var onDone: (() -> Void)?
-    /// When set, a plan with nothing to check is saved and handed over at once (Home opens its PDF);
-    /// only a plan with issues goes to the review.
-    var onSaved: ((SavedCustomPlan) -> Void)?
     @Environment(HomeModel.self) private var model
     @Environment(\.appAccent) private var accent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCamera = false
-    /// 0…1 while the photos are read and the plan is built; nil otherwise.
-    @State private var readingProgress: Double?
+    /// When reading started (the bar shows while set) and when the plan was ready.
+    @State private var readingStart: Date?
+    @State private var readingDone: Date?
     @State private var failure: String?
     @State private var draft: CustomPlanDraft?
     /// The example result shown large (tap to open, tap to close; no zoom or panning).
@@ -44,7 +42,7 @@ struct CustomPlanSetupScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) { actions }
         .overlay { if resultExpanded { expandedResult } }
-        .overlay { if let readingProgress { readingOverlay(readingProgress) } }
+        .overlay { if readingStart != nil { readingOverlay } }
         .fullScreenCover(isPresented: $showCamera) {
             KurswahlCameraScreen(onCapture: { images in
                 showCamera = false
@@ -274,29 +272,42 @@ struct CustomPlanSetupScreen: View {
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
         }
-        .disabled(readingProgress != nil)
+        .disabled(readingStart != nil)
     }
 
     // MARK: Reading
 
-    /// A plain screen with a native progress bar that climbs steadily while the photos are read.
-    private func readingOverlay(_ progress: Double) -> some View {
+    /// A plain screen with a native progress bar, redrawn every frame so it climbs smoothly.
+    private var readingOverlay: some View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
             VStack(spacing: 18) {
                 Text(L.s("custom.reading.title"))
                     .font(.headline)
                     .multilineTextAlignment(.center)
-                ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-                    .tint(accent)
-                    .frame(maxWidth: 260)
+                TimelineView(.animation) { timeline in
+                    let progress = readingProgress(at: timeline.date)
+                    ProgressView(value: progress)
+                        .progressViewStyle(.linear)
+                        .tint(accent)
+                        .frame(maxWidth: 260)
+                        .accessibilityValue(Text(verbatim: "\(Int((progress * 100).rounded())) %"))
+                }
             }
             .padding(32)
         }
         .transition(.opacity)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(Text(verbatim: "\(Int((progress * 100).rounded())) %"))
+    }
+
+    /// Linear to 90 % in six seconds while working; once done, eased up to 100 % in 0.35 s.
+    private func readingProgress(at date: Date) -> Double {
+        guard let start = readingStart else { return 0 }
+        let climbed = { (moment: Date) in min(0.9, moment.timeIntervalSince(start) / 6 * 0.9) }
+        guard let done = readingDone else { return climbed(date) }
+        let from = climbed(done)
+        let t = min(1, max(0, date.timeIntervalSince(done) / 0.35))
+        return from + (1 - from) * (1 - pow(1 - t, 3))
     }
 
     private func read(_ images: [CGImage]) {
@@ -304,22 +315,17 @@ struct CustomPlanSetupScreen: View {
         finish { try await KurswahlScanner.read(images) }
     }
 
-    /// Reads the photos, loads the Stufenplan meanwhile, then opens the PDF (or the review when
-    /// something needs checking). The bar climbs to 90 % in about six seconds and only reaches
-    /// 100 % once the plan is built.
+    /// Reads the photos, loads the Stufenplan meanwhile, then shows the review with the summary.
+    /// The bar climbs to 90 % in about six seconds and only reaches 100 % once the plan is built.
     private func finish(_ scanned: @escaping @Sendable () async throws -> KurswahlScanner.Result) {
-        withAnimation { readingProgress = 0 }
-        let climb = Task {
-            let start = Date()
-            while !Task.isCancelled {
-                readingProgress = min(0.9, Date().timeIntervalSince(start) / 6 * 0.9)
-                try? await Task.sleep(for: .milliseconds(50))
-            }
-        }
+        readingDone = nil
+        withAnimation { readingStart = Date() }
         Task {
             defer {
-                climb.cancel()
-                withAnimation { readingProgress = nil }
+                withAnimation {
+                    readingStart = nil
+                    readingDone = nil
+                }
             }
             do {
                 async let plans = CustomPlanSource.plans(model: model)
@@ -333,17 +339,10 @@ struct CustomPlanSetupScreen: View {
                 CustomPlanDebug.keep(scan)
                 #endif
                 let next = CustomPlanDraft(kurswahl: scan.kurswahl, loaded: loaded)
-                climb.cancel()
-                withAnimation(.easeOut(duration: 0.35)) { readingProgress = 1 }
+                readingDone = Date()
                 try? await Task.sleep(for: .milliseconds(600))
                 Haptics.success()
-                if next.plan.checks.issues.isEmpty, let onSaved {
-                    onSaved(next.saved)
-                } else if let onDraft {
-                    onDraft(next)
-                } else {
-                    draft = next
-                }
+                if let onDraft { onDraft(next) } else { draft = next }
             } catch is KurswahlParser.Failure {
                 Haptics.error()
                 failure = L.s("custom.error.notASheet")
