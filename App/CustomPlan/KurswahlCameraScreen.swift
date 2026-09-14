@@ -157,7 +157,11 @@ struct KurswahlCameraScreen: View {
             Text(L.s("scan.stuck"))
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(.white)
-                .fixedSize()
+                // wraps onto as many lines as it needs, never runs past the screen edge
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         } icon: {
             Image(systemName: "hand.raised.slash.fill")
                 .foregroundStyle(accent)
@@ -167,6 +171,7 @@ struct KurswahlCameraScreen: View {
         .padding(.vertical, 12)
         .frame(maxWidth: 420, alignment: .leading)
         .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        .frame(maxWidth: .infinity)
     }
 
     private var instructionPill: some View {

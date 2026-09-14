@@ -1654,13 +1654,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine dunkle oder farbige Unterlage nutzen, keine weiße – so erkennt die Kamera das Blatt"
+            "value": "Eine nicht weiße Unterlage nutzen – so erkennt die Kamera das Blatt"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use a dark or coloured surface, not a white one – that way the camera can find the sheet"
+            "value": "Use a surface that isn't white – that way the camera can find the sheet"
           }
         }
       }
@@ -2775,13 +2775,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leg das Blatt flach auf einen Tisch, am besten auf eine dunkle, nicht weiße Unterlage – nicht in der Hand halten."
+            "value": "Leg das Blatt flach auf einen Tisch mit einer nicht weißen Unterlage – nicht in der Hand halten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lay the sheet flat on a table, ideally on a dark, non-white surface – don't hold it in your hand."
+            "value": "Lay the sheet flat on a table on a surface that isn't white – don't hold it in your hand."
           }
         }
       }
