@@ -44,7 +44,12 @@ struct CustomPlanReadyView: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { open() }
         .task { await prepare() }
-        .fullScreenCover(isPresented: $showViewer, onDismiss: onFinished) {
+        // closing the viewer goes straight home: Home is put back underneath the moment the viewer
+        // starts to close, instead of first returning here
+        .onChange(of: showViewer) { wasShown, isShown in
+            if wasShown && !isShown { onFinished() }
+        }
+        .fullScreenCover(isPresented: $showViewer) {
             if let file {
                 PdfViewerScreen(fileUrl: file, title: L.s("custom.home.title"), targetPage: nil)
                     .navigationTransition(.zoom(sourceID: "plan", in: morph))

@@ -73,8 +73,8 @@ struct HomeScreen: View {
                         HomeScreen.openKrankmeldungForm()
                     }
                 case .bugReport: BugReportScreen()
-                case .customPlan: CustomPlanHost(mode: .scan) { if !path.isEmpty { path.removeLast() } }
-                case .customPlanEdit: CustomPlanHost(mode: .edit) { if !path.isEmpty { path.removeLast() } }
+                case .customPlan: CustomPlanHost(mode: .scan) { returnHomeInstantly() }
+                case .customPlanEdit: CustomPlanHost(mode: .edit) { returnHomeInstantly() }
                 case .web(let url, let title): WebScreen(url: url, title: title)
                 }
             }
@@ -148,6 +148,16 @@ struct HomeScreen: View {
         .redacted(reason: .placeholder)
         .padding(.vertical, 8)
         .accessibilityLabel(L.s("loading"))
+    }
+
+    /// After the new custom plan's viewer closes: Home without a pop animation, so the closing viewer
+    /// reveals Home directly.
+    private func returnHomeInstantly() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if !path.isEmpty { path.removeLast() }
+        }
     }
 
     private func openKrankmeldung() {
