@@ -14,11 +14,11 @@ struct WebScreen: View {
     }
 }
 
-/// Bug report form — mirrors bug_report_screen.dart (Google form, incognito).
+/// Bug report form — mirrors bug_report_screen.dart (self-hosted, incognito).
 struct BugReportScreen: View {
     var body: some View {
         WebContainer(url:
-            "https://docs.google.com/forms/d/e/1FAIpQLSdknGu7-xgFurrghbUYOwoYu-Vsaftar6PGLzMv64UFpwJtRw/viewform?usp=publish-editor")
+            "https://bugreport.lgka.app")
             .themeBg()
             .navigationTitle(L.s("bugReportTitle"))
             .navigationBarTitleDisplayMode(.inline)

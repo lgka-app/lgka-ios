@@ -5,7 +5,8 @@
 #
 # Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 (App Store Connect API key); release
 # also needs IOS_DIST_CERT_P12_BASE64 and IOS_DIST_CERT_PASSWORD.
-# Submitting for review stays a manual step in App Store Connect.
+# A release submits itself for review and goes live as soon as Apple approves it,
+# for everyone at once: no manual step in App Store Connect, no phased rollout.
 
 require "base64"
 require "fileutils"
@@ -70,8 +71,16 @@ platform :ios do
       app_review_information: review_information,
       skip_binary_upload: true,
       overwrite_screenshots: true,
-      submit_for_review: false,
-      automatic_release: false,
+      submit_for_review: true,
+      # live for everyone the moment Apple approves: automatic_release without a phased
+      # rollout, so a fix is not held back from most users for a week
+      automatic_release: true,
+      phased_release: false,
+      # asked on every submission; answering here keeps the upload from stalling on the form
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false,
+      },
       # precheck cannot inspect in-app purchases with an API key and would abort the upload.
       run_precheck_before_submit: false,
       precheck_include_in_app_purchases: false,
