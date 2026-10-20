@@ -8,3 +8,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # fastlane and its gems (release pipeline only)
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      fastlane:
+        patterns: ["*"]
