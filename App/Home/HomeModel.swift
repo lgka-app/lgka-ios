@@ -75,6 +75,8 @@ final class HomeModel {
         guard !bootstrapped else { return }
         bootstrapped = true
         state = store.loadState()
+        // plans replaced in earlier sessions; no PDF is open this early
+        store.prunePdfs(keeping: state)
         await sync()
         bootstrapFinished = true
         lastForegroundRefresh = Date()

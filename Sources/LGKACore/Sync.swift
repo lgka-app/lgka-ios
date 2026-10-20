@@ -85,6 +85,17 @@ public struct SyncState: Sendable {
         if let h = kollegium?.hash { out[.kollegium] = h }
         return out
     }
+
+    /// Every mirrored PDF the snapshots point at: the two substitution plans and the timetables.
+    public var pdfHashes: Set<String> {
+        var out: Set<String> = []
+        if let sha = substitutions?.data.today?.pdf.sha256 { out.insert(sha) }
+        if let sha = substitutions?.data.tomorrow?.pdf.sha256 { out.insert(sha) }
+        for item in schedules?.data.items ?? [] {
+            if let sha = item.pdf?.sha256 { out.insert(sha) }
+        }
+        return out
+    }
 }
 
 /// Outcome of applying one sync response.
@@ -150,6 +161,23 @@ public final class SyncStore: @unchecked Sendable {
         let url = pdfURL(sha256: sha256)
         if FileManager.default.fileExists(atPath: url.path) { return }
         try bytes.write(to: url, options: .atomic)
+    }
+
+    /// Deletes the mirrored PDFs no snapshot points at any more. Every new
+    /// substitution plan leaves its predecessor behind, so without this the
+    /// folder grows all school year. Call it while no PDF is on screen (the app
+    /// does it at launch, before the first sync). Returns the removed file names.
+    @discardableResult
+    public func prunePdfs(keeping state: SyncState) -> [String] {
+        let keep = state.pdfHashes
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: filesDirectory.path) else { return [] }
+        var removed: [String] = []
+        for name in names where name.hasSuffix(".pdf") && !keep.contains(String(name.dropLast(4))) {
+            if (try? FileManager.default.removeItem(at: filesDirectory.appendingPathComponent(name))) != nil {
+                removed.append(name)
+            }
+        }
+        return removed.sorted()
     }
 
     // ---- snapshots ----

@@ -94,6 +94,39 @@ struct SyncStoreTests {
         #expect(onlyWeather[0].value == "")
     }
 
+    /// A replaced plan's PDF stays on disk until the next prune; what the snapshots
+    /// still point at (and anything that is not a PDF) is kept.
+    @Test func pruneRemovesOnlyPdfsNoSnapshotPointsAt() throws {
+        let store = try Fixtures.tempStore()
+        var state = store.loadState()
+        store.apply(try Fixtures.sync("sync_full"), to: &state)
+        let kept = state.pdfHashes
+        #expect(kept.count >= 2)
+        #expect(kept.allSatisfy { store.hasPdf(sha256: $0) })
+
+        let stale = String(repeating: "0", count: 64)
+        try store.storePdf(sha256: stale, bytes: Data("%PDF-1.7".utf8))
+        let other = store.filesDirectory.appendingPathComponent("notes.txt")
+        try Data("x".utf8).write(to: other)
+
+        #expect(store.prunePdfs(keeping: state) == ["\(stale).pdf"])
+        #expect(!store.hasPdf(sha256: stale))
+        #expect(kept.allSatisfy { store.hasPdf(sha256: $0) })
+        #expect(FileManager.default.fileExists(atPath: other.path))
+        // the state on disk points at exactly the files that are left
+        #expect(SyncStore(directory: store.directory).loadState().pdfHashes == kept)
+        #expect(store.prunePdfs(keeping: state).isEmpty)
+    }
+
+    @Test func pruneWithAnEmptyStateClearsEveryPdf() throws {
+        let store = try Fixtures.tempStore()
+        var state = store.loadState()
+        store.apply(try Fixtures.sync("sync_full"), to: &state)
+        let all = state.pdfHashes
+        #expect(store.prunePdfs(keeping: SyncState()).count == all.count)
+        #expect(all.allSatisfy { !store.hasPdf(sha256: $0) })
+    }
+
     @Test func removeAllForgetsEverything() throws {
         let store = try Fixtures.tempStore()
         var state = store.loadState()
